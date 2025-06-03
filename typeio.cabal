@@ -1,0 +1,82 @@
+cabal-version:      3.0
+name:               typeio 
+version:            0.1.0.0
+-- synopsis:
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             jordanstorz
+maintainer:         jm.storz@gmail.com
+-- copyright:
+category:           Web
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+-- extra-source-files:
+
+common warnings
+    ghc-options: -Wall
+
+executable server 
+    import:           warnings
+    main-is:          Main.hs
+    -- other-modules:
+    -- other-extensions:
+    build-depends:    
+      base ^>=4.18.3.0
+      , src 
+    hs-source-dirs:   exe/server
+    default-language: Haskell2010
+
+library src 
+    import:
+      warnings
+    exposed-modules:
+      Platform.Web
+    other-modules:
+      Config.App
+      , Config.Db
+      , Config.Load
+      , Config.Web
+      , Database.Init
+      , Database.Logging
+      , Domain.Admin.Application.Config
+      , Domain.Project.Model
+      , Environment.Acquire
+      , Environment.Db
+      , Environment.Env
+      , Environment.Logging
+      , Logging.Core
+      , Web.Middleware
+      , Web.Middleware.RequestId
+      , Web.Middleware.Logging.Common
+      , Web.Middleware.Logging.Request
+      , Web.Middleware.Logging.Response
+    other-extensions:
+      OverloadedStrings
+    build-depends:    
+      aeson 
+      , base ^>=4.18.3.0
+      , bytestring
+      , case-insensitive
+      , dotenv
+      , fast-logger
+      , http-types
+      , mtl
+      , monad-logger
+      , persistent
+      , persistent-postgresql
+      , persistent-template
+      , resource-pool
+      , time
+      , text
+      , transformers
+      , transformers-base
+      , transformers-either
+      , unliftio-core
+      , unordered-containers
+      , uuid
+      , wai
+      , wai-extra
+      , warp
+    hs-source-dirs:   lib/src
+    default-language: Haskell2010
