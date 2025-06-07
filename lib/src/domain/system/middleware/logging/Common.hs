@@ -1,4 +1,4 @@
-module Web.Middleware.Logging.Common where
+module Domain.System.Middleware.Logging.Common where
 
 import Network.HTTP.Types (RequestHeaders)
 import Data.HashMap.Strict (HashMap, fromList)

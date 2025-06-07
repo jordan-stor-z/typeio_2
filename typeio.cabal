@@ -33,24 +33,43 @@ library src
     exposed-modules:
       Platform.Web
     other-modules:
-      Config.App
+      Common.Web.Attributes
+      , Common.Web.Types
+      , Config.App
       , Config.Db
       , Config.Load
       , Config.Web
+      , Container.Build
+      , Container.Root
       , Database.Init
       , Database.Logging
-      , Domain.Admin.Application.Config
+      , Domain.Central.Responder.IndexView
+      , Domain.Central.Responder.Seed
+      , Domain.Central.Container.Api
+      , Domain.Central.Container.Ui
+      , Domain.Project.Responder.Node
+      , Domain.Project.Responder.NodeStatus
+      , Domain.Project.Responder.NodeType
+      , Domain.Project.Responder.Project
+      , Domain.Project.Responder.ProjectIndex
+      , Domain.Project.Container.Api
+      , Domain.Project.Container.Ui
       , Domain.Project.Model
+      , Domain.Project.Rules
+      , Domain.System.Responder.Config
+      , Domain.System.Container.Api
+      , Domain.System.Container.Middleware
+      , Domain.System.Middleware.RequestId
+      , Domain.System.Middleware.Logging.Common
+      , Domain.System.Middleware.Logging.Request
+      , Domain.System.Middleware.Logging.Response
+      , Logging.Core
       , Environment.Acquire
       , Environment.Db
       , Environment.Env
       , Environment.Logging
-      , Logging.Core
-      , Web.Middleware
-      , Web.Middleware.RequestId
-      , Web.Middleware.Logging.Common
-      , Web.Middleware.Logging.Request
-      , Web.Middleware.Logging.Response
+      , Platform.Web.Router
+      , Platform.Web.Middleware
     other-extensions:
       OverloadedStrings
     build-depends:    
@@ -59,8 +78,10 @@ library src
       , bytestring
       , case-insensitive
       , dotenv
+      , esqueleto
       , fast-logger
       , http-types
+      , lucid2
       , mtl
       , monad-logger
       , persistent

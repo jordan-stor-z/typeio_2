@@ -4,7 +4,7 @@ module Config.App where
 
 import Config.Db (DbConfig, loadDbConfig)
 import Config.Load (ConfigError, getVal) 
-import Config.Web (WebConfig, loadWebConfig)
+import Config.Web (WebConfig(..), loadWebConfig)
 import Control.Monad.Writer (runWriterT, WriterT, tell)
 import Control.Monad (when)
 import Data.Maybe (isNothing)
@@ -54,3 +54,6 @@ readEnv em = do
   when (isNothing ev) $
     tell ["Invalid environment value: " ++ show em] 
   return ev
+
+webDefaultPath :: AppConfig -> String
+webDefaultPath = indexRedirect . web 

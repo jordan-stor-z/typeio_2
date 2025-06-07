@@ -12,6 +12,9 @@ import Data.Maybe (isNothing)
 import Network.HTTP.Types (HeaderName)
 import Text.Read (readMaybe)
 
+webIndexRedirect :: String
+webIndexRedirect = "WEB_INDEX_REDIRECT"
+
 webPort :: String
 webPort = "WEB_PORT"
 
@@ -22,7 +25,8 @@ webRequestIdHeader :: String
 webRequestIdHeader = "WEB_REQUEST_ID_HEADER"
 
 data WebConfig = WebConfig 
-  { port            :: Int 
+  { indexRedirect   :: String 
+  , port            :: Int 
   , redirectPath    :: String
   , requestIdHeader :: HeaderName 
   }
@@ -36,10 +40,15 @@ instance ToJSON WebConfig where
 
 loadWebConfig :: WriterT [ConfigError] IO (Maybe WebConfig)
 loadWebConfig = do
+  ird <- getVal webIndexRedirect
   prt <- getVal webPort >>= readPort
   rdp <- getVal webRedirectPath
   wri <- getVal webRequestIdHeader
-  return $ WebConfig <$> prt <*> rdp <*> fmap (mk . pack) wri 
+  return $ WebConfig 
+    <$> ird 
+    <*> prt 
+    <*> rdp 
+    <*> fmap (mk . pack) wri 
 
 readPort :: Maybe String -> WriterT [ConfigError] IO (Maybe Int)
 readPort Nothing = return Nothing
