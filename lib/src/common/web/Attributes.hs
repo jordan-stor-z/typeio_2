@@ -3,10 +3,10 @@
 module Common.Web.Attributes where
 
 import Data.Text (Text)
-import Lucid.Base (Attributes, makeAttributes, HtmlT, termRaw, TermRaw, makeElementNoEnd)
+import Lucid.Base (Attributes, makeAttributes, termRaw, TermRaw)
 
-script'_ :: Monad m => [Attributes] -> HtmlT m () 
-script'_ = makeElementNoEnd "script" 
+script' :: TermRaw arg result => arg -> result
+script' a = termRaw "script" a
 
 hxGet_ :: Text -> Attributes
 hxGet_ = makeAttributes "hx-get"

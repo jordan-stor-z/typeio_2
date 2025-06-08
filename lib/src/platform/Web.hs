@@ -47,5 +47,5 @@ withApp :: AppConfig -> (Application -> IO r) -> IO r
 withApp cf = runContT $ do
   ev <- ContT $ withEnv cf 
   ct <- ContT $ withRootContainer ev
-  md <- ContT $ withMiddleware ev
+  md <- ContT $ withMiddleware ev ct
   return $ md . app cf $ ct

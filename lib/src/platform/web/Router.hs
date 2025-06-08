@@ -18,7 +18,7 @@ index = indexView . centralUiContainer
 
 appRoutes :: AppConfig -> RootContainer -> Method -> [Text] -> Maybe Responder 
 appRoutes cf ct _ []      = Just $ index ct (pack . webDefaultPath $ cf)
-appRoutes cf ct mt (p:ps) = case p of
+appRoutes _ ct mt (p:ps)  = case p of
     "api"   -> api ct mt ps
     "ui"    -> ui  ct mt ps
     _       -> Nothing
