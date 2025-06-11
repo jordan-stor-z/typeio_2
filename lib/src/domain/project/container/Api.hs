@@ -1,10 +1,10 @@
 module Domain.Project.Container.Api where
 
-import Common.Web.Types (Responder)
+import Network.Wai (Response, ResponseReceived)
 
 data ProjectApiContainer = ProjectApiContainer
-  { apiGetNodes        :: Responder
-  , apiGetNodeStatuses :: Responder
-  , apiGetNodeTypes    :: Responder
-  , apiGetProjects     :: Responder
+  { apiGetNodes        :: (Response -> IO ResponseReceived) -> IO ResponseReceived
+  , apiGetNodeStatuses :: (Response -> IO ResponseReceived) -> IO ResponseReceived
+  , apiGetNodeTypes    :: (Response -> IO ResponseReceived) -> IO ResponseReceived
+  , apiGetProjects     :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   }

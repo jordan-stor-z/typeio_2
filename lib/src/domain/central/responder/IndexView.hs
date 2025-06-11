@@ -3,15 +3,12 @@
 module Domain.Central.Responder.IndexView where
 
 import Lucid 
-import Lucid.Base (TermRaw(..))
 import Common.Web.Attributes
-import Common.Web.Types   (Responder)
-import Data.Monoid (mempty)
 import Data.Text          (Text)
 import Network.HTTP.Types (status200)
-import Network.Wai        (responseLBS)
+import Network.Wai        (Response, responseLBS, ResponseReceived)
 
-handleIndexView :: Text -> Responder
+handleIndexView :: Text -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 handleIndexView path res = do 
   res $ responseLBS
     status200

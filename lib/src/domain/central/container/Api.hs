@@ -1,7 +1,7 @@
 module Domain.Central.Container.Api where
 
-import Common.Web.Types (Responder)
+import Network.Wai (Response, ResponseReceived)
 
 newtype CentralApiContainer = CentralApiContainer 
-  { apiSeedDatabase :: Responder 
+  { apiSeedDatabase :: (Response -> IO ResponseReceived) -> IO ResponseReceived 
   }

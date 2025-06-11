@@ -1,7 +1,9 @@
 module Domain.Project.Container.Ui where
 
-import Common.Web.Types (Responder)   
+import Network.Wai (Response, ResponseReceived)
 
-newtype ProjectUiContainer = ProjectUiContainer
-  { uiProjectIndex :: Responder 
+data ProjectUiContainer = ProjectUiContainer
+  { projectIndexVw ::  (Response -> IO ResponseReceived) -> IO ResponseReceived 
+  , projectList    ::  (Response -> IO ResponseReceived) -> IO ResponseReceived
+  , createProjectVw :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   }

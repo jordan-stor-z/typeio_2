@@ -24,16 +24,12 @@ renderIndexMiddleware ct app req respond =
     isHxRestore  = hasHexHeader "HX-History-Restore-Request" hs
     isVwPath     = isView path 
     in 
-      if isVwPath && not isHx then 
+      if isVwPath && (not isHx || isHxRestore) then 
         indexView ct (toPathText path) respond 
       else
-      app req respond
+        app req respond
   where
     hs  = requestHeaders req
     isView ("ui" : ps) = "vw" `elem` ps 
     isView _           = False
     toPathText = T.pack . ('/' :) . intercalate "/" . map T.unpack
-
--- VW | HX-Request | Hx-Restore ||| Result
--- F  | T          | T          ||| Skip
--- T  | T          | T          ||| Render Index

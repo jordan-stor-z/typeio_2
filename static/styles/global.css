@@ -1,3 +1,127 @@
+/* Global styles */
+:root {
+  /* Background */
+  --bg-start: #2e2e33;
+  --bg-end: #1c1c1f;
+
+  /* Primary text */
+  --text-primary: #e0e0e3;
+  
+  /* Secondary text */
+  --text-secondary: #a0a0a5;
+
+  /* Accent (buttons, highlights) */
+  --accent: #6ca0dc;
+  --accent-light: #3a4a5a;
+  --accent-bold: #2f5d85;
+  
+  /* Accent hover */
+  --accent-hover: #5b8cc7;
+  --accent-hover-light: #5c7388;
+  --accent-hover-bold: #3e6f9a;
+  
+  /* Borders and dividers */
+  --border-color: #44444a;
+
+  --error-color: #ff4d4d;
+
+  /* Cards or containers */
+  --surface: #78a0ff14
+}
+
 body {
-  color: red;
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: linear-gradient(to bottom right, var(--bg-start), var(--bg-end));
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+.action-button {
+  background: transparent;
+  border: 3px solid #e0e0e0;
+  color: #e0e0e0;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 2px 2px 0 #999;
+}
+
+.action-button:hover {
+  background: #e0e0e0;
+  color: #1a1a1a;
+  box-shadow: none;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 2rem;
+  justify-items: left;
+}
+
+.card-grid > * {
+  position: relative;
+  background: var(--surface);
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 280px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  padding-left: 1rem;
+  padding-top: 1rem;
+}
+
+.nav {
+  display: flex;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  padding: 0 1rem;
+}
+
+.nav > * {
+  display: inline-block;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: var(--accent);
+  border-radius: 50%;
+}
+
+/* make input and textarea be the same width in input-kv*/
+.input-kv input,
+.input-kv textarea {
+  width: 100%;
+  background-color: #44444a;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.view {
+  padding: 0 2rem;
+}
+
+.logo {
+  font-family: 'Courier New', monospace;
+  font-size: 1.75rem;
+  background-color: var(--accent-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  text-transform: lowercase;
+  box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.05);
 }

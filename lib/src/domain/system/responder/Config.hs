@@ -6,8 +6,7 @@ import Config.App         (AppConfig(..), Environment(..))
 import Config.Db          (connStr, DbConfig(..))
 import Data.Aeson         (encode, ToJSON, toJSON, object, (.=))
 import Network.HTTP.Types (status200)
-import Network.Wai        (responseLBS)
-import Common.Web.Types   (Responder)
+import Network.Wai        (Response, responseLBS, ResponseReceived)
 
 data ConfigDisplay = ConfigDisplay
   { configuration    :: AppConfig
@@ -21,7 +20,7 @@ instance ToJSON ConfigDisplay where
       , "connectionString" .= cs
       ]
 
-handleGetConfig :: AppConfig -> Responder 
+handleGetConfig :: AppConfig -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
 handleGetConfig cf respond = do
   let e = env cf 
       cf' = preprocessConfig e cf

@@ -14,7 +14,6 @@
 
 module Domain.Project.Model where
 
-import Data.Text (Text)
 import Database.Persist.TH 
   ( mkPersist
   , mkMigrate
@@ -26,22 +25,18 @@ import Data.Time (UTCTime)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 Project sql=project.project
-  projectId Int sql=id
-  Primary projectId
   deriving Show
 
 Node sql=project.node
-  nodeId Int sql=id
-  Primary nodeId
-  attributes String
-  created UTCTime
-  deleted (Maybe UTCTime)
-  description String
+  attributes   String
+  created      UTCTime
+  deleted      (Maybe UTCTime)
+  description  String
   nodeStatusId NodeStatusId constraint=fk_node_nodestatus
-  nodeTypeId NodeTypeId constraint=fk_node_nodetype 
-  projectId ProjectId constraint=fk_node_project
-  title String
-  updated UTCTime
+  nodeTypeId   NodeTypeId   constraint=fk_node_nodetype 
+  projectId    ProjectId    constraint=fk_node_project
+  title        String
+  updated      UTCTime
   deriving Show
 
 NodeStatus sql=project.nodeStatus

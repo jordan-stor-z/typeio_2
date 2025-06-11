@@ -2,8 +2,7 @@
 
 module Platform.Web.Router where
 
-import Common.Web.Types             (Responder)
-import Config.App                   (AppConfig(..), webDefaultPath)
+import Config.App                   (webDefaultPath)
 import Container.Root               (RootContainer(..))
 import Data.Text                    (pack, Text)
 import Domain.Central.Container.Api (CentralApiContainer(..))
@@ -12,35 +11,58 @@ import Domain.Project.Container.Api (ProjectApiContainer(..))
 import Domain.Project.Container.Ui  (ProjectUiContainer(..))
 import Domain.System.Container.Api  (SystemApiContainer(..))
 import Network.HTTP.Types           (Method)
+import Network.Wai                  (Response, ResponseReceived)
 
-index :: RootContainer -> Text -> Responder
+
+index :: RootContainer -> Text -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 index = indexView . centralUiContainer 
 
-appRoutes :: AppConfig -> RootContainer -> Method -> [Text] -> Maybe Responder 
-appRoutes cf ct _ []      = Just $ index ct (pack . webDefaultPath $ cf)
-appRoutes _ ct mt (p:ps)  = case p of
+appRoutes :: RootContainer -> Method -> [Text] -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+appRoutes ct _ []      = Just $ index ct (pack . webDefaultPath . appConfig $ ct)
+appRoutes ct mt (p:ps)  = case p of
     "api"   -> api ct mt ps
     "ui"    -> ui  ct mt ps
     _       -> Nothing
 
-projectIndex :: ProjectUiContainer -> Method -> [Text] -> Maybe Responder 
+createProject :: ProjectUiContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+createProject ct mt path = case (mt, path) of
+    ("GET", ["vw"]) -> Just $ createProjectVw ct 
+    _                   -> Nothing
+
+projectIndex :: ProjectUiContainer 
+  -> Method
+  -> [Text]
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived) 
 projectIndex ct mt path = case (mt, path) of
-    ("GET", ["vw"]) -> Just $ uiProjectIndex ct 
+    ("GET", ["vw"])   -> Just $ projectIndexVw ct 
+    ("GET", ["list"]) -> Just $ projectList    ct 
     _               -> Nothing
 
-api :: RootContainer -> Method -> [Text] -> Maybe Responder 
+api :: RootContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 api ct mt pth = case pth of 
     "central" : ps   -> central (centralApiContainer ct) mt ps
     "project" : ps   -> project (projectApiContainer ct) mt ps
     "system"  : ps   -> system  (systemApiContainer ct)  mt ps
     _                -> Nothing
 
-central :: CentralApiContainer -> Method -> [Text] -> Maybe Responder 
+central :: CentralApiContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 central ct mt path = case (mt, path) of
     ("POST", ["seed-database"]) -> Just $ apiSeedDatabase ct
     _                           -> Nothing
 
-project :: ProjectApiContainer -> Method -> [Text] -> Maybe Responder 
+project :: ProjectApiContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 project h mt path = case (mt, path) of
     ("GET", ["nodes"])         -> Just $ apiGetNodes h
     ("GET", ["node-types"])    -> Just $ apiGetNodeTypes h 
@@ -48,13 +70,20 @@ project h mt path = case (mt, path) of
     ("GET", ["projects"])      -> Just $ apiGetProjects h 
     _                          -> Nothing
 
-system :: SystemApiContainer -> Method -> [Text] -> Maybe Responder 
+system :: SystemApiContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 system ah mt path = case (mt, path) of
     ("GET", ["config"])         -> Just $ apiGetConfig ah
     _                           -> Nothing
 
-ui :: RootContainer -> Method -> [Text] -> Maybe Responder 
+ui :: RootContainer 
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 ui ct mt pth = case pth of 
-    "projects" : ps -> projectIndex (projectUiContainer ct) mt ps
-    _               -> Nothing
+    "projects" : ps       -> projectIndex (projectUiContainer ct) mt ps
+    "create-project" : ps -> createProject (projectUiContainer ct) mt ps
+    _                     -> Nothing
 

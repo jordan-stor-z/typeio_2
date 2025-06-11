@@ -5,7 +5,6 @@
 
 module Domain.Project.Responder.NodeType where
 
-import Common.Web.Types                   (Responder)
 import Data.Aeson                         ((.=)
                                            , encode
                                            , toJSON
@@ -17,7 +16,7 @@ import Database.Persist                    (Entity(..))
 import Database.Persist.Sql                (ConnectionPool, runSqlPool)
 import qualified Domain.Project.Model as M (NodeType(..), unNodeTypeKey)
 import Network.HTTP.Types                  (status200)
-import Network.Wai                         (responseLBS)
+import Network.Wai                         (Response, responseLBS, ResponseReceived)
 
 newtype NodeType = NodeType
   { nodeTypeId :: String
@@ -27,7 +26,7 @@ instance ToJSON NodeType where
   toJSON (NodeType ntId) =
     object [ "nodeTypeId" .= ntId ]
 
-handleGetNodeTypes :: ConnectionPool -> Responder 
+handleGetNodeTypes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
 handleGetNodeTypes pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns

@@ -1,16 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Domain.Central.Responder.Seed where
+import Network.Wai (ResponseReceived)
 
-import Common.Web.Types            (Responder)
 import Database.Persist            (insertUnique)
 import Database.Persist.Sql        (runSqlPool)
 import Database.Persist.Postgresql (ConnectionPool)
 import Domain.Project.Model        (NodeStatus(..), NodeType(..))
 import Network.HTTP.Types          (status200)
-import Network.Wai                 (responseLBS)
+import Network.Wai                 (responseLBS, Response, ResponseReceived)
 
-handleSeedDatabase :: ConnectionPool -> Responder  
+handleSeedDatabase :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived  
 handleSeedDatabase pool respond = do
   flip runSqlPool pool $ do
     mapM_ insertUnique nodeStatuses

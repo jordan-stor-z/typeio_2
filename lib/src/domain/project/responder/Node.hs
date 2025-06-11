@@ -5,16 +5,16 @@
 
 module Domain.Project.Responder.Node where
 
-import Common.Web.Types                    (Responder)
 import Data.Aeson                          ((.=)
                                            , encode
                                            , toJSON
                                            , ToJSON
                                            , object
                                            )
+import Data.Int                            (Int64)
 import Database.Esqueleto.Experimental     (from, select, table)
 import Database.Persist                    (Entity(..))
-import Database.Persist.Sql                (ConnectionPool, runSqlPool)
+import Database.Persist.Sql                (ConnectionPool, fromSqlKey, runSqlPool)
 import Data.Time                           (UTCTime)
 import qualified Domain.Project.Model as M ( Node(..)
                                            , nodeCreated
@@ -28,19 +28,18 @@ import qualified Domain.Project.Model as M ( Node(..)
                                            , unNodeKey
                                            , unNodeStatusKey
                                            , unNodeTypeKey
-                                           , unProjectKey
                                            ) 
 import Network.HTTP.Types                  (status200)
-import Network.Wai                         (responseLBS)
+import Network.Wai                         (Response, responseLBS, ResponseReceived)
 
 data Node = Node
   { created       :: UTCTime
   , deleted       :: Maybe UTCTime
   , description   :: String
-  , nodeId        :: Int
+  , nodeId        :: Int64
   , nodeStatusId  :: String
   , nodeTypeId    :: String
-  , projectId     :: Int
+  , projectId     :: Int64
   , title         :: String
   , updated       :: UTCTime
   }
@@ -48,18 +47,18 @@ data Node = Node
 instance ToJSON Node where
   toJSON (Node c d desc nId nsId ntId pId t u) =
     object
-      [ "created" .= c
-      , "deleted" .= d
-      , "description" .= desc
-      , "nodeId" .= nId
+      [ "created"      .= c
+      , "deleted"      .= d
+      , "description"  .= desc
+      , "nodeId"       .= nId
       , "nodeStatusId" .= nsId
-      , "nodeTypeId" .= ntId
-      , "projectId" .= pId
-      , "title" .= t
-      , "updated" .= u
+      , "nodeTypeId"   .= ntId
+      , "projectId"    .= pId
+      , "title"        .= t
+      , "updated"      .= u
       ]
 
-handleGetNodes :: ConnectionPool -> Responder 
+handleGetNodes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
 handleGetNodes pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
@@ -69,10 +68,10 @@ handleGetNodes pl respond = do
       { created      = M.nodeCreated v
       , deleted      = M.nodeDeleted v
       , description  = M.nodeDescription v
-      , nodeId       = M.unNodeKey k
+      , nodeId       = fromSqlKey k
       , nodeStatusId = M.unNodeStatusKey . M.nodeNodeStatusId $ v
       , nodeTypeId   = M.unNodeTypeKey . M.nodeNodeTypeId $ v 
-      , projectId    = M.unProjectKey . M.nodeProjectId $ v
+      , projectId    = fromSqlKey . M.nodeProjectId $ v
       , title        = M.nodeTitle v
       , updated      = M.nodeUpdated v
       }

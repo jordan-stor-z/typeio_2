@@ -1,8 +1,8 @@
 module Domain.Central.Container.Ui where
 
-import Common.Web.Types (Responder)
 import Data.Text (Text)
+import Network.Wai (Response, ResponseReceived)
 
 newtype CentralUiContainer = CentralUiContainer 
-  { indexView :: Text -> Responder
+  { indexView :: Text -> (Response -> IO ResponseReceived) -> IO ResponseReceived
   }

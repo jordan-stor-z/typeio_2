@@ -1,7 +1,7 @@
 module Domain.System.Container.Api where
 
-import Common.Web.Types (Responder)
+import Network.Wai (Response, ResponseReceived)
 
 newtype SystemApiContainer = SystemApiContainer
-  { apiGetConfig :: Responder 
+  { apiGetConfig :: (Response -> IO ResponseReceived) -> IO ResponseReceived 
   }

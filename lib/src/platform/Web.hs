@@ -31,9 +31,9 @@ start = do
   cfg <- loadConfig
   withApp cfg $ run (port . web $ cfg) 
 
-app :: AppConfig -> RootContainer -> Application
-app cf ct req respond = do
-  case appRoutes cf ct mth pth of
+app :: RootContainer -> Application
+app ct req respond = do
+  case appRoutes ct mth pth of
     Just r  ->  r respond
     Nothing -> notFound req respond 
   where 
@@ -48,4 +48,4 @@ withApp cf = runContT $ do
   ev <- ContT $ withEnv cf 
   ct <- ContT $ withRootContainer ev
   md <- ContT $ withMiddleware ev ct
-  return $ md . app cf $ ct
+  return $ md . app $ ct
