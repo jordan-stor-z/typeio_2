@@ -4,8 +4,9 @@ module Domain.Project.Responder.ProjectIndex.View where
 
 import Lucid
 import Common.Web.Attributes
-import Network.HTTP.Types (status200)
-import Network.Wai (Response, responseLBS, ResponseReceived)
+import Common.Web.Template.MainHeader (mainHeaderTemplate)
+import Network.HTTP.Types             (status200)
+import Network.Wai                    (Response, responseLBS, ResponseReceived)
 
 handleProjectView :: (Response -> IO ResponseReceived) -> IO ResponseReceived
 handleProjectView respond = do
@@ -16,6 +17,7 @@ handleProjectView respond = do
 
 projectIndexVwTemplate :: Html ()
 projectIndexVwTemplate = do
+    mainHeaderTemplate "Projects" 
     div_ [class_ "view"] $ do
       button_ 
         [ class_     "action-button"

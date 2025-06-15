@@ -19,8 +19,9 @@ indexTemplate :: Text -> Html ()
 indexTemplate path = html_ $ do
   let l = "something" :: Html ()
   head_ $ do
-    title_  "TypeIO"
+    title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
+    meta_    [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
     script_  [src_ "https://unpkg.com/htmx.org@2.0.4"] l :: Html ()
   body_ $ do
     div_ 

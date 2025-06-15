@@ -12,6 +12,7 @@ import Domain.Project.Responder.NodeType           (handleGetNodeTypes)
 import Domain.Project.Responder.Project            (handleGetProjects)
 import Domain.Project.Responder.ProjectIndex.List  (handleProjectList)
 import Domain.Project.Responder.ProjectIndex.View  (handleProjectView)
+import Domain.Project.Responder.ProjectCreate.Submit (handleProjectSubmit)
 import Domain.Project.Responder.ProjectCreate.View (handleProjectCreateVw)
 import Domain.Project.Container.Api                (ProjectApiContainer(..))
 import Domain.Project.Container.Ui                 (ProjectUiContainer(..))
@@ -41,6 +42,7 @@ withRootContainer ev k =
         { projectIndexVw     = handleProjectView
         , projectList        = handleProjectList pl lg
         , createProjectVw    = handleProjectCreateVw 
+        , submitProject      = handleProjectSubmit pl
         }
       systemApi  = SystemApiContainer
         { apiGetConfig = handleGetConfig cf 

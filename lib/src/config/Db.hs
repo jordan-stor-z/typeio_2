@@ -24,6 +24,9 @@ keyPort = "DB_PORT"
 keyPoolCount :: String
 keyPoolCount = "DB_POOL_COUNT"
 
+keySchema :: String
+keySchema = "DB_SCHEMA"
+
 keyUser :: String
 keyUser = "DB_USER"
 
@@ -33,6 +36,7 @@ data DbConfig = DbConfig
   , password  :: String
   , dbPort    :: String
   , poolCount :: Int
+  , schema    :: String
   , user      :: String
   } deriving (Read, Show)
 
@@ -48,11 +52,11 @@ instance ToJSON DbConfig where
 
 connStr :: DbConfig -> String
 connStr cfg =
-  "host=" <> host cfg <>
-  " dbname=" <> database cfg <>
-  " user=" <> user cfg <>
-  " password=" <> password cfg <>
-  " port=" <> dbPort cfg <>
+  "host="         <> host cfg     <>
+  " dbname="      <> database cfg <>
+  " user="        <> user cfg     <>
+  " password="    <> password cfg <>
+  " port="        <> dbPort cfg   <>
   " sslmode=disable"
 
 loadDbConfig :: WriterT [ConfigError] IO (Maybe DbConfig)
@@ -61,9 +65,17 @@ loadDbConfig = do
   hst <- getVal keyHost
   pss <- getVal keyPass 
   prt <- getVal keyPort
+  scm <- getVal keySchema
   usr <- getVal keyUser
   plc <- getVal keyPoolCount >>= readPoolCount
-  return $ DbConfig <$> nme <*> hst <*> pss <*> prt <*> plc <*> usr 
+  return $ DbConfig 
+    <$> nme 
+    <*> hst 
+    <*> pss 
+    <*> prt 
+    <*> plc 
+    <*> scm
+    <*> usr 
 
 readPoolCount :: Maybe String -> WriterT [ConfigError] IO (Maybe Int)
 readPoolCount Nothing = return Nothing

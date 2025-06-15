@@ -9,7 +9,9 @@ import Container.Build          (withRootContainer)
 import Container.Root           (RootContainer)
 import Control.Exception        (SomeException, try)
 import Control.Monad.Cont       (runContT, ContT(..))
-import Environment.Env          (withEnv)
+import Database.Persist.Sql     (runSqlPool, runMigration)
+import Domain.Project.Model     (migrateAll)
+import Environment.Env          (Env(..), withEnv)
 import Network.HTTP.Types       (status404)
 import Network.Wai              ( Application
                                 , responseLBS
@@ -31,9 +33,9 @@ start = do
   cfg <- loadConfig
   withApp cfg $ run (port . web $ cfg) 
 
-app :: RootContainer -> Application
-app ct req respond = do
-  case appRoutes ct mth pth of
+app :: Env -> RootContainer -> Application
+app ev ct req respond = do
+  case appRoutes ct req mth pth of
     Just r  ->  r respond
     Nothing -> notFound req respond 
   where 
@@ -48,4 +50,4 @@ withApp cf = runContT $ do
   ev <- ContT $ withEnv cf 
   ct <- ContT $ withRootContainer ev
   md <- ContT $ withMiddleware ev ct
-  return $ md . app $ ct
+  return $ md . app ev $ ct 

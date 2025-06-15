@@ -17,9 +17,10 @@ import Data.Aeson                                  ( (.=)
                                                    , ToJSON
                                                    )
 import Data.ByteString                             (toStrict, ByteString)
-import Data.ByteString.Char8                       (pack, unpack)
+import Data.ByteString.Char8                       (unpack)
 import Data.Maybe                                  (listToMaybe)
 import qualified Data.Text as T                    (Text, pack, unpack)
+import Data.Text.Encoding                          (decodeUtf8)
 import Data.Time                                   (getCurrentTime, UTCTime)
 import Database.Persist.Sql                        (runSqlPool, entityKey)
 import Database.Persist.Postgresql                 (ConnectionPool)
@@ -50,35 +51,35 @@ data LocationResponseHeader = LocationResponseHeader
   , target :: String 
   }
 
-type ValidationError = String 
+type ValidationError = T.Text 
 
 instance ToJSON LocationResponseHeader where
   toJSON (LocationResponseHeader p t) = 
-    object ["Path" .= p, "Target" .= t]
+    object ["path" .= p, "target" .= t]
 
 handleProjectSubmit :: ConnectionPool -> Application 
 handleProjectSubmit pl req respond = do
-  prs <-  buildPayload . fst 
+  (pyl, ers) <- runWriter . buildPayload . fst 
     <$> parseRequestBody lbsBackEnd req 
-  case prs of
-    Left _      -> do
-      respond $ responseLBS
-        status200
-        [("Content-Type", "text/html; charset=utf-8")]
-        (renderBS $ projectCreateVwTemplate Nothing)
-    Right pyl   -> do
+  case ers of
+    [] -> do 
       now   <- getCurrentTime
-      inse  <- insertProject pyl now pl
-      either errorRes success inse
+      ins   <- insertProject pyl now pl
+      either errorRes success ins
+    _  -> formAgain pyl ers
   where
+    formAgain pyl es = respond $ responseLBS
+      status200
+      [("Content-Type", "text/html; charset=utf-8")]
+      (renderBS $ projectCreateVwTemplate pyl es)
     errorRes _ = respond $ responseLBS
       status500
       []
       "There was an error in adding the project"
-    success _ = respond $ responseLBS
+    success _  = respond $ responseLBS
       status200 
       [redirectHeader]
-      "There was an error in adding the project"
+      mempty
 
 redirectHeader :: (HeaderName, ByteString)
 redirectHeader = 
@@ -86,60 +87,62 @@ redirectHeader =
         { path = "/ui/projects/vw"
         , target = "#container"
         }
-  in ("HX-Location", toStrict hd)
+  in ("Hx-Location", toStrict hd)
 
-buildPayload :: [Param] -> Either [String] AddProjectPayload
-buildPayload params = 
-  let result = runWriter $ do
-        descr <- getVal "description" params
-        ttl   <- getVal "title" params
-        return $ AddProjectPayload 
-          <$> fmap T.pack descr 
-          <*> fmap T.pack ttl
-  in case result of
-    (Just payload, []) -> Right payload
-    (_, errors)        -> Left errors
+hasVal :: (Eq a, Monoid a) => a -> Maybe a
+hasVal x = if x == mempty then Nothing else Just x
 
-getVal :: String -> [Param] -> Writer [ValidationError] (Maybe String)
+buildPayload :: [Param] -> Writer [ValidationError] AddProjectPayload
+buildPayload params = do
+  descr <- getVal "description" params
+  ttl   <- getVal "title"       params
+  return $ AddProjectPayload (T.pack <$> descr) (T.pack <$> ttl)
+
+getVal :: ByteString -> [Param] -> Writer [ValidationError] (Maybe String)
 getVal key params = do
-  let vl = lookup (pack key) params
+  let vl = hasVal =<< lookup key params
   case vl of
     Nothing -> do
-      tell ["Missing parameter in payload: " ++ key]
+      tell ["Missing parameter in payload: " <> decodeUtf8 key]
       return Nothing
     Just v  -> return $ Just . unpack $ v
 
-insertProject :: AddProjectPayload 
+insertProject :: 
+  AddProjectPayload  
   -> UTCTime 
   -> ConnectionPool 
   -> IO (Either T.Text ())
-insertProject py tm = runSqlPool $ do
-  pky  <- insert M.Project
-  stsm <- listToMaybe <$> (select $ do 
-    s <- from $ table @M.NodeStatus
-    limit 1
-    where_ $ s.nodeStatusId ==. val "active"
-    pure s)
-  typm  <- listToMaybe <$> (select $ do
-    t <- from $ table @M.NodeType
-    limit 1
-    where_ $ t.nodeTypeId ==. val "project_root"
-    pure t)
-  case (stsm, typm) of
-    (Nothing, _) -> return $ Left "No active node status found"
-    (_, Nothing) -> return $ Left "No project root node type found"
-    (Just status, Just type_) -> do
-      let nd = M.Node
-           { M.nodeAttributes   = mempty
-           , M.nodeCreated      = tm
-           , M.nodeDeleted      = Nothing
-           , M.nodeDescription  = T.unpack . description $ py
-           , M.nodeNodeStatusId = entityKey status 
-           , M.nodeNodeTypeId   = entityKey type_ 
-           , M.nodeProjectId    = pky 
-           , M.nodeTitle        = T.unpack . title $ py
-           , M.nodeUpdated      = tm
-           }
-      _ <- insert nd
-      return $ Right ()
+insertProject pyl tm pl = case pyl of
+  AddProjectPayload Nothing _ -> 
+    return $ Left "Cannot insert project without a title"
+  AddProjectPayload _ Nothing -> 
+    return $ Left "Cannot insert project without a description"
+  AddProjectPayload (Just descr) (Just ttl) -> flip runSqlPool pl $ do
+    stsm <- fmap listToMaybe . select $ do 
+      s <- from $ table @M.NodeStatus
+      limit 1
+      where_ $ s.nodeStatusId ==. val "active"
+      pure s
+    typm <- fmap listToMaybe . select $ do
+      t <- from $ table @M.NodeType
+      limit 1
+      where_ $ t.nodeTypeId ==. val "project_root"
+      pure t
+    case (stsm, typm) of
+      (Nothing, _) -> return $ Left "No active node status found"
+      (_, Nothing) -> return $ Left "No project root node type found"
+      (Just status, Just type_) -> do
+        pky  <- insert M.Project
+        let nd = M.Node
+             { M.nodeCreated      = tm
+             , M.nodeDeleted      = Nothing
+             , M.nodeDescription  = T.unpack descr 
+             , M.nodeNodeStatusId = entityKey status 
+             , M.nodeNodeTypeId   = entityKey type_ 
+             , M.nodeProjectId    = pky 
+             , M.nodeTitle        = T.unpack ttl
+             , M.nodeUpdated      = tm
+             }
+        _ <- insert nd
+        return $ Right ()
 

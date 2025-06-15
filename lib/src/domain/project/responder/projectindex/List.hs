@@ -22,7 +22,8 @@ import Database.Esqueleto.Experimental     ( asc
                                            , table
                                            , in_
                                            , where_
-                                           , valList, fromSqlKey
+                                           , valList
+                                           , fromSqlKey
                                            )
 import Database.Persist.Postgresql         (ConnectionPool)
 import Database.Persist.Sql                (runSqlPool)

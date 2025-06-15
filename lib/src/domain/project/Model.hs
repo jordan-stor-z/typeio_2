@@ -24,11 +24,10 @@ import Database.Persist.TH
 import Data.Time (UTCTime)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
-Project sql=project.project
+Project sql=project
   deriving Show
 
-Node sql=project.node
-  attributes   String
+Node sql=node
   created      UTCTime
   deleted      (Maybe UTCTime)
   description  String
@@ -39,20 +38,20 @@ Node sql=project.node
   updated      UTCTime
   deriving Show
 
-NodeStatus sql=project.nodeStatus
+NodeStatus sql=node_status
   nodeStatusId String sql=id
   Primary nodeStatusId
   deriving Show
 
-NodeType sql=project.nodeType
+NodeType sql=node_type
   nodeTypeId String sql=id
   Primary nodeTypeId
   deriving Show
 
-Dependency sql=project.dependency
+Dependency sql=dependency
   dependencyId Int sql=id
-  nodeId NodeId constraint=fk_dependency_node
-  toNodeId NodeId constraint=fk_dependency_tonode 
+  nodeId       NodeId constraint=fk_dependency_node
+  toNodeId     NodeId constraint=fk_dependency_tonode 
   deriving Show
 |]
 

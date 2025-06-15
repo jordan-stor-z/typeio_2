@@ -11,26 +11,28 @@ import Domain.Project.Container.Api (ProjectApiContainer(..))
 import Domain.Project.Container.Ui  (ProjectUiContainer(..))
 import Domain.System.Container.Api  (SystemApiContainer(..))
 import Network.HTTP.Types           (Method)
-import Network.Wai                  (Response, ResponseReceived)
+import Network.Wai                  (Request, Response, ResponseReceived)
 
 
 index :: RootContainer -> Text -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 index = indexView . centralUiContainer 
 
-appRoutes :: RootContainer -> Method -> [Text] -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-appRoutes ct _ []      = Just $ index ct (pack . webDefaultPath . appConfig $ ct)
-appRoutes ct mt (p:ps)  = case p of
+appRoutes :: RootContainer -> Request -> Method -> [Text] -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+appRoutes ct _ _ []        = Just $ index ct (pack . webDefaultPath . appConfig $ ct)
+appRoutes ct rq mt (p:ps)  = case p of
     "api"   -> api ct mt ps
-    "ui"    -> ui  ct mt ps
+    "ui"    -> ui  ct rq mt ps
     _       -> Nothing
 
 createProject :: ProjectUiContainer 
+  -> Request
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-createProject ct mt path = case (mt, path) of
-    ("GET", ["vw"]) -> Just $ createProjectVw ct 
-    _                   -> Nothing
+createProject ct request mt path = case (mt, path) of
+    ("GET", ["vw"])      -> Just $ createProjectVw ct 
+    ("POST", ["submit"]) -> Just $ submitProject ct request
+    _                    -> Nothing
 
 projectIndex :: ProjectUiContainer 
   -> Method
@@ -79,11 +81,12 @@ system ah mt path = case (mt, path) of
     _                           -> Nothing
 
 ui :: RootContainer 
+  -> Request
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-ui ct mt pth = case pth of 
+ui ct rq mt pth = case pth of 
     "projects" : ps       -> projectIndex (projectUiContainer ct) mt ps
-    "create-project" : ps -> createProject (projectUiContainer ct) mt ps
+    "create-project" : ps -> createProject (projectUiContainer ct) rq mt ps
     _                     -> Nothing
 
