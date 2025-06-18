@@ -9,6 +9,7 @@ module Domain.Project.Responder.Api.Node.Post where
 import Common.Either                   (listToEither)
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, runEitherT)
+import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Writer            (runWriter, tell, Writer)
 import Data.Aeson                      ( (.=)
                                        , encode
@@ -30,7 +31,7 @@ import Database.Esqueleto.Experimental ( (==.)
                                        , val
                                        , where_
                                        )
-import Database.Persist.Sql            (ConnectionPool, entityKey, runSqlPool)
+import Database.Persist.Sql            (ConnectionPool, entityKey, runSqlPool, SqlBackend)
 import Network.HTTP.Types              (status200, status404, status422, status500)
 import Network.Wai                     ( Application, responseLBS)
 import Network.Wai.Parse               (parseRequestBody, Param, lbsBackEnd)
@@ -42,7 +43,7 @@ import qualified Domain.Project.Model  as M
 type PostNodeError = Text
 
 data InsertNodeResult =  
-  FailValidation 
+  FailValidation [PostNodeError]
   | MissingStatus 
   | MissingType 
   | ProjectNotFound  
@@ -67,17 +68,17 @@ handlePostNode' pl req respond = do
   res <- runEitherT $ do
     pyl <- hoistEither $ buildPayload . fst $ ps
     now <- lift getCurrentTime
-    nde <- lift $ insertNode pyl now pl
+    nde <- lift $ runSqlPool (insertNode pyl now) pl
     hoistEither nde
   case res of
     Right _ -> respond $ responseLBS
       status200 
       [("Content-Type", "application/json")]
       "Ok"
-    Left (ProjectNotFound, _) -> notFound ("Project not found" :: Text)
-    Left (MissingStatus,   _) -> serverExc
-    Left (MissingType,     _) -> serverExc
-    Left (FailValidation, es) -> badRequest es
+    Left ProjectNotFound     -> notFound ("Project not found" :: Text)
+    Left MissingStatus       -> serverExc
+    Left MissingType         -> serverExc
+    Left (FailValidation es) -> badRequest es
   where
     badRequest es = respond $ responseLBS
       status422 
@@ -92,7 +93,7 @@ handlePostNode' pl req respond = do
       [("Content-Type", "application/json")]
       (encode $ object ["error" .= ("Internal server error" :: Text)])
 
-buildPayload :: [Param] -> Either (InsertNodeResult, [PostNodeError]) PostNodePayload
+buildPayload :: [Param] -> Either InsertNodeResult PostNodePayload
 buildPayload ps =
   let (pyl, errs) = runWriter $ do
         desc <- getVal "description" ps
@@ -103,41 +104,35 @@ buildPayload ps =
           <*> pid 
           <*> fmap pack ttl
   in case pyl of
-    Nothing -> Left (FailValidation, errs)
+    Nothing -> Left $ FailValidation errs
     Just p  -> Right p
 
 insertNode :: PostNodePayload
   -> UTCTime
-  -> ConnectionPool
-  -> IO (Either (InsertNodeResult, [PostNodeError]) M.Node)
-insertNode pyl tm = runSqlPool $ do
+  -> ReaderT SqlBackend IO (Either InsertNodeResult M.Node) 
+insertNode pyl tm = do
   let pid  = projectId pyl
-  let pkey = toSqlKey @M.Project pid 
+      pkey = toSqlKey @M.Project pid 
+      hE a = hoistEither . listToEither a
   runEitherT $ do
     prSel <- lift $ select $ do
       p <- from $ table @M.Project
       where_ $ p.id ==. val pkey
       limit 1 
       pure p
-    prj <- hoistEither 
-           . (listToEither . projectNotFoundRes $ pid) 
-           $ prSel 
+    prj <- hE ProjectNotFound prSel 
     stSel <- lift $ select $ do 
       s <- from $ table @M.NodeStatus
       where_ $ s.nodeStatusId ==. val "active"
       limit 1
       pure s
-    sts <- hoistEither
-           . listToEither statusNotFoundRes 
-           $ stSel 
+    sts <- hE MissingStatus stSel
     tpSel <- lift $ select $ do
       t <- from $ table @M.NodeType
       where_ $ t.nodeTypeId ==. val "project_root"
       limit 1
       pure t
-    tpe   <- hoistEither
-           . listToEither typeNotFoundRes 
-           $ tpSel 
+    tpe   <- hE MissingType tpSel 
     let nd = M.Node
           { M.nodeCreated      = tm
           , M.nodeDeleted      = Nothing
@@ -150,15 +145,6 @@ insertNode pyl tm = runSqlPool $ do
           }
     _ <- lift $ insert nd
     return nd
-  where
-    projectNotFoundRes p =
-      (ProjectNotFound, ["Project with id " <> pack (show p) <> " not found"])
-    statusNotFoundRes =
-      (MissingStatus, ["No \"active\" node status found"])
-    typeNotFoundRes =
-      (MissingType, ["No \"project_root\" node type found"])
-
-
 
 getVal :: ByteString -> [Param] -> Writer [PostNodeError] (Maybe String)
 getVal key params = do

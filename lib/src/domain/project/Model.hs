@@ -21,9 +21,17 @@ import Database.Persist.TH
   , share
   , sqlSettings
   )
+import Data.String (IsString(..))
 import Data.Time (UTCTime)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+ProjectVw sql=project_vw
+  projectId   ProjectId
+  Primary projectId 
+  description String
+  lastUpdated UTCTime
+  title       String
+
 Project sql=project
   deriving Show
 
@@ -55,3 +63,5 @@ Dependency sql=dependency
   deriving Show
 |]
 
+instance IsString NodeStatus where
+  fromString = NodeStatus

@@ -11,13 +11,13 @@ import Data.Text                      (Text)
 import Network.HTTP.Types             (status200)
 import Network.Wai                    (Response, responseLBS, ResponseReceived)
 
-data AddProjectPayload = AddProjectPayload
+data AddProjectForm = AddProjectForm 
   { description :: Maybe Text
   , title       :: Maybe Text
   }
 
-emptyPayload :: AddProjectPayload
-emptyPayload = AddProjectPayload
+emptyForm :: AddProjectForm 
+emptyForm = AddProjectForm 
   { description = Nothing
   , title       = Nothing
   }
@@ -27,9 +27,9 @@ handleProjectCreateVw respond = do
   respond $ responseLBS
     status200
     [("Content-Type", "text/html; charset=utf-8")]
-    (renderBS $ projectCreateVwTemplate emptyPayload mempty)
+    (renderBS $ projectCreateVwTemplate emptyForm mempty)
 
-projectCreateVwTemplate :: AddProjectPayload -> [Text] -> Html ()
+projectCreateVwTemplate :: AddProjectForm -> [Text] -> Html ()
 projectCreateVwTemplate payload errs = do
   mainHeaderTemplate "Add Project" 
   link_ [rel_ "stylesheet", href_ "/static/styles/views/add-project.css"]

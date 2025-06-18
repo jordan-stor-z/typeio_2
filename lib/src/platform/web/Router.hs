@@ -30,9 +30,18 @@ createProject :: ProjectUiContainer
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 createProject ct request mt path = case (mt, path) of
-    ("GET", ["vw"])      -> Just $ createProjectVw ct 
+    ("GET",  ["vw"])     -> Just $ createProjectVw ct 
     ("POST", ["submit"]) -> Just $ submitProject ct request
     _                    -> Nothing
+
+manageProject :: ProjectUiContainer 
+  -> Request
+  -> Method 
+  -> [Text] 
+  -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+manageProject ct request mt path = case (mt, path) of
+    ("GET", ["vw", projectId]) -> Just $ manageProjectVw ct projectId request
+    _               -> Nothing
 
 projectIndex :: ProjectUiContainer 
   -> Method
@@ -86,7 +95,8 @@ ui :: RootContainer
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 ui ct rq mt pth = case pth of 
-    "projects" : ps       -> projectIndex (projectUiContainer ct) mt ps
+    "projects"       : ps -> projectIndex (projectUiContainer ct) mt ps
     "create-project" : ps -> createProject (projectUiContainer ct) rq mt ps
+    "project"        : ps -> manageProject (projectUiContainer ct) rq mt ps
     _                     -> Nothing
 

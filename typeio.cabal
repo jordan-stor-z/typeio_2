@@ -34,6 +34,7 @@ library src
       Platform.Web
     other-modules:
       Common.Either
+      , Common.Validation
       , Common.Web.Attributes
       , Common.Web.Template.MainHeader
       , Common.Web.Validation
@@ -51,6 +52,7 @@ library src
       , Domain.Central.Container.Ui
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Node
+      , Domain.Project.Responder.ProjectManage.View
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.NodeStatus
       , Domain.Project.Responder.NodeType
@@ -89,6 +91,7 @@ library src
       , dotenv
       , esqueleto
       , fast-logger
+      , hashable
       , http-types
       , lucid2
       , mtl

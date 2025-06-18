@@ -1,0 +1,39 @@
+.link {
+  stroke: #999;
+  stroke-opacity: 0.6;
+  stroke-width: 2px;
+  marker-end: url(#arrow);
+}
+
+.node .root {
+  fill: var(--accent-bold);
+}
+
+.node .work {
+  fill: var(--accent-light); 
+}
+
+.node circle.root:hover {
+  fill: var(--accent-hover-bold);
+}
+
+.node circle.work:hover {
+  fill: var(--accent-hover-light);
+}
+
+.node circle:hover {
+  cursor: pointer;
+}
+
+.node circle {
+  r: 45;
+  stroke: white;
+  stroke-width: 1.5px;
+}
+
+.node text {
+  font: 12px sans-serif;
+  fill: var(--text-primary);
+  text-anchor: middle;
+  pointer-events: none;
+}

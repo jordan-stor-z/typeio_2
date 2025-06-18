@@ -14,6 +14,7 @@ import Domain.Project.Responder.ProjectIndex.List  (handleProjectList)
 import Domain.Project.Responder.ProjectIndex.View  (handleProjectView)
 import Domain.Project.Responder.ProjectCreate.Submit (handleProjectSubmit)
 import Domain.Project.Responder.ProjectCreate.View (handleProjectCreateVw)
+import Domain.Project.Responder.ProjectManage.View (handleProjectManageView)
 import Domain.Project.Container.Api                (ProjectApiContainer(..))
 import Domain.Project.Container.Ui                 (ProjectUiContainer(..))
 import Domain.System.Container.Api                 (SystemApiContainer(..))
@@ -40,8 +41,9 @@ withRootContainer ev k =
         }
       projectUi  = ProjectUiContainer
         { projectIndexVw     = handleProjectView
-        , projectList        = handleProjectList pl lg
+        , projectList        = handleProjectList pl
         , createProjectVw    = handleProjectCreateVw 
+        , manageProjectVw    = handleProjectManageView pl
         , submitProject      = handleProjectSubmit pl
         }
       systemApi  = SystemApiContainer
