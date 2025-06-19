@@ -15,30 +15,30 @@ keyEnv :: String
 keyEnv = "ENV"
 
 data AppConfig = AppConfig
-  { env  :: Environment
-  , db   :: DbConfig
-  , web  :: WebConfig
+  { envName :: EnvironmentName
+  , dbConf  :: DbConfig
+  , webConf :: WebConfig
   } deriving (Read, Show)
 
 instance ToJSON AppConfig where
   toJSON cfg =
-    object [ "env" .= env cfg
-           , "db"  .= db cfg
-           , "web" .= web cfg
+    object [ "env" .= envName cfg
+           , "db"  .= dbConf  cfg
+           , "web" .= webConf cfg
            ]
 
-data Environment = Local | Development | Production
+data EnvironmentName = Local | Development | Production
   deriving (Eq, Read, Show)
 
-instance ToJSON Environment where
+instance ToJSON EnvironmentName where
   toJSON = toJSON . show
 
 loadAppConfig :: WriterT [ConfigError] IO (Maybe AppConfig) 
 loadAppConfig = do
-  evc <- getVal keyEnv >>= readEnv
-  dbc <- loadDbConfig
-  wbc <- loadWebConfig
-  return $ AppConfig <$> evc <*> dbc <*> wbc
+  ev <- getVal keyEnv >>= readEnv
+  db <- loadDbConfig
+  wb <- loadWebConfig
+  return $ AppConfig <$> ev <*> db <*> wb
 
 loadConfig :: IO AppConfig
 loadConfig = do 
@@ -47,7 +47,7 @@ loadConfig = do
     Nothing  -> error $ "Failed to load configuration: " ++ unlines errors
     Just cfg -> return cfg
 
-readEnv :: Maybe String -> WriterT [ConfigError] IO (Maybe Environment)
+readEnv :: Maybe String -> WriterT [ConfigError] IO (Maybe EnvironmentName)
 readEnv Nothing = return Nothing
 readEnv em = do
   let ev = em >>= readMaybe
@@ -56,4 +56,4 @@ readEnv em = do
   return ev
 
 webDefaultPath :: AppConfig -> String
-webDefaultPath = indexRedirect . web 
+webDefaultPath = indexRedirect . webConf

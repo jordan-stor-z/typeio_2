@@ -9,9 +9,7 @@ import Container.Build          (withRootContainer)
 import Container.Root           (RootContainer)
 import Control.Exception        (SomeException, try)
 import Control.Monad.Cont       (runContT, ContT(..))
-import Database.Persist.Sql     (runSqlPool, runMigration)
-import Domain.Project.Model     (migrateAll)
-import Environment.Env          (Env(..), withEnv)
+import Environment.Env          (withEnv)
 import Network.HTTP.Types       (status404)
 import Network.Wai              ( Application
                                 , responseLBS
@@ -31,23 +29,23 @@ start :: IO ()
 start = do
   loadDotEnv
   cfg <- loadConfig
-  withApp cfg $ run (port . web $ cfg) 
+  withApp cfg $ run (port . webConf $ cfg) 
 
-app :: Env -> RootContainer -> Application
-app ev ct req respond = do
-  case appRoutes ct req mth pth of
-    Just r  ->  r respond
-    Nothing -> notFound req respond 
+app :: RootContainer -> Application
+app ctn req res = do
+  case appRoutes ctn req mth pth of
+    Just r  -> r res 
+    Nothing -> notFound req res
   where 
     pth = pathInfo req
     mth = requestMethod req
   
 notFound :: Application
-notFound _ respond = respond $ responseLBS status404 [] "Not Found" 
+notFound _ res = res $ responseLBS status404 [] "Not Found" 
 
 withApp :: AppConfig -> (Application -> IO r) -> IO r
-withApp cf = runContT $ do
-  ev <- ContT $ withEnv cf 
+withApp cfg = runContT $ do
+  ev <- ContT $ withEnv cfg
   ct <- ContT $ withRootContainer ev
   md <- ContT $ withMiddleware ev ct
-  return $ md . app ev $ ct 
+  return . md . app $ ct 

@@ -24,7 +24,7 @@ allMiddleware ev ct =
         ]
   in foldr1 (.) m
   where 
-    cf = config ev
-    lg = logger ev
-    wc = web cf
+    cf = appConf ev
+    lg = logger  ev
+    wc = webConf cf
 

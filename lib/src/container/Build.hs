@@ -50,9 +50,9 @@ withRootContainer ev k =
         { apiGetConfig = handleGetConfig cf 
         }
       systemMiddleware = SystemMiddlewareContainer
-        { logRequest = requestLogMiddleware   (web cf) lg 
-        , logResponse = responseLogMiddleware (web cf) lg
-        , tagRequestId = requestIdMiddleware  (web cf) 
+        { logRequest = requestLogMiddleware   (webConf cf) lg 
+        , logResponse = responseLogMiddleware (webConf cf) lg
+        , tagRequestId = requestIdMiddleware  (webConf cf) 
         }
       root       = RootContainer
         { appConfig            = cf
@@ -65,7 +65,7 @@ withRootContainer ev k =
         }
   in k root
   where 
-    cf = config ev
+    cf = appConf ev
     lg = logger ev
     pl = pool ev
 

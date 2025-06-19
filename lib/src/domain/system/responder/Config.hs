@@ -2,7 +2,7 @@
 
 module Domain.System.Responder.Config where
 
-import Config.App         (AppConfig(..), Environment(..)) 
+import Config.App         (AppConfig(..), EnvironmentName(..)) 
 import Config.Db          (connStr, DbConfig(..))
 import Data.Aeson         (encode, ToJSON, toJSON, object, (.=))
 import Network.HTTP.Types (status200)
@@ -21,21 +21,21 @@ instance ToJSON ConfigDisplay where
       ]
 
 handleGetConfig :: AppConfig -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
-handleGetConfig cf respond = do
-  let e = env cf 
-      cf' = preprocessConfig e cf
-      cs' = maskField e (connStr . db $ cf')
-      cd  = ConfigDisplay cf' cs'
+handleGetConfig cfg respond = do
+  let ev  = envName cfg
+      cf  = preprocessConfig ev cfg
+      cs  = maskField ev (connStr . dbConf $ cf)
+      cd  = ConfigDisplay cf cs
       js  = encode cd
   respond $ responseLBS status200 [("Content-Type", "application/json")] js
 
-maskField :: Environment -> String -> String
+maskField :: EnvironmentName -> String -> String
 maskField Production _ = replicate 22 '*'
-maskField _ field      = field
+maskField _ fld        = fld
 
-preprocessConfig :: Environment -> AppConfig -> AppConfig
-preprocessConfig e cfg = cfg { db = db' }
+preprocessConfig :: EnvironmentName -> AppConfig -> AppConfig
+preprocessConfig env cfg = cfg { dbConf = db' }
   where
-    d = db cfg
-    db' = d { password = maskField e (password d) } 
+    d = dbConf cfg
+    db' = d { password = maskField env (password d) } 
 

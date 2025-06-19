@@ -18,10 +18,14 @@ index :: RootContainer -> Text -> (Response -> IO ResponseReceived) -> IO Respon
 index = indexView . centralUiContainer 
 
 appRoutes :: RootContainer -> Request -> Method -> [Text] -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-appRoutes ct _ _ []        = Just $ index ct (pack . webDefaultPath . appConfig $ ct)
-appRoutes ct rq mt (p:ps)  = case p of
-    "api"   -> api ct mt ps
-    "ui"    -> ui  ct rq mt ps
+appRoutes ctn _ _ []        = Just 
+  . index ctn 
+  . pack 
+  . webDefaultPath 
+  . appConfig $ ctn
+appRoutes ctn req mth (p:ps)  = case p of
+    "api"   -> api ctn mth ps
+    "ui"    -> ui  ctn req mth ps
     _       -> Nothing
 
 createProject :: ProjectUiContainer 
@@ -29,9 +33,9 @@ createProject :: ProjectUiContainer
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-createProject ct request mt path = case (mt, path) of
-    ("GET",  ["vw"])     -> Just $ createProjectVw ct 
-    ("POST", ["submit"]) -> Just $ submitProject ct request
+createProject ctn req mth pth = case (mth, pth) of
+    ("GET",  ["vw"])     -> Just $ createProjectVw ctn
+    ("POST", ["submit"]) -> Just $ submitProject ctn req 
     _                    -> Nothing
 
 manageProject :: ProjectUiContainer 
@@ -39,54 +43,54 @@ manageProject :: ProjectUiContainer
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-manageProject ct request mt path = case (mt, path) of
-    ("GET", ["vw", projectId]) -> Just $ manageProjectVw ct projectId request
+manageProject ctn req mth pth = case (mth, pth) of
+    ("GET", ["vw", projectId]) -> Just $ manageProjectVw ctn projectId req 
     _               -> Nothing
 
 projectIndex :: ProjectUiContainer 
   -> Method
   -> [Text]
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived) 
-projectIndex ct mt path = case (mt, path) of
-    ("GET", ["vw"])   -> Just $ projectIndexVw ct 
-    ("GET", ["list"]) -> Just $ projectList    ct 
+projectIndex ctn mth pth = case (mth, pth) of
+    ("GET", ["vw"])   -> Just $ projectIndexVw ctn
+    ("GET", ["list"]) -> Just $ projectList    ctn 
     _               -> Nothing
 
 api :: RootContainer 
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-api ct mt pth = case pth of 
-    "central" : ps   -> central (centralApiContainer ct) mt ps
-    "project" : ps   -> project (projectApiContainer ct) mt ps
-    "system"  : ps   -> system  (systemApiContainer ct)  mt ps
+api ctn mt pth = case pth of 
+    "central" : ps   -> central (centralApiContainer ctn) mt ps
+    "project" : ps   -> project (projectApiContainer ctn) mt ps
+    "system"  : ps   -> system  (systemApiContainer ctn)  mt ps
     _                -> Nothing
 
 central :: CentralApiContainer 
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-central ct mt path = case (mt, path) of
-    ("POST", ["seed-database"]) -> Just $ apiSeedDatabase ct
+central ctn mth pth = case (mth, pth) of
+    ("POST", ["seed-database"]) -> Just $ apiSeedDatabase ctn
     _                           -> Nothing
 
 project :: ProjectApiContainer 
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-project h mt path = case (mt, path) of
-    ("GET", ["nodes"])         -> Just $ apiGetNodes h
-    ("GET", ["node-types"])    -> Just $ apiGetNodeTypes h 
-    ("GET", ["node-statuses"]) -> Just $ apiGetNodeStatuses h 
-    ("GET", ["projects"])      -> Just $ apiGetProjects h 
+project ctn mth pth = case (mth, pth) of
+    ("GET", ["nodes"])         -> Just $ apiGetNodes ctn
+    ("GET", ["node-types"])    -> Just $ apiGetNodeTypes ctn 
+    ("GET", ["node-statuses"]) -> Just $ apiGetNodeStatuses ctn 
+    ("GET", ["projects"])      -> Just $ apiGetProjects ctn 
     _                          -> Nothing
 
 system :: SystemApiContainer 
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-system ah mt path = case (mt, path) of
-    ("GET", ["config"])         -> Just $ apiGetConfig ah
+system ctn mth pth = case (mth, pth) of
+    ("GET", ["config"])         -> Just $ apiGetConfig ctn 
     _                           -> Nothing
 
 ui :: RootContainer 
@@ -94,9 +98,9 @@ ui :: RootContainer
   -> Method 
   -> [Text] 
   -> Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
-ui ct rq mt pth = case pth of 
-    "projects"       : ps -> projectIndex (projectUiContainer ct) mt ps
-    "create-project" : ps -> createProject (projectUiContainer ct) rq mt ps
-    "project"        : ps -> manageProject (projectUiContainer ct) rq mt ps
+ui ctn req mth pth = case pth of 
+    "projects"       : ps -> projectIndex (projectUiContainer ctn) mth ps
+    "create-project" : ps -> createProject (projectUiContainer ctn) req mth ps
+    "project"        : ps -> manageProject (projectUiContainer ctn) req mth ps
     _                     -> Nothing
 
