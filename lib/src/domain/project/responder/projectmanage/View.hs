@@ -7,7 +7,7 @@
 module Domain.Project.Responder.ProjectManage.View where
 
 import Lucid
-import Common.Web.Template.MainHeader (mainHeaderTemplate)
+import Common.Web.Template.MainHeader (templateNavHeader)
 import Control.Monad        (guard)
 import Control.Monad.Reader (ReaderT)
 import Data.Aeson           (encode, ToJSON(..), (.=), object)
@@ -178,7 +178,7 @@ queryDependencies nids = do
 
 templateTree :: Graph -> Html ()
 templateTree g = do
-  mainHeaderTemplate "Project"
+  templateNavHeader "Project"
   let empty = mempty :: Html ()
   let js = encode g
   link_ [ rel_ "stylesheet"

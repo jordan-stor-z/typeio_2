@@ -2,14 +2,14 @@
 
 module Config.App where
 
-import Config.Db (DbConfig, loadDbConfig)
-import Config.Load (ConfigError, getVal) 
-import Config.Web (WebConfig(..), loadWebConfig)
+import Config.Db            (DbConfig, loadDbConfig)
+import Config.Load          (ConfigError, getVal) 
+import Config.Web           (WebConfig(..), loadWebConfig)
 import Control.Monad.Writer (runWriterT, WriterT, tell)
-import Control.Monad (when)
-import Data.Maybe (isNothing)
-import Data.Aeson ((.=), ToJSON, toJSON, object)
-import Text.Read (readMaybe)
+import Control.Monad        (when)
+import Data.Maybe           (isNothing)
+import Data.Aeson           ((.=), ToJSON, toJSON, object)
+import Text.Read            (readMaybe)
 
 keyEnv :: String
 keyEnv = "ENV"

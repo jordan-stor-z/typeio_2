@@ -4,7 +4,7 @@ module Domain.Project.Responder.ProjectCreate.View where
 
 import Lucid
 import Common.Web.Attributes
-import Common.Web.Template.MainHeader (mainHeaderTemplate)
+import Common.Web.Template.MainHeader (templateNavHeader)
 import Control.Monad                  (forM_, unless)
 import Data.Maybe                     (fromMaybe)
 import Data.Text                      (Text)
@@ -31,7 +31,7 @@ handleProjectCreateVw respond = do
 
 projectCreateVwTemplate :: AddProjectForm -> [Text] -> Html ()
 projectCreateVwTemplate payload errs = do
-  mainHeaderTemplate "Add Project" 
+  templateNavHeader "Add Project" 
   link_ [rel_ "stylesheet", href_ "/static/styles/views/add-project.css"]
   div_  [class_ "view"] $ do
     form_ 
@@ -41,10 +41,10 @@ projectCreateVwTemplate payload errs = do
       ] $ do
       span_ $ do
         label_ [for_ "title"] "Title:"
-        input_ [type_ "text", name_ "title", value_ ttl]
+        input_ [type_ "text", name_ "title", value_ ttle]
       span_ $ do
         label_    [for_ "description"] "Description:"
-        textarea_ [name_ "description"] (toHtml descr)
+        textarea_ [name_ "description"] (toHtml dscr)
       span_ $ do
         button_
           [ class_ "action-button"
@@ -54,6 +54,6 @@ projectCreateVwTemplate payload errs = do
         div_ [class_ "error-messages"] $ do
           forM_ errs $ p_ [class_ "error-message"] . toHtml
   where
-    descr = fromMaybe mempty $ description payload 
-    ttl   = fromMaybe mempty $ title payload 
+    dscr = fromMaybe mempty $ description payload 
+    ttle = fromMaybe mempty $ title payload 
 

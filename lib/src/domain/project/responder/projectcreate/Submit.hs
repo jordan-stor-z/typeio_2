@@ -8,11 +8,9 @@
 module Domain.Project.Responder.ProjectCreate.Submit where
 
 import Common.Either                               (maybeToEither)
-import Control.Monad                               (when)
 import Control.Monad.Trans.Class                   (lift)
 import Control.Monad.Writer                        (runWriter
                                                    , tell
-                                                   , Writer
                                                    )
 import Control.Monad.Trans.Either                  (hoistEither, runEitherT)
 import Data.Aeson                                  ( (.=)
@@ -119,12 +117,12 @@ buildPayload fm =
           case V.description fm of
             Nothing -> tell ["Description is required"]     >> return Nothing
             Just "" -> tell ["Description cannot be empty"] >> return Nothing
-            Just d  -> return (Just d)
+            Just d  -> return $ Just d
         ttl <- do
           case V.title fm of
             Nothing -> tell ["Title is required"]     >> return Nothing
             Just "" -> tell ["Title cannot be empty"] >> return Nothing
-            Just t  -> return (Just t)
+            Just t  -> return $ Just t
         return $ AddProjectPayload <$> descr <*> ttl 
   in maybeToEither (FormValidationFail ers) pyl
         

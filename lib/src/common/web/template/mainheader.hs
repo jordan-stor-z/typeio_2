@@ -6,8 +6,8 @@ import Common.Web.Attributes
 import Data.Text (Text)
 import Lucid
 
-mainHeaderTemplate :: Text -> Html ()
-mainHeaderTemplate current = do
+templateNavHeader :: Text -> Html ()
+templateNavHeader current = do
   header_ [class_ "nav"] $ do
     h1_  [ class_ "logo"
          , hxGet_ "/ui/projects/vw"

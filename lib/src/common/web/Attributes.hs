@@ -2,7 +2,7 @@
 
 module Common.Web.Attributes where
 
-import Data.Text (Text)
+import Data.Text  (Text)
 import Lucid.Base (Attributes, makeAttributes)
 
 hxGet_ :: Text -> Attributes
