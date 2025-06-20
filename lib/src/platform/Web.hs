@@ -18,7 +18,7 @@ import Network.Wai              ( Application
                                 )
 import Network.Wai.Handler.Warp (run)
 import Platform.Web.Middleware  (withMiddleware)
-import Platform.Web.Router      (appRoutes)
+import Platform.Web.Router      (appRoutes, rootTree)
 
 loadDotEnv :: IO ()
 loadDotEnv = do
@@ -32,17 +32,12 @@ start = do
   withApp cfg $ run (port . webConf $ cfg) 
 
 app :: RootContainer -> Application
-app ctn req res = do
-  case appRoutes ctn req mth pth of
-    Just r  -> r res 
-    Nothing -> notFound req res
-  where 
-    pth = pathInfo req
-    mth = requestMethod req
+app ctn req res = do 
+  let t = rootTree ctn req
+  print "ROUTES ::::::"
+  print t
+  appRoutes ctn req res
   
-notFound :: Application
-notFound _ res = res $ responseLBS status404 [] "Not Found" 
-
 withApp :: AppConfig -> (Application -> IO r) -> IO r
 withApp cfg = runContT $ do
   ev <- ContT $ withEnv cfg

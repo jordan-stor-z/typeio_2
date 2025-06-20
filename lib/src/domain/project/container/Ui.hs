@@ -7,6 +7,6 @@ data ProjectUiContainer = ProjectUiContainer
   { projectIndexVw  :: (Response -> IO ResponseReceived) -> IO ResponseReceived 
   , projectList     :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   , createProjectVw :: (Response -> IO ResponseReceived) -> IO ResponseReceived
-  , manageProjectVw :: Text -> Application
+  , manageProjectVw :: Application
   , submitProject   :: Application 
   }

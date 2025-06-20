@@ -11,6 +11,7 @@ import Common.Web.Template.MainHeader (templateNavHeader)
 import Control.Monad        (guard)
 import Control.Monad.Reader (ReaderT)
 import Data.Aeson           (encode, ToJSON(..), (.=), object)
+import Data.Maybe           (listToMaybe)
 import Data.Int             (Int64)
 import Data.Text            (pack, Text, unpack)
 import Data.Text.Encoding   (decodeUtf8)
@@ -29,7 +30,7 @@ import Database.Esqueleto.Experimental ( from
 import Database.Persist     (Entity(..))
 import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
 import Network.HTTP.Types   (status200, status403)
-import Network.Wai          (Application, responseLBS)
+import Network.Wai          (Application, pathInfo, responseLBS)
 import Text.Read            (readMaybe)
 import qualified Domain.Project.Model as M ( Dependency(..)
                                            , Node(..)
@@ -118,9 +119,14 @@ buildGraph ns ds = do
               return c 
         return (n, cs) 
 
-handleProjectManageView :: ConnectionPool -> ProjectId -> Application
-handleProjectManageView pl p _ respond = do
-  let pM = readMaybe (unpack p) :: Maybe Int64 
+lastN :: [a] -> Int -> [a]
+lastN [] _ = []
+lastN xs count = reverse . take count . reverse $ xs
+
+handleProjectManageView :: ConnectionPool ->  Application
+handleProjectManageView pl req respond = do
+  let ps = listToMaybe . lastN (pathInfo req) $ 1
+      pM = ps >>= (readMaybe . unpack) :: Maybe Int64
   case pM of
     Nothing  -> respondBadProjectId
     Just pid -> do
