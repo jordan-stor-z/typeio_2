@@ -7,10 +7,16 @@
 module Domain.Project.Responder.Api.Node.Post where
 
 import Common.Either                   (listToEither)
+import Common.Validation               ( (.$)
+                                       , isThere 
+                                       , isNotEmpty 
+                                       , runValidation
+                                       , ValidationErr
+                                       , valRead
+                                       )
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, runEitherT)
 import Control.Monad.Reader            (ReaderT)
-import Control.Monad.Writer            (runWriter, tell, Writer)
 import Data.Aeson                      ( (.=)
                                        , encode
                                        , object
@@ -18,7 +24,7 @@ import Data.Aeson                      ( (.=)
                                        )
 import Data.ByteString                 (ByteString)
 import Data.Int                        (Int64)
-import Data.Text                       (pack, Text, unpack)
+import Data.Text                       (Text, unpack)
 import Data.Text.Encoding              (decodeUtf8)
 import Data.Time                       (getCurrentTime, UTCTime)
 import Database.Esqueleto.Experimental ( (==.)
@@ -33,20 +39,21 @@ import Database.Esqueleto.Experimental ( (==.)
                                        )
 import Database.Persist.Sql            (ConnectionPool, entityKey, runSqlPool, SqlBackend)
 import Network.HTTP.Types              (status200, status404, status422, status500)
-import Network.Wai                     ( Application, responseLBS)
-import Network.Wai.Parse               (parseRequestBody, Param, lbsBackEnd)
-import Text.Read                       (readMaybe)
-
-import qualified Data.ByteString.Char8 as B (unpack)
+import Network.Wai                     (Application, responseLBS)
+import Network.Wai.Parse               (lbsBackEnd, Param, parseRequestBody)
 import qualified Domain.Project.Model  as M
 
-type PostNodeError = Text
-
 data InsertNodeResult =  
-  FailValidation [PostNodeError]
+  FailValidation [ValidationErr]
   | MissingStatus 
   | MissingType 
   | ProjectNotFound  
+
+data PostNodeForm = PostNodeForm
+  { formDescription :: Maybe ByteString
+  , formProjectId   :: Maybe ByteString 
+  , formTitle       :: Maybe ByteString 
+  }
 
 data PostNodePayload = PostNodePayload
   { description :: Text
@@ -62,11 +69,18 @@ instance ToJSON PostNodePayload where
       , "title"       .= ttl
       ]
 
-handlePostNode' :: ConnectionPool -> Application
-handlePostNode' pl req respond = do
-  ps  <- parseRequestBody lbsBackEnd req
-  res <- runEitherT $ do
-    pyl <- hoistEither $ buildPayload . fst $ ps
+paramToPayload :: [Param] -> PostNodeForm
+paramToPayload ps = PostNodeForm 
+    { formDescription = lookup "description" ps
+    , formProjectId   = lookup "projectId" ps
+    , formTitle       = lookup "title" ps
+    }
+
+handlePostNode :: ConnectionPool -> Application
+handlePostNode pl req respond = do
+  form <- paramToPayload . fst <$> parseRequestBody lbsBackEnd req
+  res  <- runEitherT $ do
+    pyl <- hoistEither $ validateForm form
     now <- lift getCurrentTime
     nde <- lift $ runSqlPool (insertNode pyl now) pl
     hoistEither nde
@@ -93,19 +107,21 @@ handlePostNode' pl req respond = do
       [("Content-Type", "application/json")]
       (encode $ object ["error" .= ("Internal server error" :: Text)])
 
-buildPayload :: [Param] -> Either InsertNodeResult PostNodePayload
-buildPayload ps =
-  let (pyl, errs) = runWriter $ do
-        desc <- getVal "description" ps
-        pid  <- getVal "projectId" ps >>= readProjectId
-        ttl  <- getVal "title" ps
-        return $ PostNodePayload 
-          <$> fmap pack desc 
-          <*> pid 
-          <*> fmap pack ttl
-  in case pyl of
-    Nothing -> Left $ FailValidation errs
-    Just p  -> Right p
+validateForm :: PostNodeForm -> Either InsertNodeResult PostNodePayload
+validateForm fm = runValidation FailValidation $ do
+    dscr <- formDescription fm 
+            .$  decodeUtf8 
+            >>= isThere    "Description is required"
+            >>= isNotEmpty "Description cannot be empty"
+    pid <- formProjectId fm
+            .$  decodeUtf8
+            >>= isThere    "Project id is required"
+            >>= isNotEmpty "Project id cannot be empty"
+            >>= valRead    "Project id must be valid integer" 
+    ttl <- formTitle fm
+            .$  decodeUtf8
+             >>= isThere   "Title cannot be empty"
+    return $ PostNodePayload <$> dscr <*> pid <*> ttl
 
 insertNode :: PostNodePayload
   -> UTCTime
@@ -146,23 +162,3 @@ insertNode pyl tm = do
     _ <- lift $ insert nd
     return nd
 
-getVal :: ByteString -> [Param] -> Writer [PostNodeError] (Maybe String)
-getVal key params = do
-  let vl = hasVal =<< lookup key params
-  case vl of
-    Nothing -> do
-      tell ["Missing parameter in payload: " <> decodeUtf8 key]
-      return Nothing
-    Just v  -> return $ Just . B.unpack $ v
-
-hasVal :: (Eq a, Monoid a) => a -> Maybe a
-hasVal x = if x == mempty then Nothing else Just x
-
-readProjectId :: Maybe String -> Writer [PostNodeError] (Maybe Int64)
-readProjectId Nothing = return Nothing
-readProjectId (Just pidStr) = 
-  case readMaybe pidStr :: Maybe Int64 of
-    Nothing -> do
-      tell ["Invalid project ID: " <> pack pidStr]
-      return Nothing
-    Just pid -> return (Just pid)

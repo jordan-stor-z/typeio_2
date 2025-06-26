@@ -1,72 +1,27 @@
 module Container.Build where
 
-import Config.App                                  (AppConfig(..))
-import Container.Root                              (RootContainer(..))
-import Domain.Central.Container.Api                (CentralApiContainer(..))
-import Domain.Central.Container.Ui                 (CentralUiContainer(..))
-import Domain.Central.Responder.IndexView          (handleIndexView)
-import Domain.Central.Responder.Seed               (handleSeedDatabase)
-import Domain.Project.Responder.Node               (handleGetNodes)
-import Domain.Project.Responder.NodeStatus         (handleGetNodeStatuses)
-import Domain.Project.Responder.NodeType           (handleGetNodeTypes)
-import Domain.Project.Responder.Project            (handleGetProjects)
-import Domain.Project.Responder.ProjectIndex.List  (handleProjectList)
-import Domain.Project.Responder.ProjectIndex.View  (handleProjectView)
-import Domain.Project.Responder.ProjectCreate.Submit (handleProjectSubmit)
-import Domain.Project.Responder.ProjectCreate.View (handleProjectCreateVw)
-import Domain.Project.Responder.ProjectManage.View (handleProjectManageView)
-import Domain.Project.Container.Api                (ProjectApiContainer(..))
-import Domain.Project.Container.Ui                 (ProjectUiContainer(..))
-import Domain.System.Container.Api                 (SystemApiContainer(..))
-import Domain.System.Container.Middleware          (SystemMiddlewareContainer(..))
-import Domain.System.Middleware.RequestId          (requestIdMiddleware)
-import Domain.System.Middleware.Logging.Request    (requestLogMiddleware)
-import Domain.System.Middleware.Logging.Response   (responseLogMiddleware)
-import Domain.System.Responder.Config              (handleGetConfig)
-import Environment.Env                             (Env(..))
+import Config.App      (AppConfig(..))
+import Container.Root  (RootContainer(..))
+import Environment.Env (Env(..))
+import qualified Domain.Central.Container.Api as CA
+import qualified Domain.Central.Container.Ui  as CU
+import qualified Domain.Project.Container.Api as PA                 
+import qualified Domain.Project.Container.Ui  as PU
+import qualified Domain.System.Container.Api  as SA
+import qualified Domain.System.Container.Middleware as SM 
 
-withRootContainer :: Env -> (RootContainer -> a) -> a 
-withRootContainer ev k = 
-  let centralApi = CentralApiContainer
-        { apiSeedDatabase = handleSeedDatabase pl 
-        } 
-      centralUi  = CentralUiContainer
-        { indexView = handleIndexView
-        }
-      projectApi = ProjectApiContainer
-        { apiGetNodes        = handleGetNodes pl 
-        , apiGetNodeStatuses = handleGetNodeStatuses pl  
-        , apiGetNodeTypes    = handleGetNodeTypes pl 
-        , apiGetProjects     = handleGetProjects pl 
-        }
-      projectUi  = ProjectUiContainer
-        { projectIndexVw     = handleProjectView
-        , projectList        = handleProjectList pl
-        , createProjectVw    = handleProjectCreateVw 
-        , manageProjectVw    = handleProjectManageView pl
-        , submitProject      = handleProjectSubmit pl
-        }
-      systemApi  = SystemApiContainer
-        { apiGetConfig = handleGetConfig cf 
-        }
-      systemMiddleware = SystemMiddlewareContainer
-        { logRequest = requestLogMiddleware   (webConf cf) lg 
-        , logResponse = responseLogMiddleware (webConf cf) lg
-        , tagRequestId = requestIdMiddleware  (webConf cf) 
-        }
-      root       = RootContainer
-        { appConfig            = cf
-        , centralApiContainer  = centralApi 
-        , centralUiContainer   = centralUi
-        , projectApiContainer  = projectApi
-        , projectUiContainer   = projectUi
-        , systemApiContainer   = systemApi
-        , systemMiddlewareContainer = systemMiddleware
-        }
-  in k root
+withRootContainer :: Env -> (RootContainer -> IO a) -> IO a
+withRootContainer ev k = k RootContainer
+  { appConfig                 = appConf ev
+  , centralApiContainer       = CA.defaultContainer  pl 
+  , centralUiContainer        = CU.defaultContainer
+  , projectApiContainer       = PA.defaultContainer  pl
+  , projectUiContainer        = PU.defaultContainer  pl
+  , systemApiContainer        = SA.defaultContainer (appConf ev) 
+  , systemMiddlewareContainer = SM.defaultContainer (webConf cf) lg 
+  }
   where 
     cf = appConf ev
     lg = logger ev
     pl = pool ev
-
 

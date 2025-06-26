@@ -7,11 +7,13 @@
 
 module Domain.Project.Responder.ProjectCreate.Submit where
 
-import Common.Either                               (maybeToEither)
-import Control.Monad.Trans.Class                   (lift)
-import Control.Monad.Writer                        (runWriter
-                                                   , tell
+import Common.Validation                           ( (.$)
+                                                   , isThere 
+                                                   , isNotEmpty 
+                                                   , runValidation
+                                                   , ValidationErr
                                                    )
+import Control.Monad.Trans.Class                   (lift)
 import Control.Monad.Trans.Either                  (hoistEither, runEitherT)
 import Data.Aeson                                  ( (.=)
                                                    , encode
@@ -52,7 +54,7 @@ import qualified Domain.Project.Responder.ProjectCreate.View as
 data ProjectAddResult =
   MissingNodeStatus
   | MissingNodeType
-  | FormValidationFail [ValidationError]
+  | FormValidationFail [ValidationErr]
 
 data LocationResponseHeader = LocationResponseHeader
   { path   :: String 
@@ -67,8 +69,6 @@ data AddProjectPayload = AddProjectPayload
   { description :: T.Text
   , title       :: T.Text
   }
-
-type ValidationError = T.Text 
 
 handleProjectSubmit :: ConnectionPool -> Application 
 handleProjectSubmit pl req respond = do
@@ -109,23 +109,18 @@ redirectHeader =
         }
   in ("Hx-Location", toStrict hd)
 
-buildPayload :: V.AddProjectForm 
-  -> Either ProjectAddResult AddProjectPayload
-buildPayload fm =
-  let (pyl, ers) = runWriter $ do
-        descr <- do
-          case V.description fm of
-            Nothing -> tell ["Description is required"]     >> return Nothing
-            Just "" -> tell ["Description cannot be empty"] >> return Nothing
-            Just d  -> return $ Just d
-        ttl <- do
-          case V.title fm of
-            Nothing -> tell ["Title is required"]     >> return Nothing
-            Just "" -> tell ["Title cannot be empty"] >> return Nothing
-            Just t  -> return $ Just t
-        return $ AddProjectPayload <$> descr <*> ttl 
-  in maybeToEither (FormValidationFail ers) pyl
-        
+buildPayload :: V.AddProjectForm -> Either ProjectAddResult AddProjectPayload
+buildPayload fm = runValidation FormValidationFail $ do
+  dscr <- V.description fm 
+    .$  id
+    >>= isThere    "Description is required"
+    >>= isNotEmpty "Description cannot be empty"
+  ttl <- V.title fm 
+    .$  id
+    >>= isThere    "Title is required"
+    >>= isNotEmpty "Title cannot be empty"
+  return $ AddProjectPayload <$> dscr <*> ttl 
+
 insertProject :: 
   AddProjectPayload  
   -> UTCTime 

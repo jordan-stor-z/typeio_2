@@ -1,6 +1,6 @@
 module Main where
 
-import Platform.Web (start)
+import Platform.Web (main)
 
 main :: IO ()
-main = start 
+main = Platform.Web.main 

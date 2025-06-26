@@ -2,12 +2,17 @@
 
 module Config.Db where
 
-import Data.Aeson ((.=), ToJSON, toJSON, object)
-import Config.Load (ConfigError, getVal)
-import Control.Monad (when)
-import Control.Monad.Writer (tell, WriterT)
-import Data.Maybe (isNothing)
-import Text.Read (readMaybe)
+import Common.Validation    ( (.$) 
+                            , isThere
+                            , isNotEmpty
+                            , isBetween
+                            , ValidationErr
+                            , valRead
+                            )
+import Control.Monad.Writer (Writer)
+import Data.Aeson           ((.=), ToJSON, toJSON, object)
+import Data.Text            (pack)
+import System.Environment   (lookupEnv)
 
 keyDb :: String
 keyDb = "DB_DATABASE"
@@ -40,6 +45,19 @@ data DbConfig = DbConfig
   , user      :: String
   } deriving (Read, Show)
 
+data LookupDbConfig = LookupDbConfig 
+  { loadDatabase :: Maybe String
+  , loadHost     :: Maybe String
+  , loadPassword :: Maybe String
+  , loadPort     :: Maybe String
+  , loadPoolCount :: Maybe String 
+  , loadSchema   :: Maybe String
+  , loadUser     :: Maybe String
+  }
+
+loadDbConfig :: IO (Writer [ValidationErr] (Maybe DbConfig))
+loadDbConfig = validateConfig <$> lookupDbConfig
+
 instance ToJSON DbConfig where
   toJSON cfg =
     object [ "database"  .= database cfg
@@ -59,29 +77,52 @@ connStr cfg =
   " port="        <> dbPort cfg   <>
   " sslmode=disable"
 
-loadDbConfig :: WriterT [ConfigError] IO (Maybe DbConfig)
-loadDbConfig = do
-  nme <- getVal keyDb 
-  hst <- getVal keyHost
-  pss <- getVal keyPass 
-  prt <- getVal keyPort
-  scm <- getVal keySchema
-  usr <- getVal keyUser
-  plc <- getVal keyPoolCount >>= readPoolCount
-  return $ DbConfig 
-    <$> nme 
-    <*> hst 
-    <*> pss 
-    <*> prt 
-    <*> plc 
-    <*> scm
-    <*> usr 
+lookupDbConfig :: IO LookupDbConfig 
+lookupDbConfig = do
+  name  <- lookupEnv keyDb
+  host' <- lookupEnv keyHost
+  pass  <- lookupEnv keyPass
+  port  <- lookupEnv keyPort
+  plc   <- lookupEnv keyPoolCount
+  schma <- lookupEnv keySchema
+  user' <- lookupEnv keyUser
+  return $ LookupDbConfig name host' pass port plc schma user' 
 
-readPoolCount :: Maybe String -> WriterT [ConfigError] IO (Maybe Int)
-readPoolCount Nothing = return Nothing
-readPoolCount p = do
-  let i = p >>= readMaybe
-  when (isNothing i) $
-    tell ["Invalid pool count value: " ++ show p]
-  return i
-
+validateConfig :: LookupDbConfig -> Writer [ValidationErr] (Maybe DbConfig)
+validateConfig c = do
+  name  <- loadDatabase c
+          .$  id
+          >>= isThere     (er keyDb) 
+          >>= isNotEmpty  (er keyDb)
+  host' <- loadHost c
+           .$  id
+           >>= isThere    (er keyHost)
+           >>= isNotEmpty (er keyHost)
+  pass  <- loadPassword c
+           .$  id
+           >>= isThere    (er keyPass)
+           >>= isNotEmpty (er keyPass)
+  port  <- loadPort c
+           .$  id
+           >>= isThere    (er keyPort)
+           >>= isNotEmpty (er keyPort)
+  plct  <- loadPoolCount c
+           .$  id
+           >>= isThere        (er keyPoolCount)
+           >>= isNotEmpty     (er keyPoolCount)
+           >>= valRead        (pack keyPoolCount <> " must be a valid integer")
+           >>= isBetween 1 11 (pack keyPoolCount <> " must be between 1 and 10")
+  schma <- loadSchema c
+           .$  id
+           >>= isThere     (er keySchema)
+           >>= isNotEmpty  (er keySchema)
+  user' <- loadUser c
+            .$  id
+            >>= isThere    (er keyUser)
+            >>= isNotEmpty (er keyUser)
+  return $ DbConfig <$> name <*> host' <*> pass 
+                    <*> port <*> plct <*> schma 
+                    <*> user'
+  where
+    er k = pack k <> " is missing from environment config"
+  

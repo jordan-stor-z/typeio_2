@@ -97,27 +97,16 @@ type ProjectId = Text
 
 buildGraph' :: [Node] -> [Dependency] -> Graph 
 buildGraph' ns ds = 
-  let ls  = map (\d -> GraphLink (childNodeId d) (parentNodeId d)) ds
-      ns' = do
-        n <- ns
-        let pnd = nodeTypeId n == "project_root"
-        return $ GraphNode 
-          { graphNodeId = nodeId n
-          , label = pack $ nodeName n
-          , pinned = pnd
-          }
+  let ls  = map toLink ds
+      ns' = map toGNode ns 
   in Graph ns' ls 
-
-buildGraph :: [Node] -> [Dependency] -> [(ParentNode, [ChildNode])] 
-buildGraph ns ds = do
-        n <- ns
-        let cs = do
-              d <- ds
-              c <- ns
-              guard $ parentNodeId d == nodeId n
-              guard $ childNodeId d == nodeId c
-              return c 
-        return (n, cs) 
+  where
+    toLink d = GraphLink (childNodeId d) (parentNodeId d)
+    toGNode n = GraphNode 
+          { graphNodeId = nodeId n
+          , label       = pack $ nodeName n
+          , pinned      = nodeTypeId n == "project_root" 
+          }
 
 lastN :: [a] -> Int -> [a]
 lastN [] _ = []

@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-module Platform.Web (start) where
+module Platform.Web (main) where
 
 import Config.App               (AppConfig(..), loadConfig)
 import Config.Web               (WebConfig(..))
@@ -10,33 +8,25 @@ import Container.Root           (RootContainer)
 import Control.Exception        (SomeException, try)
 import Control.Monad.Cont       (runContT, ContT(..))
 import Environment.Env          (withEnv)
-import Network.HTTP.Types       (status404)
-import Network.Wai              ( Application
-                                , responseLBS
-                                , pathInfo
-                                , requestMethod
-                                )
+import Network.Wai              (Application)
 import Network.Wai.Handler.Warp (run)
 import Platform.Web.Middleware  (withMiddleware)
-import Platform.Web.Router      (appRoutes, rootTree)
+import Platform.Web.Router      (routeRequest)
 
 loadDotEnv :: IO ()
 loadDotEnv = do
   _ <- try $ loadFile defaultConfig :: IO (Either SomeException ())
   return ()
 
-start :: IO ()
-start = do
+main :: IO ()
+main = do
   loadDotEnv
   cfg <- loadConfig
-  withApp cfg $ run (port . webConf $ cfg) 
+  withApp cfg $ run (pt cfg) 
+  where pt = port . webConf
 
 app :: RootContainer -> Application
-app ctn req res = do 
-  let t = rootTree ctn req
-  print "ROUTES ::::::"
-  print t
-  appRoutes ctn req res
+app = routeRequest 
   
 withApp :: AppConfig -> (Application -> IO r) -> IO r
 withApp cfg = runContT $ do

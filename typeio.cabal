@@ -40,7 +40,6 @@ library src
       , Common.Web.Validation
       , Config.App
       , Config.Db
-      , Config.Load
       , Config.Web
       , Container.Build
       , Container.Root

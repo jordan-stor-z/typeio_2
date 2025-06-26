@@ -2,14 +2,16 @@
 
 module Config.App where
 
+import Common.Validation    ( (.$)
+                            , isThere
+                            , valRead
+                            , runValidation
+                            , ValidationErr)
 import Config.Db            (DbConfig, loadDbConfig)
-import Config.Load          (ConfigError, getVal) 
 import Config.Web           (WebConfig(..), loadWebConfig)
-import Control.Monad.Writer (runWriterT, WriterT, tell)
-import Control.Monad        (when)
-import Data.Maybe           (isNothing)
 import Data.Aeson           ((.=), ToJSON, toJSON, object)
-import Text.Read            (readMaybe)
+import Data.Text            (pack, unpack)
+import System.Environment   (lookupEnv)
 
 keyEnv :: String
 keyEnv = "ENV"
@@ -33,27 +35,28 @@ data EnvironmentName = Local | Development | Production
 instance ToJSON EnvironmentName where
   toJSON = toJSON . show
 
-loadAppConfig :: WriterT [ConfigError] IO (Maybe AppConfig) 
+loadAppConfig :: IO (Either [ValidationErr] AppConfig)
 loadAppConfig = do
-  ev <- getVal keyEnv >>= readEnv
-  db <- loadDbConfig
-  wb <- loadWebConfig
-  return $ AppConfig <$> ev <*> db <*> wb
-
+  env <- lookupEnv keyEnv 
+  db  <- loadDbConfig
+  web <- loadWebConfig
+  return $ runValidation id $ do
+    env' <- env
+           .$ id 
+           >>= isThere (er keyEnv) 
+           >>= valRead "Invalid environment value"
+    db'  <- db
+    web' <- web
+    return $ AppConfig <$> env' <*> db' <*> web'
+  where
+    er k = pack k <> " is missing from environment config"
+    
 loadConfig :: IO AppConfig
 loadConfig = do 
-  (config, errors) <- runWriterT loadAppConfig
-  case config of
-    Nothing  -> error $ "Failed to load configuration: " ++ unlines errors
-    Just cfg -> return cfg
-
-readEnv :: Maybe String -> WriterT [ConfigError] IO (Maybe EnvironmentName)
-readEnv Nothing = return Nothing
-readEnv em = do
-  let ev = em >>= readMaybe
-  when (isNothing ev) $
-    tell ["Invalid environment value: " ++ show em] 
-  return ev
+  res <- loadAppConfig
+  case res of
+    Left  errs -> error $ "Failed to load configuration: " ++ (unlines . map unpack $ errs)
+    Right c    -> return c
 
 webDefaultPath :: AppConfig -> String
 webDefaultPath = indexRedirect . webConf

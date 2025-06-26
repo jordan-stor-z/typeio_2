@@ -2,9 +2,8 @@
 module Common.Either where
 
 import qualified Data.HashMap.Strict as H
+import Data.Hashable (Hashable)
 import Data.Text (Text)
-import Network.Wai (Application)
-import Clay (a)
 
 listToEither :: a -> [b] -> Either a b
 listToEither e []    = Left e
@@ -14,34 +13,34 @@ maybeToEither :: a -> Maybe b -> Either a b
 maybeToEither e Nothing  = Left e
 maybeToEither _ (Just x) = Right x
 
-data Tree a = Branch (H.HashMap Text (Tree a)) | Node a
+data Tree k a = Branch (H.HashMap k (Tree k a)) | Node a
 
-instance Show (Tree a) where
+instance Show k => Show (Tree k a) where
   show (Branch h) = show h
-  show (Node _) = "Node"
+  show (Node _)   = "Node"
 
-(<+>) :: Tree a -> Text -> Tree a -> Tree a
+(<+>) :: Hashable k => Tree k a -> k -> Tree k a -> Tree k a
 t <+> txt = addT t txt
 
-(-<) :: (Tree a -> Tree a) -> Tree a -> Tree a
+(-<) :: (Tree k a -> Tree k a) -> Tree k a -> Tree k a
 fn -< tr = fn tr
 
-(-|) :: (Tree a -> Tree a) -> a -> Tree a
+(-|) :: (Tree k a -> Tree k a) -> a -> Tree k a
 fn -| x = fn -< Node x
 
-addT :: Tree a -> Text -> Tree a -> Tree a  
+addT :: Hashable k => Tree k a -> k -> Tree k a -> Tree k a  
 addT (Branch h1) txt tr = Branch $ H.insert txt tr h1
 addT (Node x) _ _ = Node x
 
-emptyT :: Tree a
+emptyT :: Tree k a
 emptyT = Branch H.empty
 
-findPath :: [Text] -> Tree a -> Maybe a
+findPath :: Hashable k => [k] -> Tree k a -> Maybe a
 findPath _ (Node x) = Just x
 findPath [] _       = Nothing
 findPath (p:ps) (Branch h) = H.lookup p h >>= findPath ps
 
-z :: Tree Int
+z :: Tree Text Int
 z = emptyT 
   `addT` "something" $ undefined
   `addT` "else" $ undefined
