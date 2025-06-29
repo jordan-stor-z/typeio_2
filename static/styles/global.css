@@ -130,3 +130,8 @@ body {
   color:  var(--text-secondary);
   cursor: pointer;
 }
+
+.nav-target:hover {
+  background-color: var(--accent-light);
+  cursor: pointer;
+}

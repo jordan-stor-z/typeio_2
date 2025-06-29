@@ -51,6 +51,7 @@ library src
       , Domain.Central.Container.Ui
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Node
+      , Domain.Project.Responder.ProjectManage.Graph
       , Domain.Project.Responder.ProjectManage.View
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.NodeStatus

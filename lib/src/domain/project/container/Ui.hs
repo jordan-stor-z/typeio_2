@@ -4,8 +4,9 @@ import Database.Persist.Sql (ConnectionPool)
 import Domain.Project.Responder.ProjectIndex.List    (handleProjectList)
 import Domain.Project.Responder.ProjectIndex.View    (handleProjectView)
 import Domain.Project.Responder.ProjectCreate.Submit (handleProjectSubmit)
-import Domain.Project.Responder.ProjectCreate.View (handleProjectCreateVw)
-import Domain.Project.Responder.ProjectManage.View (handleProjectManageView)
+import Domain.Project.Responder.ProjectCreate.View   (handleProjectCreateVw)
+import Domain.Project.Responder.ProjectManage.View   (handleProjectManageView)
+import Domain.Project.Responder.ProjectManage.Graph  (handleProjectGraph)
 import Network.Wai (Application, Response, ResponseReceived)
 
 data ProjectUiContainer = ProjectUiContainer
@@ -13,6 +14,7 @@ data ProjectUiContainer = ProjectUiContainer
   , projectList     :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   , createProjectVw :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   , manageProjectVw :: Application
+  , getProjectGraph :: Application
   , submitProject   :: Application 
   }
 
@@ -21,6 +23,7 @@ defaultContainer cpl = ProjectUiContainer
   { projectIndexVw  = handleProjectView
   , projectList     = handleProjectList cpl
   , createProjectVw = handleProjectCreateVw 
-  , manageProjectVw = handleProjectManageView cpl
+  , manageProjectVw = handleProjectManageView
+  , getProjectGraph = handleProjectGraph cpl
   , submitProject   = handleProjectSubmit cpl
   }

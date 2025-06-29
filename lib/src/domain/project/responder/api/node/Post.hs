@@ -114,7 +114,7 @@ validateForm fm = runValidation FailValidation $ do
             >>= isThere    "Description is required"
             >>= isNotEmpty "Description cannot be empty"
     pid <- formProjectId fm
-            .$  decodeUtf8
+            .$  (unpack . decodeUtf8)
             >>= isThere    "Project id is required"
             >>= isNotEmpty "Project id cannot be empty"
             >>= valRead    "Project id must be valid integer" 

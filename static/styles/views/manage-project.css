@@ -37,3 +37,8 @@
   text-anchor: middle;
   pointer-events: none;
 }
+
+#tree-container {
+  height: 800px;
+  width: 80%;
+}

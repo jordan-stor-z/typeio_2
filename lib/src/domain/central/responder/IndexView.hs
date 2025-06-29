@@ -17,7 +17,7 @@ handleIndexView path res = do
 
 indexTemplate :: Text -> Html ()
 indexTemplate path = html_ $ do
-  let l = "something" :: Html ()
+  let l = mempty :: Html ()
   head_ $ do
     title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]

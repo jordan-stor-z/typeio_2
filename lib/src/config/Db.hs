@@ -3,6 +3,7 @@
 module Config.Db where
 
 import Common.Validation    ( (.$) 
+                            , errcat
                             , isThere
                             , isNotEmpty
                             , isBetween
@@ -11,7 +12,6 @@ import Common.Validation    ( (.$)
                             )
 import Control.Monad.Writer (Writer)
 import Data.Aeson           ((.=), ToJSON, toJSON, object)
-import Data.Text            (pack)
 import System.Environment   (lookupEnv)
 
 keyDb :: String
@@ -46,17 +46,17 @@ data DbConfig = DbConfig
   } deriving (Read, Show)
 
 data LookupDbConfig = LookupDbConfig 
-  { loadDatabase :: Maybe String
-  , loadHost     :: Maybe String
-  , loadPassword :: Maybe String
-  , loadPort     :: Maybe String
-  , loadPoolCount :: Maybe String 
-  , loadSchema   :: Maybe String
-  , loadUser     :: Maybe String
-  }
+  { database'  :: Maybe String
+  , host'      :: Maybe String
+  , password'  :: Maybe String
+  , port'      :: Maybe String
+  , poolCount' :: Maybe String 
+  , schema'    :: Maybe String
+  , user'      :: Maybe String
+  } deriving (Show)
 
 loadDbConfig :: IO (Writer [ValidationErr] (Maybe DbConfig))
-loadDbConfig = validateConfig <$> lookupDbConfig
+loadDbConfig = validateConfig <$> lookupConfig 
 
 instance ToJSON DbConfig where
   toJSON cfg =
@@ -77,52 +77,34 @@ connStr cfg =
   " port="        <> dbPort cfg   <>
   " sslmode=disable"
 
-lookupDbConfig :: IO LookupDbConfig 
-lookupDbConfig = do
-  name  <- lookupEnv keyDb
-  host' <- lookupEnv keyHost
-  pass  <- lookupEnv keyPass
-  port  <- lookupEnv keyPort
-  plc   <- lookupEnv keyPoolCount
-  schma <- lookupEnv keySchema
-  user' <- lookupEnv keyUser
-  return $ LookupDbConfig name host' pass port plc schma user' 
+lookupConfig :: IO LookupDbConfig
+lookupConfig = LookupDbConfig 
+  <$> lookupEnv keyDb
+  <*> lookupEnv keyHost
+  <*> lookupEnv keyPass
+  <*> lookupEnv keyPort 
+  <*> lookupEnv keyPoolCount 
+  <*> lookupEnv keySchema
+  <*> lookupEnv keyUser 
 
 validateConfig :: LookupDbConfig -> Writer [ValidationErr] (Maybe DbConfig)
 validateConfig c = do
-  name  <- loadDatabase c
-          .$  id
-          >>= isThere     (er keyDb) 
-          >>= isNotEmpty  (er keyDb)
-  host' <- loadHost c
-           .$  id
-           >>= isThere    (er keyHost)
-           >>= isNotEmpty (er keyHost)
-  pass  <- loadPassword c
-           .$  id
-           >>= isThere    (er keyPass)
-           >>= isNotEmpty (er keyPass)
-  port  <- loadPort c
-           .$  id
-           >>= isThere    (er keyPort)
-           >>= isNotEmpty (er keyPort)
-  plct  <- loadPoolCount c
-           .$  id
-           >>= isThere        (er keyPoolCount)
-           >>= isNotEmpty     (er keyPoolCount)
-           >>= valRead        (pack keyPoolCount <> " must be a valid integer")
-           >>= isBetween 1 11 (pack keyPoolCount <> " must be between 1 and 10")
-  schma <- loadSchema c
-           .$  id
-           >>= isThere     (er keySchema)
-           >>= isNotEmpty  (er keySchema)
-  user' <- loadUser c
-            .$  id
-            >>= isThere    (er keyUser)
-            >>= isNotEmpty (er keyUser)
-  return $ DbConfig <$> name <*> host' <*> pass 
+  name  <- database'  c .$ id >>= isPresent keyDb
+  hst   <- host'      c .$ id >>= isPresent keyHost
+  pass  <- password'  c .$ id >>= isPresent keyPass
+  port  <- port'      c .$ id >>= isPresent keyPort
+  plct  <- poolCount' c .$ id >>= isPresent keyPoolCount
+                              >>= valRead 
+                                (errcat keyPoolCount " must be a valid integer")
+                              >>= isBetween 1 11 
+                                (errcat keyPoolCount " must be between 1 and 10")
+  schma <- schema'    c .$ id >>= isPresent keySchema
+  usr   <- user'      c .$ id >>= isPresent keyUser
+  return $ DbConfig <$> name <*> hst <*> pass 
                     <*> port <*> plct <*> schma 
-                    <*> user'
+                    <*> usr 
   where
-    er k = pack k <> " is missing from environment config"
+    er k = errcat k " is missing from environment config"
+    isPresent :: String -> Maybe String -> Writer [ValidationErr] (Maybe String)
+    isPresent k m = isNotEmpty (er k) m >>= isThere (er k) 
   

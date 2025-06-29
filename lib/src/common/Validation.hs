@@ -6,7 +6,7 @@ import Control.Monad             (when)
 import Control.Monad.Writer      (runWriter, tell, Writer)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT, hoistMaybe)
-import Data.Text                 (Text)
+import Data.Text                 (pack, Text)
 import Text.Read                 (readMaybe)
 
 type ErrMsg = Text
@@ -31,12 +31,13 @@ isNotEmpty e m = runMaybeT $ do
     lift $ tell [e]
   return v
 
-valRead :: (Read b, Show a) 
+valRead :: Read b  
   => ErrMsg
-  -> Maybe a
+  -> Maybe String
   -> Writer [ValidationErr] (Maybe b)
+valRead _ Nothing = return Nothing
 valRead e m = do
-  let r = m >>= readMaybe . show
+  let r = m >>= readMaybe
   case r of
     Nothing -> tell [e] >> return Nothing
     Just x  -> return $ Just x
@@ -58,3 +59,5 @@ runValidation f w =
     (_, es)       -> Left $ f es
   where res = runWriter w
 
+errcat :: String -> Text -> ErrMsg
+errcat s t = pack s <> t

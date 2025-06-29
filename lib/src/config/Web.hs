@@ -52,6 +52,8 @@ lookupWebConfig :: IO LookupWebConfig
 lookupWebConfig = do
   redir <- lookupEnv webIndexRedirect
   port' <- lookupEnv webPort
+  print "PORT ::::"
+  print port'
   reqid <- lookupEnv webRequestIdHeader
   return $ LookupWebConfig 
     { loadIndexRedirect   = redir
@@ -66,13 +68,14 @@ validateConfig c = do
            >>= isThere (er webIndexRedirect)
   port' <- loadPort c
             .$ id
-            >>= isNotEmpty (er webPort)
-            >>= valRead (er webPort)
+            >>= isThere           (er webPort)
+            >>= isNotEmpty        (er webPort)
+            >>= valRead           "WEB_PORT must be a valid integer"
             >>= isBetween 1 65535 (er webPort)
   reqid <- loadRequestIdHeader c
             .$ id
-            >>= isNotEmpty (er webRequestIdHeader)
             >>= isThere (er webRequestIdHeader)
+            >>= isNotEmpty (er webRequestIdHeader)
   return $ WebConfig <$> redir <*> port'  <*> (mk . B.pack <$> reqid)
   where
     er k = pack k <> " is missing from environment config"

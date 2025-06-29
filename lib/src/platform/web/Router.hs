@@ -40,7 +40,7 @@ routeRequest ctn req = fromMaybe (notFound req) $
   findPath pth (rootTree ctn req) 
     >>= findPath [mth]
   where 
-    pth = pathInfo req
+    pth = pathInfo req <|> [""]
     mth = requestMethod req
 
 notFound :: Application
@@ -85,8 +85,8 @@ systemApiTree ctn _ = emptyT
 
 uiTree :: RootContainer -> Request -> RouteTree
 uiTree ctn req = emptyT
-  <+> "projects"       -< projectIndexUiTree prjCtn req
-  <+> "create-project" -< addProjectUiTree prjCtn req
+  <+> "projects"       -< projectIndexUiTree  prjCtn req
+  <+> "create-project" -< addProjectUiTree    prjCtn req
   <+> "project"        -< manageProjectUiTree prjCtn req 
   where
     prjCtn = projectUiContainer ctn
@@ -103,7 +103,8 @@ addProjectUiTree ctn req = emptyT
 
 manageProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
-  <+> "vw" -| only "GET" (manageProjectVw ctn req)
+  <+> "vw"    -| only "GET"  (manageProjectVw ctn req)
+  <+> "graph" -| only "GET" (getProjectGraph ctn req)
 
 index :: RootContainer 
   -> Text 

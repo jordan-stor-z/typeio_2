@@ -7,9 +7,11 @@
 module Domain.Project.Responder.ProjectIndex.List where
 
 import Lucid
+import Common.Web.Attributes
 import Control.Monad                   (forM_)
 import Control.Monad.Reader            (ReaderT)
 import Data.Int                        (Int64)
+import Data.Text                       (pack, Text)
 import Data.Time                       (UTCTime)
 import Database.Esqueleto.Experimental ( desc
                                        , from
@@ -73,12 +75,25 @@ templateList ps = div_ [class_ "view"] $ do
     forM_ ps $ \item -> do
       templateProjectItem item
 
+projectLink :: Int64 -> Text
+projectLink = (<>) "/ui/project/vw/" . pack . show
+
 templateProjectItem :: ProjectItem -> Html ()
 templateProjectItem item = do
-  div_ [id_ "project-item"] $ do
-    span_ [class_ "id"] (toHtml . show . projectId $ item)
+  div_ [ id_        "project-item"
+       , class_     "nav-target"
+       , hxGet_     (projectLink . projectId $ item)
+       , hxPushUrl_ True
+       , hxSwap_    "innerHTML"
+       , hxTarget_  "#container"
+       , hxTrigger_ "click"
+       ] $ do
+    span_ [class_ "id"] (display' . projectId $ item)
     div_  [class_ "content"] $ do
       h3_   (toHtml . title $ item)
       span_ (toHtml . description $ item)
       br_ []
-      span_ (("Updated: " <>) . toHtml . show . lastUpdated $ item)
+      span_ (("Updated: " <>) . display' . lastUpdated $ item)
+  where 
+    display' :: Show a => a -> Html ()
+    display' = toHtml . show
