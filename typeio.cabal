@@ -43,6 +43,7 @@ library src
       , Config.Web
       , Container.Build
       , Container.Root
+      , Data.HashTree
       , Database.Init
       , Database.Logging
       , Domain.Central.Responder.IndexView

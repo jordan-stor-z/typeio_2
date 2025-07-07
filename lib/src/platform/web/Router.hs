@@ -5,7 +5,13 @@
 module Platform.Web.Router where
 
 import Config.App                   (webDefaultPath)
-import Common.Either ((-<), (<+>), (-|), Tree(..), addT, emptyT, findPath)
+import Data.HashTree                ( (-<)
+                                    , (<+>)
+                                    , (-|)
+                                    , HashTree(..)
+                                    , emptyT
+                                    , findPath
+                                    )
 import Container.Root               (RootContainer(..))
 import Data.Maybe                   (fromMaybe)
 import Data.Text                    (pack, Text)
@@ -18,9 +24,10 @@ import Control.Applicative ((<|>))
 import Network.HTTP.Types           (status404, Method)
 import Network.Wai                  (Application, pathInfo, Request, requestMethod, Response, ResponseReceived, responseLBS)
 
-type RouteTree = Tree Text MethodTree 
+type RouteTree = HashTree Text MethodTree 
+
 type MethodTree = 
-  Tree Method ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+  HashTree Method ((Response -> IO ResponseReceived) -> IO ResponseReceived)
 
 routes :: RouteTree
 routes = emptyT
@@ -77,7 +84,6 @@ projectApiTree ctn req = emptyT
   <+> "node-types"    -| only "GET" (apiGetNodeTypes ctn)
   <+> "node-statuses" -| only "GET" (apiGetNodeStatuses ctn)
   <+> "projects"      -| only "GET" (apiGetProjects ctn)
-
 
 systemApiTree :: SystemApiContainer -> Request -> RouteTree
 systemApiTree ctn _ = emptyT
