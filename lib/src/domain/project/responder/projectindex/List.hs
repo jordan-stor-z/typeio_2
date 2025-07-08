@@ -76,7 +76,7 @@ templateList ps = div_ [class_ "view"] $ do
       templateProjectItem item
 
 projectLink :: Int64 -> Text
-projectLink = (<>) "/ui/project/vw/" . pack . show
+projectLink = (<>) "/ui/project/vw?projectId=" . pack . show
 
 templateProjectItem :: ProjectItem -> Html ()
 templateProjectItem item = do

@@ -1,0 +1,116 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+
+module Domain.Project.Responder.ProjectManage.NodeDetail where
+
+import Common.Validation      ( (.$)
+                               , isThere 
+                               , isNotEmpty 
+                               , runValidation
+                               , ValidationErr
+                               , valRead
+                               )
+import Common.Web.Query        (lookupVal)
+import Control.Monad.Reader    (ReaderT)
+import Data.Aeson              (encode, object, (.=))
+import Data.Maybe              (listToMaybe)
+import Data.Int                (Int64)
+import Data.Text               (Text, pack, unpack)
+import Data.Time               (UTCTime)
+import Database.Esqueleto.Experimental ( (==.)
+                               , from
+                               , limit
+                               , select
+                               , table
+                               , val
+                               , where_
+                               )
+import Database.Persist        (Entity(..))
+import Database.Persist.Sql    (ConnectionPool, fromSqlKey, SqlBackend, toSqlKey)
+import Lucid                   (renderBS)
+import Network.HTTP.Types      (status200, status403)
+import Network.Wai             (Application, queryString, responseLBS)
+import Network.HTTP.Types.URI  (QueryText, queryToQueryText)
+import qualified Domain.Project.Model as M
+
+data Node = Node
+  { nodeId          :: Int64
+  , nodeTitle       :: Text
+  , nodeDescription :: Text
+  , nodeStatusId    :: Text
+  , nodeTypeId      :: Text 
+  , nodeUpdated     :: UTCTime
+  }
+
+data GetNodeDetailForm = GetNodeDetailForm
+  { formProjectId :: Maybe Text 
+  , formNodeId    :: Maybe Text 
+  }
+
+data GetNodeDetailPayload = GetNodeDetailPayload
+  { payloadProjectId :: Int64
+  , payloadNodeId    :: Int64
+  }
+
+validateForm :: GetNodeDetailForm -> Either [ValidationErr] GetNodeDetailPayload
+validateForm fm = runValidation id $ do
+  pid <- formProjectId fm 
+    .$ unpack
+    >>= isThere    "Project id must be present"
+    >>= isNotEmpty "Project id must have a value"
+    >>= valRead    "Project id must be valid integer"
+  nid <- formNodeId fm
+    .$ unpack
+    >>= isThere    "Node id must be present"
+    >>= isNotEmpty "Node id must have a value"
+    >>= valRead    "Node id must be valid integer"
+  return $ GetNodeDetailPayload <$> pid <*> nid 
+
+queryToForm :: QueryText -> GetNodeDetailForm
+queryToForm qt = GetNodeDetailForm
+  { formProjectId = lookupVal "projectId" qt
+  , formNodeId    = lookupVal "nodeId" qt
+  }
+
+handleProjectManageView :: ConnectionPool -> Application
+handleProjectManageView pl req respond = do
+  let py = validateForm 
+         . queryToForm 
+         . queryToQueryText 
+         . queryString 
+         $ req
+  case py of
+    Left er   -> respondBadProjectId (pack . unlines . fmap unpack $ er)
+    Right pid -> do
+      respond $ responseLBS
+        status200 
+        [("Content-Type", "text/html")]
+        (renderBS $ undefined pid)
+  where
+    respondBadProjectId er = respond $ responseLBS
+      status403
+      [("Content-Type", "application/json")]
+      (encode $ object ["error" .= ("Invalid project ID\n" <> er :: Text)])
+
+toNodeSchema :: Entity M.Node -> Node
+toNodeSchema (Entity k e) = Node 
+  { nodeId          = fromSqlKey k
+  , nodeTitle       = pack . M.nodeTitle $ e
+  , nodeDescription = pack . M.nodeDescription $ e
+  , nodeStatusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
+  , nodeTypeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+  , nodeUpdated     = M.nodeUpdated e
+  }
+
+queryNode :: Int64 -> ReaderT SqlBackend IO [Node] 
+queryNode nid = do
+  let nkey = toSqlKey @M.Node nid 
+  ns <-  select $ do
+    n <- from $ table @M.Node
+    where_ (n.id ==. val nkey)
+    limit 1
+    pure n
+  return $ toNodeSchema <$> ns

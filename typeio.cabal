@@ -36,6 +36,7 @@ library src
       Common.Either
       , Common.Validation
       , Common.Web.Attributes
+      , Common.Web.Query
       , Common.Web.Template.MainHeader
       , Common.Web.Validation
       , Config.App
@@ -52,7 +53,9 @@ library src
       , Domain.Central.Container.Ui
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Node
+      , Domain.Project.Responder.ProjectManage.Core
       , Domain.Project.Responder.ProjectManage.Graph
+      , Domain.Project.Responder.ProjectManage.NodeDetail
       , Domain.Project.Responder.ProjectManage.View
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.NodeStatus

@@ -25,7 +25,7 @@ renderIndexMiddleware ct app req respond =
     isVwPath     = isView path 
     in 
       if isVwPath && (not isHx || isHxRestore) then 
-        indexView ct (toPathText path) respond 
+        indexView ct (toPathText path) req respond 
       else
         app req respond
   where

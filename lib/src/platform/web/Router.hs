@@ -55,7 +55,7 @@ notFound _ res = res $ responseLBS status404 [] "Not Found"
 
 rootTree :: RootContainer -> Request -> RouteTree 
 rootTree ctn req = emptyT 
-  <+> ""    -| only "GET" (index ctn dp)
+  <+> ""    -| only "GET" (index ctn dp req)
   <+> "api" -< apiTree ctn req
   <+> "ui"  -< uiTree  ctn req
   where dp = pack . webDefaultPath . appConfig $ ctn
@@ -110,10 +110,10 @@ addProjectUiTree ctn req = emptyT
 manageProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
   <+> "vw"    -| only "GET"  (manageProjectVw ctn req)
-  <+> "graph" -| only "GET" (getProjectGraph ctn req)
+  <+> "graph" -| only "GET"  (getProjectGraph ctn req)
 
 index :: RootContainer 
   -> Text 
-  -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+  -> Application 
 index = indexView . centralUiContainer 
 

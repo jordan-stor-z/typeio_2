@@ -7,9 +7,16 @@
 module Domain.Project.Responder.ProjectManage.Graph where
 
 import Lucid
+import Common.Validation    ( (.$)
+                            , isNotEmpty
+                            , isThere
+                            , runValidation
+                            , ValidationErr
+                            , valRead
+                            )
+import Common.Web.Query (lookupVal)
 import Control.Monad.Reader (ReaderT)
 import Data.Aeson           (encode, ToJSON(..), (.=), object)
-import Data.Maybe           (listToMaybe)
 import Data.Int             (Int64)
 import Data.Text            (pack, Text, unpack)
 import Data.Time.Clock      (UTCTime)
@@ -26,9 +33,9 @@ import Database.Esqueleto.Experimental ( from
                                        )
 import Database.Persist     (Entity(..))
 import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
-import Network.HTTP.Types   (status200, status403)
-import Network.Wai          (Application, pathInfo, responseLBS)
-import Text.Read            (readMaybe)
+import Network.HTTP.Types   (status200, status403, QueryText, queryToQueryText)
+import Network.Wai          (Application, responseLBS, Request (queryString))
+import Domain.Project.Responder.ProjectManage.Core   (queryProjectId)
 import qualified Domain.Project.Model as M ( Dependency(..)
                                            , Node(..)
                                            , Project(..)
@@ -111,11 +118,13 @@ lastN xs count = reverse . take count . reverse $ xs
 
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
-  let ps = listToMaybe . lastN (pathInfo req) $ 1
-      pM = ps >>= (readMaybe . unpack) :: Maybe Int64
-  case pM of
-    Nothing  -> respondBadProjectId
-    Just pid -> do
+  let pidE = queryProjectId 
+             . queryToQueryText 
+             . queryString 
+             $ req
+  case pidE of
+    Left _    -> respondBadProjectId
+    Right pid -> do
       (ns, ds) <- flip runSqlPool pl $ do 
         n <- queryNodes pid
         d <- queryDependencies $ map nodeId n

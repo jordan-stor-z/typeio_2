@@ -4,20 +4,30 @@ module Domain.Central.Responder.IndexView where
 
 import Lucid 
 import Common.Web.Attributes
-import Data.Text          (Text)
+import Data.Maybe (fromMaybe, listToMaybe)
+import Data.List  (intersperse)
+import Data.Text  (Text)
 import Network.HTTP.Types (status200)
-import Network.Wai        (Response, responseLBS, ResponseReceived)
+import Network.HTTP.Types.URI         (QueryText, queryToQueryText)
+import Network.Wai        (Application, queryString, Response, responseLBS, ResponseReceived)
 
-handleIndexView :: Text -> (Response -> IO ResponseReceived) -> IO ResponseReceived
-handleIndexView path res = do 
+queryTextToText :: QueryText -> Maybe Text
+queryTextToText [] = Nothing
+queryTextToText qs = Just $ foldr (\(k, v) acc -> 
+  acc <> k <> "=" <> fromMaybe "" v <> "&") "?" qs
+
+handleIndexView :: Text -> Application 
+handleIndexView path req res = do 
+  let qs = queryTextToText . queryToQueryText . queryString $ req
   res $ responseLBS
     status200
     [("Content-Type", "text/html; charset=utf-8")]
-    (renderBS . indexTemplate $ path)
+    (renderBS . indexTemplate path $ qs)
 
-indexTemplate :: Text -> Html ()
-indexTemplate path = html_ $ do
-  let l = mempty :: Html ()
+indexTemplate :: Text -> Maybe Text -> Html ()
+indexTemplate path qs = html_ $ do
+  let l   = mempty :: Html ()
+      lnk = maybe path (path <>) qs
   head_ $ do
     title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
@@ -26,7 +36,7 @@ indexTemplate path = html_ $ do
   body_ $ do
     div_ 
       [ id_           "container"
-      , hxGet_        path
+      , hxGet_        lnk 
       , hxTrigger_    "load"
       , hxReplaceUrl_ True
       , hxSwap_       "innerHTML"
