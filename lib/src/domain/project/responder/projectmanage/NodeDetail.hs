@@ -6,20 +6,23 @@
 
 module Domain.Project.Responder.ProjectManage.NodeDetail where
 
-import Common.Validation      ( (.$)
-                               , isThere 
-                               , isNotEmpty 
-                               , runValidation
-                               , ValidationErr
-                               , valRead
-                               )
-import Common.Web.Query        (lookupVal)
-import Control.Monad.Reader    (ReaderT)
-import Data.Aeson              (encode, object, (.=))
-import Data.Maybe              (listToMaybe)
-import Data.Int                (Int64)
-import Data.Text               (Text, pack, unpack)
-import Data.Time               (UTCTime)
+import Common.Either             (listToEither, maybeToEither)
+import Common.Validation         ( (.$)
+                                  , isThere 
+                                  , isNotEmpty 
+                                  , runValidation
+                                  , ValidationErr
+                                  , valRead
+                                  )
+import Common.Web.Query           (lookupVal)
+import Control.Monad.Trans.Class  (lift)
+import Control.Monad.Trans.Either (hoistEither, runEitherT)
+import Control.Monad.Reader       (ReaderT)
+import Data.Aeson                 (encode, object, (.=))
+import Data.Maybe                 (listToMaybe)
+import Data.Int                   (Int64)
+import Data.Text                  (Text, pack, unpack)
+import Data.Time                  (UTCTime)
 import Database.Esqueleto.Experimental ( (==.)
                                , from
                                , limit
@@ -29,12 +32,16 @@ import Database.Esqueleto.Experimental ( (==.)
                                , where_
                                )
 import Database.Persist        (Entity(..))
-import Database.Persist.Sql    (ConnectionPool, fromSqlKey, SqlBackend, toSqlKey)
+import Database.Persist.Sql    (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
 import Lucid                   (renderBS)
 import Network.HTTP.Types      (status200, status403)
 import Network.Wai             (Application, queryString, responseLBS)
 import Network.HTTP.Types.URI  (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
+
+data NodeDetailError = 
+  InvalidParams [ValidationErr]
+  | NodeNotFound
 
 data Node = Node
   { nodeId          :: Int64
@@ -55,8 +62,8 @@ data GetNodeDetailPayload = GetNodeDetailPayload
   , payloadNodeId    :: Int64
   }
 
-validateForm :: GetNodeDetailForm -> Either [ValidationErr] GetNodeDetailPayload
-validateForm fm = runValidation id $ do
+validateForm :: GetNodeDetailForm -> Either NodeDetailError GetNodeDetailPayload
+validateForm fm = runValidation InvalidParams $ do
   pid <- formProjectId fm 
     .$ unpack
     >>= isThere    "Project id must be present"
@@ -77,18 +84,26 @@ queryToForm qt = GetNodeDetailForm
 
 handleProjectManageView :: ConnectionPool -> Application
 handleProjectManageView pl req respond = do
-  let py = validateForm 
-         . queryToForm 
+  let fm = queryToForm 
          . queryToQueryText 
          . queryString 
          $ req
-  case py of
-    Left er   -> respondBadProjectId (pack . unlines . fmap unpack $ er)
-    Right pid -> do
+  res <- runEitherT $ do
+       py <- hoistEither $ validateForm fm
+       nd <- lift 
+             . flip runSqlPool pl 
+             . queryNode 
+             . payloadNodeId 
+             $ py
+       hoistEither nd 
+  case res of
+    Left (InvalidParams es) -> respondBadProjectId (pack . unlines . fmap unpack $ es)
+    Left NodeNotFound       -> respondBadProjectId "Node not found"
+    Right py -> do
       respond $ responseLBS
         status200 
         [("Content-Type", "text/html")]
-        (renderBS $ undefined pid)
+        (renderBS undefined)
   where
     respondBadProjectId er = respond $ responseLBS
       status403
@@ -105,12 +120,16 @@ toNodeSchema (Entity k e) = Node
   , nodeUpdated     = M.nodeUpdated e
   }
 
-queryNode :: Int64 -> ReaderT SqlBackend IO [Node] 
+queryNode :: Int64 -> ReaderT SqlBackend IO (Either NodeDetailError Node)
 queryNode nid = do
-  let nkey = toSqlKey @M.Node nid 
   ns <-  select $ do
     n <- from $ table @M.Node
     where_ (n.id ==. val nkey)
     limit 1
     pure n
-  return $ toNodeSchema <$> ns
+  return 
+    . listToEither NodeNotFound 
+    . fmap toNodeSchema 
+    $ ns
+  where 
+    nkey = toSqlKey @M.Node nid 
