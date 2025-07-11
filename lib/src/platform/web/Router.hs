@@ -111,6 +111,7 @@ manageProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
   <+> "vw"    -| only "GET"  (manageProjectVw ctn req)
   <+> "graph" -| only "GET"  (getProjectGraph ctn req)
+  <+> "node"  -| only "GET"  (getNodeDetail ctn req)
 
 index :: RootContainer 
   -> Text 

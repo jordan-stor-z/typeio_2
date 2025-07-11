@@ -3,39 +3,76 @@
 module Domain.Project.Responder.ProjectManage.View where
 
 import Lucid
+import Common.Validation              ((.$)
+                                      , ValidationErr
+                                      , isNotEmpty
+                                      , isThere
+                                      , runValidation
+                                      , valRead
+                                      )
 import Common.Web.Attributes
 import Common.Web.Template.MainHeader (templateNavHeader)
-import Data.Aeson                     (encode, (.=), object)
+import Control.Monad                  (unless)
+import Data.Maybe                     (fromMaybe, isNothing)
 import Data.Int                       (Int64)
 import Data.Text                      (pack, Text, unpack)
-import Network.HTTP.Types             (status200, status403)
+import Network.HTTP.Types             (status200, status403, QueryText)
 import Network.Wai                    (Application, queryString, responseLBS)
-import Network.HTTP.Types.URI         (QueryText, queryToQueryText)
+import Network.HTTP.Types.URI         (queryToQueryText)
 import Domain.Project.Responder.ProjectManage.Core (queryProjectId)
+import Common.Web.Query (lookupVal)
 
+data ManageProjectForm = ManageProjectForm 
+  { formNodeId    :: Maybe Text
+  , formProjectId :: Maybe Text 
+  }
+
+data ManageProjectPayload = ManageProjectPayload
+  { payloadNodeId    :: Maybe Int64
+  , payloadProjectId :: Int64
+  }
+
+queryTextToForm :: QueryText -> ManageProjectForm
+queryTextToForm qt = ManageProjectForm
+  { formNodeId = lookupVal "nodeId" qt
+  , formProjectId = lookupVal "projectId" qt
+  }
+
+validateForm :: ManageProjectForm -> Either [ValidationErr] ManageProjectPayload
+validateForm fm = runValidation id $ do
+  pid <- formProjectId fm
+    .$ unpack
+    >>= isThere    "Project id is required"
+    >>= isNotEmpty "Project id must have value"
+    >>= valRead    "Project id must be valid integer"
+  nid <- formNodeId fm
+    .$ unpack
+    >>= valRead "Node id must be valid integer"
+  return $ ManageProjectPayload nid <$> pid
 
 handleProjectManageView :: Application
 handleProjectManageView req respond = do
-  let qt   = queryToQueryText . queryString $ req
-      pidE = queryProjectId qt
   case pidE of
-    Left er   -> respondBadProjectId (pack . unlines . fmap unpack $ er)
-    Right pid -> do
+    Left _   -> do
+      respond $ responseLBS
+        status403
+        [("Content-Type", "text/html")]
+        "Bad project id"
+    Right py -> do
       respond $ responseLBS
         status200 
         [("Content-Type", "text/html")]
-        (renderBS $ templateProject pid)
+        (renderBS $ templateProject py)
   where
-    respondBadProjectId er = respond $ responseLBS
-      status403
-      [("Content-Type", "application/json")]
-      (encode $ object ["error" .= ("Invalid project ID\n" <> er :: Text)])
+    pidE = validateForm 
+          . queryTextToForm 
+          . queryToQueryText 
+          . queryString 
+          $ req
 
-templateProject :: Int64 -> Html ()
-templateProject pid = do
+templateProject :: ManageProjectPayload -> Html ()
+templateProject py = do
   templateNavHeader "Project"
-  let empty     = mempty :: Html ()
-      graphLink = "/ui/project/graph" <> "?projectId=" <> (pack . show $ pid) 
   link_ [ rel_ "stylesheet"
         , href_ "/static/styles/views/manage-project.css"
         ]
@@ -49,3 +86,24 @@ templateProject pid = do
          ] empty
     div_ [ id_ "node-detail" 
          ] empty
+    case nidM of
+      Nothing  -> empty
+      Just nid -> do
+        div_ [ class_    "hidden" 
+             , hxGet_     (nodeLink nid)
+             , hxPushUrl_ False
+             , hxTarget_  "#node-detail"
+             , hxTrigger_ "load"
+             ] empty 
+  where
+    empty        = mempty :: Html ()
+    graphLink    = "/ui/project/graph" 
+                   <> "?projectId=" 
+                   <> pid 
+    nidM         = pack . show <$> payloadNodeId py
+    nodeLink nid = "/ui/project/node" 
+                   <> "?nodeId=" 
+                   <> nid
+                   <> "&projectId=" 
+                   <> pid
+    pid          = pack . show . payloadProjectId $ py

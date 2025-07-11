@@ -6,20 +6,20 @@
 
 module Domain.Project.Responder.ProjectManage.NodeDetail where
 
-import Common.Either             (listToEither, maybeToEither)
-import Common.Validation         ( (.$)
+import Lucid
+import Common.Either              (listToEither)
+import Common.Validation          ( (.$)
+                                  , isEq
                                   , isThere 
                                   , isNotEmpty 
                                   , runValidation
                                   , ValidationErr
                                   , valRead
                                   )
-import Common.Web.Query           (lookupVal)
+import Common.Web.Query           (lookupVal, queryTextToText)
 import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Trans.Either (hoistEither, runEitherT)
+import Control.Monad.Trans.Either (hoistEither, runEitherT, EitherT)
 import Control.Monad.Reader       (ReaderT)
-import Data.Aeson                 (encode, object, (.=))
-import Data.Maybe                 (listToMaybe)
 import Data.Int                   (Int64)
 import Data.Text                  (Text, pack, unpack)
 import Data.Time                  (UTCTime)
@@ -33,11 +33,12 @@ import Database.Esqueleto.Experimental ( (==.)
                                )
 import Database.Persist        (Entity(..))
 import Database.Persist.Sql    (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
-import Lucid                   (renderBS)
-import Network.HTTP.Types      (status200, status403)
+import Network.HTTP.Types      (status200)
 import Network.Wai             (Application, queryString, responseLBS)
 import Network.HTTP.Types.URI  (QueryText, queryToQueryText)
+import Control.Monad (forM_, unless)
 import qualified Domain.Project.Model as M
+import qualified Data.ByteString as B (pack)
 
 data NodeDetailError = 
   InvalidParams [ValidationErr]
@@ -45,6 +46,7 @@ data NodeDetailError =
 
 data Node = Node
   { nodeId          :: Int64
+  , nodeProjectId   :: Int64
   , nodeTitle       :: Text
   , nodeDescription :: Text
   , nodeStatusId    :: Text
@@ -62,63 +64,45 @@ data GetNodeDetailPayload = GetNodeDetailPayload
   , payloadNodeId    :: Int64
   }
 
-validateForm :: GetNodeDetailForm -> Either NodeDetailError GetNodeDetailPayload
-validateForm fm = runValidation InvalidParams $ do
-  pid <- formProjectId fm 
-    .$ unpack
-    >>= isThere    "Project id must be present"
-    >>= isNotEmpty "Project id must have a value"
-    >>= valRead    "Project id must be valid integer"
-  nid <- formNodeId fm
-    .$ unpack
-    >>= isThere    "Node id must be present"
-    >>= isNotEmpty "Node id must have a value"
-    >>= valRead    "Node id must be valid integer"
-  return $ GetNodeDetailPayload <$> pid <*> nid 
-
-queryToForm :: QueryText -> GetNodeDetailForm
-queryToForm qt = GetNodeDetailForm
-  { formProjectId = lookupVal "projectId" qt
-  , formNodeId    = lookupVal "nodeId" qt
-  }
-
-handleProjectManageView :: ConnectionPool -> Application
-handleProjectManageView pl req respond = do
-  let fm = queryToForm 
-         . queryToQueryText 
-         . queryString 
-         $ req
+handleGetNodeDetail :: ConnectionPool -> Application
+handleGetNodeDetail pl req respond = do
   res <- runEitherT $ do
-       py <- hoistEither $ validateForm fm
+       py <- validateForm form
        nd <- lift 
              . flip runSqlPool pl 
              . queryNode 
              . payloadNodeId 
              $ py
-       hoistEither nd 
+       nd' <- hoistEither nd 
+       validateNodeProjectId py nd'
   case res of
-    Left (InvalidParams es) -> respondBadProjectId (pack . unlines . fmap unpack $ es)
-    Left NodeNotFound       -> respondBadProjectId "Node not found"
-    Right py -> do
+    Left (InvalidParams es) -> do
+      respond $ responseLBS
+        status200
+        [("Content-Type", "text/html")]
+        (renderBS . templateInvalidParams $ es)
+    Left NodeNotFound -> do 
+      respond $ responseLBS
+        status200
+        [("Content-Type", "text/html")]
+        (renderBS templateNodeNotFound)
+    Right nd -> do
       respond $ responseLBS
         status200 
-        [("Content-Type", "text/html")]
-        (renderBS undefined)
-  where
-    respondBadProjectId er = respond $ responseLBS
-      status403
-      [("Content-Type", "application/json")]
-      (encode $ object ["error" .= ("Invalid project ID\n" <> er :: Text)])
-
-toNodeSchema :: Entity M.Node -> Node
-toNodeSchema (Entity k e) = Node 
-  { nodeId          = fromSqlKey k
-  , nodeTitle       = pack . M.nodeTitle $ e
-  , nodeDescription = pack . M.nodeDescription $ e
-  , nodeStatusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-  , nodeTypeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-  , nodeUpdated     = M.nodeUpdated e
-  }
+        [ ("Content-Type", "text-html")
+        , ("HX-Push-Url", "/ui/project/vw?projectId=1&nodeId=1") 
+        ]
+        (renderBS . templateNode $ nd)
+    where
+      form = queryTextToForm 
+             . queryToQueryText 
+             . queryString 
+             $ req 
+      pushUrl nd = "/ui/project/vw" 
+                        <> "?projectId=" 
+                        <> (show . nodeProjectId $ nd)
+                        <> "&nodeId=" 
+                        <> (show . nodeId $ nd)
 
 queryNode :: Int64 -> ReaderT SqlBackend IO (Either NodeDetailError Node)
 queryNode nid = do
@@ -133,3 +117,61 @@ queryNode nid = do
     $ ns
   where 
     nkey = toSqlKey @M.Node nid 
+    toNodeSchema (Entity k e) = Node 
+      { nodeId          = fromSqlKey k
+      , nodeProjectId   = fromSqlKey . M.nodeProjectId $ e
+      , nodeTitle       = pack . M.nodeTitle $ e
+      , nodeDescription = pack . M.nodeDescription $ e
+      , nodeStatusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
+      , nodeTypeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+      , nodeUpdated     = M.nodeUpdated e
+      }
+
+queryTextToForm :: QueryText -> GetNodeDetailForm
+queryTextToForm qt = GetNodeDetailForm
+  { formProjectId = lookupVal "projectId" qt
+  , formNodeId    = lookupVal "nodeId" qt
+  }
+
+templateNodeNotFound :: Html ()
+templateNodeNotFound = do
+  div_ [] "Node not found" 
+
+templateInvalidParams :: [ValidationErr] -> Html ()
+templateInvalidParams es = do
+  div_ []  $ do
+    unless (null es) $ do
+      div_ [class_ "error-messages"] $ do
+        forM_ es $ p_ [class_ "error-message"] . toHtml
+
+templateNode :: Node -> Html ()
+templateNode nd = do
+  div_ [] $ do
+    span_ [] (toHtml . nodeTitle $ nd)
+
+validateForm :: (Monad m) 
+  => GetNodeDetailForm 
+  -> EitherT NodeDetailError m GetNodeDetailPayload
+validateForm fm = hoistEither . runValidation InvalidParams $ do
+  pid <- formProjectId fm 
+    .$ unpack
+    >>= isThere    "Project id must be present"
+    >>= isNotEmpty "Project id must have a value"
+    >>= valRead    "Project id must be valid integer"
+  nid <- formNodeId fm
+    .$ unpack
+    >>= isThere    "Node id must be present"
+    >>= isNotEmpty "Node id must have a value"
+    >>= valRead    "Node id must be valid integer"
+  return $ GetNodeDetailPayload <$> pid <*> nid 
+
+validateNodeProjectId :: (Monad m) 
+  => GetNodeDetailPayload 
+  -> Node 
+  -> EitherT NodeDetailError m Node
+validateNodeProjectId fm nd = hoistEither . runValidation InvalidParams $ do
+  _ <- Just nd
+    .$ nodeProjectId 
+    >>= isEq (payloadProjectId fm) "Invalid state. Node is not part of project"
+  return . Just $ nd
+

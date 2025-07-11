@@ -18,11 +18,12 @@ queryTextToText qs = Just $ foldr (\(k, v) acc ->
 
 handleIndexView :: Text -> Application 
 handleIndexView path req res = do 
-  let qs = queryTextToText . queryToQueryText . queryString $ req
   res $ responseLBS
     status200
     [("Content-Type", "text/html; charset=utf-8")]
     (renderBS . indexTemplate path $ qs)
+  where 
+    qs = queryTextToText . queryToQueryText . queryString $ req
 
 indexTemplate :: Text -> Maybe Text -> Html ()
 indexTemplate path qs = html_ $ do

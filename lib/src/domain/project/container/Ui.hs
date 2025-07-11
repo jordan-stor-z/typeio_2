@@ -5,6 +5,7 @@ import Domain.Project.Responder.ProjectIndex.List    (handleProjectList)
 import Domain.Project.Responder.ProjectIndex.View    (handleProjectView)
 import Domain.Project.Responder.ProjectCreate.Submit (handleProjectSubmit)
 import Domain.Project.Responder.ProjectCreate.View   (handleProjectCreateVw)
+import Domain.Project.Responder.ProjectManage.NodeDetail (handleGetNodeDetail)
 import Domain.Project.Responder.ProjectManage.View   (handleProjectManageView)
 import Domain.Project.Responder.ProjectManage.Graph  (handleProjectGraph)
 import Network.Wai (Application, Response, ResponseReceived)
@@ -15,6 +16,7 @@ data ProjectUiContainer = ProjectUiContainer
   , createProjectVw :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   , manageProjectVw :: Application
   , getProjectGraph :: Application
+  , getNodeDetail   :: Application
   , submitProject   :: Application 
   }
 
@@ -25,5 +27,6 @@ defaultContainer cpl = ProjectUiContainer
   , createProjectVw = handleProjectCreateVw 
   , manageProjectVw = handleProjectManageView
   , getProjectGraph = handleProjectGraph cpl
+  , getNodeDetail   = handleGetNodeDetail cpl
   , submitProject   = handleProjectSubmit cpl
   }

@@ -59,7 +59,11 @@
     .selectAll("g")
     .data(nodes)
     .join("g")
-    .attr("class", "node");
+    .attr("class", "node")
+    .attr("hx-get", d => d.link)
+    .attr("hx-trigger", "click")
+    .attr("hx-target", "#node-detail")
+    .attr("hx-swap", "innerHTML");
 
   node.append("circle")
     .attr("class", d => d.pinned ? "root" : "work")

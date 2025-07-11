@@ -18,6 +18,13 @@ validate = pure
 (.$) :: Maybe a -> (a -> b) -> Writer [ValidationErr] (Maybe b)
 m .$ f = pure $ fmap f m
 
+isEq :: Eq a => a -> ErrMsg -> Maybe a -> Writer [ValidationErr] (Maybe a)
+isEq val e m = runMaybeT $ do
+  v <- hoistMaybe m
+  when (val /= v) $ do
+    lift $ tell [e]
+  return v
+
 isThere :: ErrMsg -> Maybe a -> Writer [ValidationErr] (Maybe a)
 isThere e m = 
   case m of
@@ -54,7 +61,7 @@ runValidation :: ([ValidationErr] -> b)
   -> Either b a 
 runValidation f w = 
   case res of
-    (Just x, []) -> Right x
+    (Just x, [])  -> Right x
     (Nothing, []) -> Left $ f ["Unknown error in validation"]
     (_, es)       -> Left $ f es
   where res = runWriter w
