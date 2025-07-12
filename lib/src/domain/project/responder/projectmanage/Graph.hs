@@ -14,9 +14,11 @@ import Common.Validation    ( (.$)
                             , ValidationErr
                             , valRead
                             )
+import Control.Monad.Trans.Either (hoistEither, runEitherT)
 import Control.Monad.Reader (ReaderT)
 import Data.Aeson           (encode, ToJSON(..), (.=), object)
 import Data.Int             (Int64)
+import Data.Bifunctor       (first)
 import Data.Text            (pack, Text)
 import Data.Time.Clock      (UTCTime)
 import Database.Esqueleto.Experimental ( from
@@ -41,6 +43,10 @@ import qualified Domain.Project.Model as M ( Dependency(..)
                                            , unNodeStatusKey
                                            , unNodeTypeKey
                                            )
+
+data GetGraphError = 
+  InvalidParams [ValidationErr]
+  | MissingNodes [ValidationErr]
 
 data Dependency = Dependency
   { dependencyId :: Int64
@@ -112,18 +118,12 @@ instance ToJSON GraphLink where
            , "target" .= tgt
            ]
 
-type ChildNode  = Node
-type ParentNode = Node
-
 type ProjectId = Text
 
 buildGraph :: [Node] -> [Dependency] -> Graph 
-buildGraph ns ds = 
-  let ls  = map toLink ds
-      ns' = map toGNode ns 
-  in Graph ns' ls 
+buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
   where
-    toLink d = GraphLink (childNodeId d) (parentNodeId d)
+    toLink d  = GraphLink (childNodeId d) (parentNodeId d)
     toGNode n = GraphNode 
           { graphNodeId = nodeId n
           , label       = pack $ nodeName n
@@ -132,18 +132,18 @@ buildGraph ns ds =
           , push        = pushUrl (nodeId n) (nodeProjectId n)
           }
 
-lastN :: [a] -> Int -> [a]
-lastN [] _ = []
-lastN xs count = reverse . take count . reverse $ xs
-
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
-  let pidE = queryProjectId 
-             . queryToQueryText 
-             . queryString 
-             $ req
-  case pidE of
-    Left _    -> respondBadProjectId
+  res <- runEitherT $ do
+    pid <- hoistEither . first InvalidParams $ pE
+    ns  <- hoistEither . queryNodes $ pid
+    return pid 
+  case pE of
+    Left _    -> do 
+      respond $ responseLBS
+        status403
+        [("Content-Type", "application/json")]
+        (encode $ object ["error" .= ("Invalid project ID" :: Text)])
     Right pid -> do
       (ns, ds) <- flip runSqlPool pl $ do 
         n <- queryNodes pid
@@ -155,10 +155,10 @@ handleProjectGraph pl req respond = do
         [("Content-Type", "text/html")]
         (renderBS $ templateGraph grp)
   where
-    respondBadProjectId = respond $ responseLBS
-      status403
-      [("Content-Type", "application/json")]
-      (encode $ object ["error" .= ("Invalid project ID" :: Text)])
+    pE = queryProjectId 
+         . queryToQueryText 
+         . queryString 
+         $ req
 
 toDependencySchema :: Entity M.Dependency -> Dependency
 toDependencySchema (Entity k d) = 
@@ -180,14 +180,19 @@ toNodeSchema (Entity k e) = Node
   , nodeUpdated     = M.nodeUpdated e
   }
 
-queryNodes :: Int64 -> ReaderT SqlBackend IO [Node] 
+queryNodes :: Int64 -> ReaderT SqlBackend IO (Either GetGraphError [Node]) 
 queryNodes pid = do
-  let pkey = toSqlKey @M.Project pid 
   ns <- select $ do
     n <- from $ table @M.Node
     where_ (n.projectId ==. val pkey)
     pure n
-  return $ toNodeSchema <$> ns
+  return $ runValidation MissingNodes $ do
+        ns' <- Just ns 
+          .$ id
+          >>= isNotEmpty "No nodes found for project" 
+        pure $ fmap toNodeSchema <$> ns' 
+  where 
+    pkey = toSqlKey @M.Project pid 
 
 queryDependencies :: [Int64] -> ReaderT SqlBackend IO [Dependency]
 queryDependencies nids = do
