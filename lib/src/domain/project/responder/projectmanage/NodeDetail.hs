@@ -89,20 +89,13 @@ handleGetNodeDetail pl req respond = do
     Right nd -> do
       respond $ responseLBS
         status200 
-        [ ("Content-Type", "text-html")
-        , ("HX-Push-Url", "/ui/project/vw?projectId=1&nodeId=1") 
-        ]
+        [("Content-Type", "text-html")]
         (renderBS . templateNode $ nd)
     where
       form = queryTextToForm 
              . queryToQueryText 
              . queryString 
              $ req 
-      pushUrl nd = "/ui/project/vw" 
-                        <> "?projectId=" 
-                        <> (show . nodeProjectId $ nd)
-                        <> "&nodeId=" 
-                        <> (show . nodeId $ nd)
 
 queryNode :: Int64 -> ReaderT SqlBackend IO (Either NodeDetailError Node)
 queryNode nid = do

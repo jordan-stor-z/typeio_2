@@ -66,11 +66,19 @@ nodeLink nid pid = "/ui/project/node"
                    <> "&projectId=" 
                    <> (pack . show $ pid)
 
+pushUrl:: Int64 -> Int64 -> Text
+pushUrl nid pid = "/ui/project/vw"
+                   <> "?projectId=" 
+                   <> (pack . show $ pid)
+                   <> "&nodeId=" 
+                   <> (pack . show $ nid)
+
 data GraphNode = GraphNode 
   { graphNodeId :: Int64
   , label       :: Text
   , pinned      :: Bool
   , link        :: Text
+  , push     :: Text
   }
 
 data Graph = Graph
@@ -85,11 +93,12 @@ instance ToJSON Graph where
            ]
 
 instance ToJSON GraphNode where
-  toJSON (GraphNode gid lbl pnd lnk) =
+  toJSON (GraphNode gid lbl pnd lnk psh) =
     object [ "id"     .= gid
            , "label"  .= lbl
            , "pinned" .= pnd
            , "link"   .= lnk 
+           , "push" .= psh
            ]
 
 data GraphLink = GraphLink
@@ -120,6 +129,7 @@ buildGraph ns ds =
           , label       = pack $ nodeName n
           , pinned      = nodeTypeId n == "project_root" 
           , link        = nodeLink (nodeId n) (nodeProjectId n)
+          , push        = pushUrl (nodeId n) (nodeProjectId n)
           }
 
 lastN :: [a] -> Int -> [a]
