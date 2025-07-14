@@ -18,8 +18,9 @@ import Common.Validation          ( (.$)
                                   )
 import Common.Web.Query           (lookupVal, queryTextToText)
 import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Trans.Either (hoistEither, runEitherT, EitherT)
+import Control.Monad.Trans.Either (hoistEither, newEitherT, runEitherT, EitherT)
 import Control.Monad.Reader       (ReaderT)
+import Data.Bifunctor             (first)
 import Data.Int                   (Int64)
 import Data.Text                  (Text, pack, unpack)
 import Data.Time                  (UTCTime)
@@ -67,14 +68,20 @@ data GetNodeDetailPayload = GetNodeDetailPayload
 handleGetNodeDetail :: ConnectionPool -> Application
 handleGetNodeDetail pl req respond = do
   res <- runEitherT $ do
-       py <- validateForm form
-       nd <- lift 
+       py  <- hoistEither 
+            . first InvalidParams 
+            . validateForm 
+            $ form
+       nd' <- lift 
              . flip runSqlPool pl 
              . queryNode 
              . payloadNodeId 
              $ py
-       nd' <- hoistEither nd 
-       validateNodeProjectId py nd'
+       nd  <- hoistEither nd'
+       hoistEither 
+        . first InvalidParams 
+        . validateNodeProjectId py 
+        $ nd
   case res of
     Left (InvalidParams es) -> do
       respond $ responseLBS
@@ -142,10 +149,8 @@ templateNode nd = do
   div_ [] $ do
     span_ [] (toHtml . nodeTitle $ nd)
 
-validateForm :: (Monad m) 
-  => GetNodeDetailForm 
-  -> EitherT NodeDetailError m GetNodeDetailPayload
-validateForm fm = hoistEither . runValidation InvalidParams $ do
+validateForm :: GetNodeDetailForm -> Either [ValidationErr]  GetNodeDetailPayload
+validateForm fm = runValidation id $ do
   pid <- formProjectId fm 
     .$ unpack
     >>= isThere    "Project id must be present"
@@ -158,11 +163,10 @@ validateForm fm = hoistEither . runValidation InvalidParams $ do
     >>= valRead    "Node id must be valid integer"
   return $ GetNodeDetailPayload <$> pid <*> nid 
 
-validateNodeProjectId :: (Monad m) 
-  => GetNodeDetailPayload 
+validateNodeProjectId :: GetNodeDetailPayload 
   -> Node 
-  -> EitherT NodeDetailError m Node
-validateNodeProjectId fm nd = hoistEither . runValidation InvalidParams $ do
+  -> Either [ValidationErr] Node
+validateNodeProjectId fm nd = runValidation id $ do
   _ <- Just nd
     .$ nodeProjectId 
     >>= isEq (payloadProjectId fm) "Invalid state. Node is not part of project"

@@ -12,14 +12,11 @@ import Common.Validation              ((.$)
                                       )
 import Common.Web.Attributes
 import Common.Web.Template.MainHeader (templateNavHeader)
-import Control.Monad                  (unless)
-import Data.Maybe                     (fromMaybe, isNothing)
 import Data.Int                       (Int64)
 import Data.Text                      (pack, Text, unpack)
 import Network.HTTP.Types             (status200, status403, QueryText)
 import Network.Wai                    (Application, queryString, responseLBS)
 import Network.HTTP.Types.URI         (queryToQueryText)
-import Domain.Project.Responder.ProjectManage.Core (queryProjectId)
 import Common.Web.Query (lookupVal)
 
 data ManageProjectForm = ManageProjectForm 

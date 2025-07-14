@@ -7,20 +7,23 @@
 module Domain.Project.Responder.ProjectManage.Graph where
 
 import Lucid
-import Common.Validation    ( (.$)
-                            , isNotEmpty
-                            , isThere
-                            , runValidation
-                            , ValidationErr
-                            , valRead
-                            )
-import Control.Monad.Trans.Either (hoistEither, runEitherT)
-import Control.Monad.Reader (ReaderT)
-import Data.Aeson           (encode, ToJSON(..), (.=), object)
-import Data.Int             (Int64)
-import Data.Bifunctor       (first)
-import Data.Text            (pack, Text)
-import Data.Time.Clock      (UTCTime)
+import Common.Either              (notNullEither)
+import Common.Validation          ( (.$)
+                                  , isNotEmpty
+                                  , isThere
+                                  , runValidation
+                                  , ValidationErr
+                                  , valRead
+                                  )
+import Common.Web.Query           (lookupVal)
+import Control.Monad.Trans.Class  (lift)
+import Control.Monad.Trans.Either (hoistEither, newEitherT, runEitherT)
+import Control.Monad.Reader       (ReaderT)
+import Data.Aeson                 (encode, ToJSON(..), (.=), object)
+import Data.Int                   (Int64)
+import Data.Bifunctor             (first)
+import Data.Text                  (pack, Text, unpack)
+import Data.Time.Clock            (UTCTime)
 import Database.Esqueleto.Experimental ( from
                                        , fromSqlKey
                                        , select
@@ -32,11 +35,11 @@ import Database.Esqueleto.Experimental ( from
                                        , val
                                        , valList
                                        )
-import Database.Persist     (Entity(..))
-import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
-import Network.HTTP.Types   (status200, status403, queryToQueryText)
-import Network.Wai          (Application, responseLBS, Request (queryString))
-import Domain.Project.Responder.ProjectManage.Core   (queryProjectId)
+import Database.Persist               (Entity(..))
+import Database.Persist.Sql           (ConnectionPool, SqlBackend, runSqlPool)
+import Network.HTTP.Types             (status200, status403, queryToQueryText)
+import Network.HTTP.Types.URI         (QueryText)
+import Network.Wai                    (Application, responseLBS, Request (queryString))
 import qualified Domain.Project.Model as M ( Dependency(..)
                                            , Node(..)
                                            , Project(..)
@@ -46,7 +49,8 @@ import qualified Domain.Project.Model as M ( Dependency(..)
 
 data GetGraphError = 
   InvalidParams [ValidationErr]
-  | MissingNodes [ValidationErr]
+  | MissingDependencies
+  | MissingNodes 
 
 data Dependency = Dependency
   { dependencyId :: Int64
@@ -135,64 +139,52 @@ buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
   res <- runEitherT $ do
-    pid <- hoistEither . first InvalidParams $ pE
-    ns  <- hoistEither . queryNodes $ pid
-    return pid 
-  case pE of
+    pid <- hoistEither 
+           . first InvalidParams 
+           . validateProjectId 
+           $ qt
+    (ns, ds) <- lift . flip runSqlPool pl $ do
+      n <- queryNodes pid
+      d <- queryDependencies $ fmap nodeId n
+      pure (n, d)
+    ns'  <- hoistEither . notNullEither MissingNodes $ ns
+    ds'  <- hoistEither . notNullEither MissingDependencies $ ds
+    return $ buildGraph ns' ds' 
+  case res of
     Left _    -> do 
       respond $ responseLBS
         status403
         [("Content-Type", "application/json")]
         (encode $ object ["error" .= ("Invalid project ID" :: Text)])
-    Right pid -> do
-      (ns, ds) <- flip runSqlPool pl $ do 
-        n <- queryNodes pid
-        d <- queryDependencies $ map nodeId n
-        return (n, d)
-      let grp = buildGraph ns ds
+    Right graph -> do
       respond $ responseLBS
         status200 
         [("Content-Type", "text/html")]
-        (renderBS $ templateGraph grp)
+        (renderBS $ templateGraph graph)
   where
-    pE = queryProjectId 
-         . queryToQueryText 
+    qt = queryToQueryText 
          . queryString 
          $ req
 
-toDependencySchema :: Entity M.Dependency -> Dependency
-toDependencySchema (Entity k d) = 
-  Dependency 
-    { dependencyId = fromSqlKey k
-    , childNodeId  = fromSqlKey . M.dependencyNodeId $ d 
-    , parentNodeId = fromSqlKey . M.dependencyToNodeId $ d 
-    }
-
-toNodeSchema :: Entity M.Node -> Node
-toNodeSchema (Entity k e) = Node 
-  { nodeId          = fromSqlKey k
-  , nodeName        = M.nodeTitle e
-  , nodeDescription = M.nodeDescription e
-  , nodeProjectId   = fromSqlKey . M.nodeProjectId $ e
-  , nodeStatusId    = M.unNodeStatusKey . M.nodeNodeStatusId $ e
-  , nodeTitle       = M.nodeTitle e
-  , nodeTypeId      = M.unNodeTypeKey . M.nodeNodeTypeId $ e
-  , nodeUpdated     = M.nodeUpdated e
-  }
-
-queryNodes :: Int64 -> ReaderT SqlBackend IO (Either GetGraphError [Node]) 
+queryNodes :: Int64 -> ReaderT SqlBackend IO [Node]
 queryNodes pid = do
   ns <- select $ do
     n <- from $ table @M.Node
     where_ (n.projectId ==. val pkey)
     pure n
-  return $ runValidation MissingNodes $ do
-        ns' <- Just ns 
-          .$ id
-          >>= isNotEmpty "No nodes found for project" 
-        pure $ fmap toNodeSchema <$> ns' 
+  return $ toNodeSchema <$> ns
   where 
     pkey = toSqlKey @M.Project pid 
+    toNodeSchema (Entity k e) = Node 
+      { nodeId          = fromSqlKey k
+      , nodeName        = M.nodeTitle e
+      , nodeDescription = M.nodeDescription e
+      , nodeProjectId   = fromSqlKey . M.nodeProjectId $ e
+      , nodeStatusId    = M.unNodeStatusKey . M.nodeNodeStatusId $ e
+      , nodeTitle       = M.nodeTitle e
+      , nodeTypeId      = M.unNodeTypeKey . M.nodeNodeTypeId $ e
+      , nodeUpdated     = M.nodeUpdated e
+      }
 
 queryDependencies :: [Int64] -> ReaderT SqlBackend IO [Dependency]
 queryDependencies nids = do
@@ -202,6 +194,13 @@ queryDependencies nids = do
     where_ (d.nodeId `in_` valList nkeys)
     pure d
   return $ toDependencySchema <$> ds
+  where
+    toDependencySchema (Entity k d) = 
+      Dependency 
+        { dependencyId = fromSqlKey k
+        , childNodeId  = fromSqlKey . M.dependencyNodeId $ d 
+        , parentNodeId = fromSqlKey . M.dependencyToNodeId $ d 
+        }
 
 templateGraph :: Graph -> Html ()
 templateGraph g = do
@@ -213,3 +212,11 @@ templateGraph g = do
           , height_ "100%"
           , width_  "100%"
           ] empty 
+
+validateProjectId ::  QueryText -> Either [ValidationErr] Int64
+validateProjectId qt = runValidation id $ do
+  lookupVal "projectId" qt 
+    .$ unpack
+    >>= isThere    "Project id must be present" 
+    >>= isNotEmpty "Project id must have a value"
+    >>= valRead    "Project id must be valid integer" 
