@@ -14,15 +14,14 @@
 
 module Domain.Project.Model where
 
-import Database.Persist.TH 
-  ( mkPersist
-  , mkMigrate
-  , persistLowerCase
-  , share
-  , sqlSettings
-  )
-import Data.String (IsString(..))
-import Data.Time (UTCTime)
+import Data.String         (IsString(..))
+import Data.Time           (UTCTime)
+import Database.Persist.TH ( mkPersist
+                           , mkMigrate
+                           , persistLowerCase
+                           , share
+                           , sqlSettings
+                           )
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 ProjectVw sql=project_vw

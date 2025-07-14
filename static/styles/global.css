@@ -37,6 +37,12 @@ body {
   min-height: 100vh;
 }
 
+#container {
+  height: 100%;
+  width: 100vw;
+  overflow: hidden;
+}
+
 .action-button {
   background: transparent;
   border: 3px solid #e0e0e0;
@@ -114,6 +120,8 @@ body {
 
 .view {
   padding: 0 2rem;
+  height: 100%;
+  width: 100%;
 }
 
 .logo {

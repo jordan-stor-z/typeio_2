@@ -74,7 +74,7 @@ templateProject py = do
         , href_ "/static/styles/views/manage-project.css"
         ]
   script_ [src_ "https://unpkg.com/d3@7"] empty 
-  div_ [ id_ "project-view" ] $ do
+  div_ [ class_ "view" ] $ do
     div_ [ id_ "tree-container" 
          , hxGet_     graphLink
          , hxPushUrl_ False

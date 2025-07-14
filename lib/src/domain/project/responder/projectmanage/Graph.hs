@@ -49,7 +49,6 @@ import qualified Domain.Project.Model as M ( Dependency(..)
 
 data GetGraphError = 
   InvalidParams [ValidationErr]
-  | MissingDependencies
   | MissingNodes 
 
 data Dependency = Dependency
@@ -148,14 +147,18 @@ handleProjectGraph pl req respond = do
       d <- queryDependencies $ fmap nodeId n
       pure (n, d)
     ns'  <- hoistEither . notNullEither MissingNodes $ ns
-    ds'  <- hoistEither . notNullEither MissingDependencies $ ds
-    return $ buildGraph ns' ds' 
+    return $ buildGraph ns' ds 
   case res of
-    Left _    -> do 
+    Left (InvalidParams es) -> do
       respond $ responseLBS
         status403
         [("Content-Type", "application/json")]
-        (encode $ object ["error" .= ("Invalid project ID" :: Text)])
+        (encode $ object ["error" .= validationErrsToText es])
+    Left MissingNodes -> do
+      respond $ responseLBS
+        status403
+        [("Content-Type", "application/json")]
+        (encode $ object ["error" .= ("No nodes found for the project" :: Text)])
     Right graph -> do
       respond $ responseLBS
         status200 
@@ -165,6 +168,8 @@ handleProjectGraph pl req respond = do
     qt = queryToQueryText 
          . queryString 
          $ req
+    validationErrsToText :: [ValidationErr] -> Text
+    validationErrsToText = mconcat . map (pack . show)
 
 queryNodes :: Int64 -> ReaderT SqlBackend IO [Node]
 queryNodes pid = do
@@ -187,6 +192,7 @@ queryNodes pid = do
       }
 
 queryDependencies :: [Int64] -> ReaderT SqlBackend IO [Dependency]
+queryDependencies []   = return []
 queryDependencies nids = do
   let nkeys = toSqlKey @M.Node <$> nids
   ds <- select $ do
@@ -204,14 +210,15 @@ queryDependencies nids = do
 
 templateGraph :: Graph -> Html ()
 templateGraph g = do
-  let empty = mempty :: Html ()
-  let js    = encode g
-  script_ [id_ "graph-data", type_ "application/json"] js 
+  script_ [id_ "graph-data", type_ "application/json"] gd
   script_ [src_ "/static/script/nodetree.js"]          empty 
   svg_    [ id_     "tree-view"
           , height_ "100%"
           , width_  "100%"
           ] empty 
+  where 
+    empty = mempty :: Html ()
+    gd    = encode g
 
 validateProjectId ::  QueryText -> Either [ValidationErr] Int64
 validateProjectId qt = runValidation id $ do

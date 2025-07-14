@@ -32,6 +32,9 @@ indexTemplate path qs = html_ $ do
   head_ $ do
     title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
+    link_    [ rel_ "stylesheet"
+             , href_ "https://fonts.googleapis.com/icon?family=Material+Icons"
+             ]
     meta_    [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
     script_  [src_ "https://unpkg.com/htmx.org@2.0.4"] l :: Html ()
   body_ $ do

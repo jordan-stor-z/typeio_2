@@ -7,39 +7,41 @@
 module Domain.Project.Responder.ProjectManage.NodeDetail where
 
 import Lucid
-import Common.Either              (listToEither)
-import Common.Validation          ( (.$)
-                                  , isEq
-                                  , isThere 
-                                  , isNotEmpty 
-                                  , runValidation
-                                  , ValidationErr
-                                  , valRead
-                                  )
-import Common.Web.Query           (lookupVal, queryTextToText)
-import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Trans.Either (hoistEither, newEitherT, runEitherT, EitherT)
-import Control.Monad.Reader       (ReaderT)
-import Data.Bifunctor             (first)
-import Data.Int                   (Int64)
-import Data.Text                  (Text, pack, unpack)
-import Data.Time                  (UTCTime)
+import Common.Either                   (listToEither)
+import Common.Validation               ( (.$)
+                                       , isEq
+                                       , isThere 
+                                       , isNotEmpty 
+                                       , runValidation
+                                       , ValidationErr
+                                       , valRead
+                                       )
+import Common.Web.Attributes
+import Common.Web.Query                (lookupVal, queryTextToText)
+import Control.Monad                   (forM_, unless)
+import Control.Monad.Reader            (ReaderT)
+import Control.Monad.Trans.Class       (lift)
+import Control.Monad.Trans.Either      (hoistEither, newEitherT, runEitherT, EitherT)
+import Data.Bifunctor                  (first)
+import Data.Int                        (Int64)
+import Data.Text                       (Text, pack, unpack)
+import Data.Time                       (UTCTime)
+import Data.Time.Format                (defaultTimeLocale, formatTime) 
 import Database.Esqueleto.Experimental ( (==.)
-                               , from
-                               , limit
-                               , select
-                               , table
-                               , val
-                               , where_
-                               )
-import Database.Persist        (Entity(..))
-import Database.Persist.Sql    (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
-import Network.HTTP.Types      (status200)
-import Network.Wai             (Application, queryString, responseLBS)
-import Network.HTTP.Types.URI  (QueryText, queryToQueryText)
-import Control.Monad (forM_, unless)
+                                       , from
+                                       , limit
+                                       , select
+                                       , table
+                                       , val
+                                       , where_
+                                       )
+import Database.Persist                (Entity(..))
+import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
+import Network.HTTP.Types              (status200)
+import Network.Wai                     (Application, queryString, responseLBS)
+import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
-import qualified Data.ByteString as B (pack)
+import qualified Data.ByteString      as B (pack)
 
 data NodeDetailError = 
   InvalidParams [ValidationErr]
@@ -146,8 +148,38 @@ templateInvalidParams es = do
 
 templateNode :: Node -> Html ()
 templateNode nd = do
-  div_ [] $ do
-    span_ [] (toHtml . nodeTitle $ nd)
+    header_ [class_ "node-header"] $ do
+      h1_ [] (toHtml . nodeTitle $ nd)
+      i_ [ class_ "material-icons close-icon"
+           , hxGet_ (projectLink . nodeProjectId $ nd) 
+           , hxPushUrl_ True
+           , hxSwap_ "innerHTML"
+           , hxTarget_ "#container"
+           , hxTrigger_ "click"
+         ] "close"
+    section_ [class_ "node-description"] $ do
+      p_ [] (toHtml . nodeDescription $ nd)
+    section_ [class_ "node-properties"] $ do
+      div_ [class_ "property-item"] $ do
+        span_ [class_ "property-label"] "Status:"
+        span_ [class_ "property-value"] (toHtml . nodeStatusId $ nd)
+      div_ [class_ "property-item"] $ do
+        span_ [class_ "property-label"] "Type:"
+        span_ [class_ "property-value"] (toHtml . showNodeType . nodeTypeId $ nd)
+      div_ [class_ "property-item"] $ do
+        span_ [class_ "property-label"] "Last Updated:"
+        span_ [class_ "property-value"] (toHtml . formatUpdated . nodeUpdated $ nd)
+  where
+    projectLink = (<>) "/ui/project/vw?projectId=" . pack . show
+
+formatUpdated :: UTCTime -> Text
+formatUpdated = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" 
+
+showNodeType :: Text -> Text
+showNodeType typ = case typ of
+  "project_root" -> "Root"
+  "work"         -> "Work"
+  _              -> typ
 
 validateForm :: GetNodeDetailForm -> Either [ValidationErr]  GetNodeDetailPayload
 validateForm fm = runValidation id $ do

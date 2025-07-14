@@ -38,11 +38,9 @@
   pointer-events: none;
 }
 
-#project-view {
+.view {
   display: flex;
   flex-direction: row;
-  height: 100vh;
-  width: 100%;
 }
 
 #tree-container {
@@ -51,7 +49,35 @@
 }
 
 #node-detail {
-  display: inline-block;
   height: 100%;
-  width: 30%;
+  width: 28%;
+}
+
+.node-properties {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+}
+
+.property-item {
+  display: contents;
+}
+
+.property-label {
+  font-weight: bold;
+}
+
+.property-value {
+  text-align: left;
+}
+
+.node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close-icon:hover {
+  cursor: pointer;
+  color: var(--text-primary);
 }
