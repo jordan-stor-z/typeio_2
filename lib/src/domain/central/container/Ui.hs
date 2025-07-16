@@ -2,13 +2,16 @@ module Domain.Central.Container.Ui where
 
 import Data.Text                          (Text)
 import Domain.Central.Responder.IndexView (handleIndexView)
-import Network.Wai                        (Application)
+import Domain.Central.Responder.Empty     (handleGetEmpty)
+import Network.Wai                        (Application, Response, ResponseReceived)
 
-newtype CentralUiContainer = CentralUiContainer 
+data CentralUiContainer = CentralUiContainer 
   { indexView :: Text -> Application 
+  , getEmptyView :: (Response -> IO ResponseReceived) -> IO ResponseReceived
   }
 
 defaultContainer :: CentralUiContainer
 defaultContainer  = CentralUiContainer
-  { indexView = handleIndexView
+  { indexView    = handleIndexView
+  , getEmptyView = handleGetEmpty
   }

@@ -62,6 +62,27 @@ body {
   box-shadow: none;
 }
 
+.pill-button {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 0.2rem 0.6rem; 
+  font-weight: bold;
+  border-radius: 999px; 
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill-button:hover {
+  background: var(--accent);
+  color: #1a1a1a;
+  box-shadow: none;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

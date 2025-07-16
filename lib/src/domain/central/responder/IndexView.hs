@@ -27,8 +27,6 @@ handleIndexView path req res = do
 
 indexTemplate :: Text -> Maybe Text -> Html ()
 indexTemplate path qs = html_ $ do
-  let l   = mempty :: Html ()
-      lnk = maybe path (path <>) qs
   head_ $ do
     title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
@@ -36,7 +34,8 @@ indexTemplate path qs = html_ $ do
              , href_ "https://fonts.googleapis.com/icon?family=Material+Icons"
              ]
     meta_    [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
-    script_  [src_ "https://unpkg.com/htmx.org@2.0.4"] l :: Html ()
+    script_  [src_ "https://unpkg.com/htmx.org@2.0.4"] empty 
+    script_  [src_ "https://unpkg.com/d3@7"] empty 
   body_ $ do
     div_ 
       [ id_           "container"
@@ -46,3 +45,6 @@ indexTemplate path qs = html_ $ do
       , hxSwap_       "innerHTML"
       ] $ do 
         p_ "loading..."
+  where 
+    empty   = mempty :: Html ()
+    lnk     = maybe path (path <>) qs

@@ -2,6 +2,7 @@
 
 module Domain.Project.Responder.ProjectManage.View where
 
+import Domain.Project.Responder.ProjectManage.Link
 import Lucid
 import Common.Validation              ((.$)
                                       , ValidationErr
@@ -13,11 +14,11 @@ import Common.Validation              ((.$)
 import Common.Web.Attributes
 import Common.Web.Template.MainHeader (templateNavHeader)
 import Data.Int                       (Int64)
-import Data.Text                      (pack, Text, unpack)
+import Data.Text                      (Text, unpack)
 import Network.HTTP.Types             (status200, status403, QueryText)
 import Network.Wai                    (Application, queryString, responseLBS)
 import Network.HTTP.Types.URI         (queryToQueryText)
-import Common.Web.Query (lookupVal)
+import Common.Web.Query               (lookupVal)
 
 data ManageProjectForm = ManageProjectForm 
   { formNodeId    :: Maybe Text
@@ -73,10 +74,9 @@ templateProject py = do
   link_ [ rel_ "stylesheet"
         , href_ "/static/styles/views/manage-project.css"
         ]
-  script_ [src_ "https://unpkg.com/d3@7"] empty 
   div_ [ class_ "view" ] $ do
     div_ [ id_ "tree-container" 
-         , hxGet_     graphLink
+         , hxGet_     (graphLink pid)
          , hxPushUrl_ False
          , hxSwap_    "innerHTML"
          , hxTrigger_ "load"
@@ -87,20 +87,12 @@ templateProject py = do
       Nothing  -> empty
       Just nid -> do
         div_ [ class_    "hidden" 
-             , hxGet_     (nodeLink nid)
+             , hxGet_     (nodeLink nid pid)
              , hxPushUrl_ False
              , hxTarget_  "#node-detail"
              , hxTrigger_ "load"
              ] empty 
   where
-    empty        = mempty :: Html ()
-    graphLink    = "/ui/project/graph" 
-                   <> "?projectId=" 
-                   <> pid 
-    nidM         = pack . show <$> payloadNodeId py
-    nodeLink nid = "/ui/project/node" 
-                   <> "?nodeId=" 
-                   <> nid
-                   <> "&projectId=" 
-                   <> pid
-    pid          = pack . show . payloadProjectId $ py
+    empty = mempty :: Html ()
+    nidM  = payloadNodeId py
+    pid   = payloadProjectId py

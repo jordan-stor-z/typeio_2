@@ -6,6 +6,7 @@
 
 module Domain.Project.Responder.ProjectManage.Graph where
 
+import Domain.Project.Responder.ProjectManage.Link
 import Lucid
 import Common.Either              (notNullEither)
 import Common.Validation          ( (.$)
@@ -17,7 +18,7 @@ import Common.Validation          ( (.$)
                                   )
 import Common.Web.Query           (lookupVal)
 import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Trans.Either (hoistEither, newEitherT, runEitherT)
+import Control.Monad.Trans.Either (hoistEither, runEitherT)
 import Control.Monad.Reader       (ReaderT)
 import Data.Aeson                 (encode, ToJSON(..), (.=), object)
 import Data.Int                   (Int64)
@@ -68,12 +69,7 @@ data Node = Node
   , nodeUpdated     :: UTCTime 
   }
 
-nodeLink :: Int64 -> Int64 -> Text
-nodeLink nid pid = "/ui/project/node" 
-                   <> "?nodeId=" 
-                   <> (pack . show $ nid)
-                   <> "&projectId=" 
-                   <> (pack . show $ pid)
+
 
 pushUrl:: Int64 -> Int64 -> Text
 pushUrl nid pid = "/ui/project/vw"

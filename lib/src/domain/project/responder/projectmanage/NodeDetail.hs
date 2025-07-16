@@ -6,8 +6,8 @@
 
 module Domain.Project.Responder.ProjectManage.NodeDetail where
 
+import Domain.Project.Responder.ProjectManage.Link
 import Lucid
-import Common.Either                   (listToEither)
 import Common.Validation               ( (.$)
                                        , isEq
                                        , isThere 
@@ -17,13 +17,13 @@ import Common.Validation               ( (.$)
                                        , valRead
                                        )
 import Common.Web.Attributes
-import Common.Web.Query                (lookupVal, queryTextToText)
+import Common.Web.Query                (lookupVal)
 import Control.Monad                   (forM_, unless)
 import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Trans.Class       (lift)
-import Control.Monad.Trans.Either      (hoistEither, newEitherT, runEitherT, EitherT)
-import Data.Bifunctor                  (first)
+import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, runEitherT, EitherT)
 import Data.Int                        (Int64)
+import Data.Maybe                      (listToMaybe)
 import Data.Text                       (Text, pack, unpack)
 import Data.Time                       (UTCTime)
 import Data.Time.Format                (defaultTimeLocale, formatTime) 
@@ -38,23 +38,26 @@ import Database.Esqueleto.Experimental ( (==.)
 import Database.Persist                (Entity(..))
 import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
 import Network.HTTP.Types              (status200)
-import Network.Wai                     (Application, queryString, responseLBS)
+import Network.Wai                     (queryString, responseLBS, Request, Response, ResponseReceived)
 import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
-import qualified Data.ByteString      as B (pack)
 
 data NodeDetailError = 
   InvalidParams [ValidationErr]
   | NodeNotFound
 
 data Node = Node
-  { nodeId          :: Int64
-  , nodeProjectId   :: Int64
-  , nodeTitle       :: Text
-  , nodeDescription :: Text
-  , nodeStatusId    :: Text
-  , nodeTypeId      :: Text 
-  , nodeUpdated     :: UTCTime
+  { nodeId      :: Int64
+  , projectId   :: Int64
+  , title       :: Text
+  , description :: Text
+  , updated     :: UTCTime
+  , statusId    :: Text
+  , typeId      :: Text 
+  }
+
+newtype NodeStatus = NodeStatus 
+  { nodeStatusId   :: Text
   }
 
 data GetNodeDetailForm = GetNodeDetailForm
@@ -67,46 +70,90 @@ data GetNodeDetailPayload = GetNodeDetailPayload
   , payloadNodeId    :: Int64
   }
 
-handleGetNodeDetail :: ConnectionPool -> Application
-handleGetNodeDetail pl req respond = do
-  res <- runEitherT $ do
-       py  <- hoistEither 
-            . first InvalidParams 
-            . validateForm 
-            $ form
-       nd' <- lift 
-             . flip runSqlPool pl 
-             . queryNode 
-             . payloadNodeId 
-             $ py
-       nd  <- hoistEither nd'
-       hoistEither 
-        . first InvalidParams 
-        . validateNodeProjectId py 
-        $ nd
-  case res of
-    Left (InvalidParams es) -> do
-      respond $ responseLBS
-        status200
-        [("Content-Type", "text/html")]
-        (renderBS . templateInvalidParams $ es)
-    Left NodeNotFound -> do 
-      respond $ responseLBS
-        status200
-        [("Content-Type", "text/html")]
-        (renderBS templateNodeNotFound)
-    Right nd -> do
-      respond $ responseLBS
-        status200 
-        [("Content-Type", "text-html")]
-        (renderBS . templateNode $ nd)
+handleErr :: NodeDetailError -> Response
+handleErr er = case er of
+    (InvalidParams es) ->
+      responseLBS
+          status200
+          [("Content-Type", "text/html")]
+        . renderBS . templateInvalidParams 
+        $ es
+    NodeNotFound -> do 
+      responseLBS
+          status200
+          [("Content-Type", "text/html")]
+        . renderBS 
+        $ templateNodeNotFound
+
+handleGetNodeEdit :: ConnectionPool
+  -> Request 
+  -> (Response -> IO ResponseReceived) 
+  -> IO ResponseReceived
+handleGetNodeEdit pl req respond = do
+  rslt <- runEitherT $ do
+       pyld  <- firstEitherT InvalidParams 
+                . validateForm 
+                $ form
+       (ndeM, nsts) <- lift . flip runSqlPool pl $ do
+            n  <- queryNode (payloadNodeId pyld)
+            ns <- queryNodeStatuses
+            pure (n, ns)
+       nde' <- hoistMaybe NodeNotFound ndeM 
+       nde  <- firstEitherT InvalidParams 
+              . validateNodeProjectId pyld
+              $ nde'
+       return (nde, nsts)
+  case rslt of
+    Left e -> respond $ handleErr e
+    Right ( nde
+          , nsts
+          ) -> respond 
+            . responseLBS
+              status200 
+              [("Content-Type", "text-html")] 
+            . renderBS 
+            . templateNodeEdit nde 
+            $ nsts
     where
       form = queryTextToForm 
              . queryToQueryText 
              . queryString 
-             $ req 
+             $ req
 
-queryNode :: Int64 -> ReaderT SqlBackend IO (Either NodeDetailError Node)
+handleGetNodeDetail :: ConnectionPool
+  -> Request 
+  -> (Response -> IO ResponseReceived) 
+  -> IO ResponseReceived
+handleGetNodeDetail pl req respond = do
+  rslt <- runEitherT $ do
+       pyld  <- firstEitherT InvalidParams 
+            . validateForm 
+            $ form
+       ndeM <- lift 
+               . flip runSqlPool pl 
+               . queryNode 
+               . payloadNodeId 
+               $ pyld
+       nde <- hoistMaybe NodeNotFound ndeM 
+       firstEitherT InvalidParams 
+        . validateNodeProjectId pyld
+        $ nde
+  case rslt of
+    Left  e   -> respond . handleErr $ e
+    Right nde -> respond 
+                 . responseLBS
+                   status200 
+                   [("Content-Type", "text-html")]
+                 . renderBS 
+                 . templateNodeDetail 
+                 $ nde 
+    where
+      form = queryTextToForm 
+             . queryToQueryText 
+             . queryString 
+             $ req
+
+queryNode :: Int64 -> ReaderT SqlBackend IO (Maybe Node)
 queryNode nid = do
   ns <-  select $ do
     n <- from $ table @M.Node
@@ -114,20 +161,28 @@ queryNode nid = do
     limit 1
     pure n
   return 
-    . listToEither NodeNotFound 
+    . listToMaybe 
     . fmap toNodeSchema 
     $ ns
   where 
     nkey = toSqlKey @M.Node nid 
     toNodeSchema (Entity k e) = Node 
-      { nodeId          = fromSqlKey k
-      , nodeProjectId   = fromSqlKey . M.nodeProjectId $ e
-      , nodeTitle       = pack . M.nodeTitle $ e
-      , nodeDescription = pack . M.nodeDescription $ e
-      , nodeStatusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-      , nodeTypeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-      , nodeUpdated     = M.nodeUpdated e
+      { nodeId      = fromSqlKey k
+      , description = pack . M.nodeDescription $ e
+      , projectId   = fromSqlKey . M.nodeProjectId $ e
+      , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
+      , title       = pack . M.nodeTitle $ e
+      , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+      , updated     = M.nodeUpdated e
       }
+
+queryNodeStatuses :: ReaderT SqlBackend IO [NodeStatus]
+queryNodeStatuses = do 
+  sts <- select . from $ table @M.NodeStatus
+  return . fmap toNodeStatusSchema $ sts
+  where
+    toNodeStatusSchema (Entity k _) = NodeStatus 
+      { nodeStatusId = pack . M.unNodeStatusKey $ k }
 
 queryTextToForm :: QueryText -> GetNodeDetailForm
 queryTextToForm qt = GetNodeDetailForm
@@ -146,31 +201,85 @@ templateInvalidParams es = do
       div_ [class_ "error-messages"] $ do
         forM_ es $ p_ [class_ "error-message"] . toHtml
 
-templateNode :: Node -> Html ()
-templateNode nd = do
+templateNodeDetail :: Node -> Html ()
+templateNodeDetail nde = do
     header_ [class_ "node-header"] $ do
-      h1_ [] (toHtml . nodeTitle $ nd)
-      i_ [ class_ "material-icons close-icon"
-           , hxGet_ (projectLink . nodeProjectId $ nd) 
-           , hxPushUrl_ True
-           , hxSwap_ "innerHTML"
-           , hxTarget_ "#container"
-           , hxTrigger_ "click"
-         ] "close"
+        h1_ [] (toHtml . title $ nde)
+        div_ [id_ "node-actions"] $ do
+            button_ [ class_     "pill-button close-button"
+                    , hxGet_     (editLink (nodeId nde) (projectId nde))
+                    , hxPushUrl_ False 
+                    , hxSwap_    "innerHTML"
+                    , hxTarget_  "#node-detail"
+                    , hxTrigger_ "click"
+                    ] $ do
+                i_  [class_ "material-icons"] "mode_edit"
+            button_ [ class_       "pill-button close-button"
+                    , hxGet_     "/ui/central/empty"
+                    , hxPushUrl'_ (projectLink (projectId nde))
+                    , hxSwap_    "innerHTML"
+                    , hxTarget_  "#node-detail"
+                    , hxTrigger_ "click"
+                    ] $ do
+                i_  [class_ "material-icons"] "close"
     section_ [class_ "node-description"] $ do
-      p_ [] (toHtml . nodeDescription $ nd)
+      p_ [] (toHtml . description $ nde)
     section_ [class_ "node-properties"] $ do
       div_ [class_ "property-item"] $ do
         span_ [class_ "property-label"] "Status:"
-        span_ [class_ "property-value"] (toHtml . nodeStatusId $ nd)
+        span_ [class_ "property-value"] (toHtml . statusId $ nde)
       div_ [class_ "property-item"] $ do
         span_ [class_ "property-label"] "Type:"
-        span_ [class_ "property-value"] (toHtml . showNodeType . nodeTypeId $ nd)
+        span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
       div_ [class_ "property-item"] $ do
         span_ [class_ "property-label"] "Last Updated:"
-        span_ [class_ "property-value"] (toHtml . formatUpdated . nodeUpdated $ nd)
-  where
-    projectLink = (<>) "/ui/project/vw?projectId=" . pack . show
+        span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
+    where
+      editLink nid pid = "/ui/project/node/edit" 
+                     <> "?nodeId=" 
+                     <> (pack . show $ nid)
+                     <> "&projectId=" 
+                     <> (pack . show $ pid)
+
+templateNodeEdit :: Node -> [NodeStatus] -> Html ()
+templateNodeEdit nde nsts = do
+    header_ [class_ "node-header"] $ do
+        h1_ [] (toHtml . title $ nde)
+        div_ [id_ "node-actions"] $ do
+            button_ [ class_     "pill-button close-button"
+                    , hxPost_    "/ui/project/node/edit?projectId=1&nodeId=1"
+                    , hxInclude_ "form-node-edit"
+                    , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
+                    , hxPushUrl_ False 
+                    , hxSwap_    "innerHTML"
+                    , hxTarget_  "#node-detail"
+                    , hxTrigger_ "click"
+                    ] $ do
+                i_  [class_ "material-icons"] "done"
+            button_ [ class_     "pill-button close-button"
+                    , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
+                    , hxPushUrl_ False 
+                    , hxSwap_    "innerHTML"
+                    , hxTarget_  "#node-detail"
+                    , hxTrigger_ "click"
+                    ] $ do
+                i_  [class_ "material-icons"] "close"
+    form_ [id_ "form-node-edit"] $ do
+      section_ [class_ "column-textarea"] $ do
+        label_ [class_ "property-label", for_ "description"] "Description:"
+        textarea_ [name_ "description"] (toHtml . description $ nde)
+      section_ [class_ "node-properties"] $ do
+        div_ [class_ "property-item"] $ do
+          label_  [name_ "status"] "Status:"
+          select_ [class_ "property-value pill-dropdown", selected_ "active"] $ do
+            forM_ nsts $ \nst -> 
+              option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
+        div_ [class_ "property-item"] $ do
+          span_ [class_ "property-label"] "Type:"
+          span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+        div_ [class_ "property-item"] $ do
+          span_ [class_ "property-label"] "Last Updated:"
+          span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
 
 formatUpdated :: UTCTime -> Text
 formatUpdated = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" 
@@ -181,8 +290,10 @@ showNodeType typ = case typ of
   "work"         -> "Work"
   _              -> typ
 
-validateForm :: GetNodeDetailForm -> Either [ValidationErr]  GetNodeDetailPayload
-validateForm fm = runValidation id $ do
+validateForm :: Monad m 
+  => GetNodeDetailForm 
+  -> EitherT [ValidationErr] m GetNodeDetailPayload
+validateForm fm = hoistEither . runValidation id $ do
   pid <- formProjectId fm 
     .$ unpack
     >>= isThere    "Project id must be present"
@@ -195,12 +306,13 @@ validateForm fm = runValidation id $ do
     >>= valRead    "Node id must be valid integer"
   return $ GetNodeDetailPayload <$> pid <*> nid 
 
-validateNodeProjectId :: GetNodeDetailPayload 
+validateNodeProjectId :: Monad m 
+  => GetNodeDetailPayload 
   -> Node 
-  -> Either [ValidationErr] Node
-validateNodeProjectId fm nd = runValidation id $ do
+  -> EitherT [ValidationErr] m Node
+validateNodeProjectId fm nd = hoistEither . runValidation id $ do
   _ <- Just nd
-    .$ nodeProjectId 
+    .$ projectId 
     >>= isEq (payloadProjectId fm) "Invalid state. Node is not part of project"
   return . Just $ nd
 

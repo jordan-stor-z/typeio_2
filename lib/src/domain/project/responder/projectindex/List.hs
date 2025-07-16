@@ -6,12 +6,12 @@
 
 module Domain.Project.Responder.ProjectIndex.List where
 
+import Domain.Project.Responder.ProjectManage.Link
 import Lucid
 import Common.Web.Attributes
 import Control.Monad                   (forM_)
 import Control.Monad.Reader            (ReaderT)
 import Data.Int                        (Int64)
-import Data.Text                       (pack, Text)
 import Data.Time                       (UTCTime)
 import Database.Esqueleto.Experimental ( desc
                                        , from
@@ -74,9 +74,6 @@ templateList ps = div_ [class_ "view"] $ do
   div_ [id_ "project-index", class_ "card-grid"] $ do
     forM_ ps $ \item -> do
       templateProjectItem item
-
-projectLink :: Int64 -> Text
-projectLink = (<>) "/ui/project/vw?projectId=" . pack . show
 
 templateProjectItem :: ProjectItem -> Html ()
 templateProjectItem item = do

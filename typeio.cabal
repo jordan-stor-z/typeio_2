@@ -47,6 +47,7 @@ library src
       , Data.HashTree
       , Database.Init
       , Database.Logging
+      , Domain.Central.Responder.Empty
       , Domain.Central.Responder.IndexView
       , Domain.Central.Responder.Seed
       , Domain.Central.Container.Api
@@ -54,6 +55,7 @@ library src
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Node
       , Domain.Project.Responder.ProjectManage.Graph
+      , Domain.Project.Responder.ProjectManage.Link
       , Domain.Project.Responder.ProjectManage.NodeDetail
       , Domain.Project.Responder.ProjectManage.View
       , Domain.Project.Responder.Api.Node.Post

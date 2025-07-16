@@ -91,11 +91,17 @@ systemApiTree ctn _ = emptyT
 
 uiTree :: RootContainer -> Request -> RouteTree
 uiTree ctn req = emptyT
-  <+> "projects"       -< projectIndexUiTree  prjCtn req
+  <+> "central"        -< centralUiTree       ctlCtn
   <+> "create-project" -< addProjectUiTree    prjCtn req
   <+> "project"        -< manageProjectUiTree prjCtn req 
+  <+> "projects"       -< projectIndexUiTree  prjCtn req
   where
     prjCtn = projectUiContainer ctn
+    ctlCtn = centralUiContainer ctn
+
+centralUiTree :: CentralUiContainer -> RouteTree
+centralUiTree ct = routes
+  <+> "empty" -| only "GET" (getEmptyView ct)
 
 projectIndexUiTree :: ProjectUiContainer -> Request -> RouteTree
 projectIndexUiTree ctn _ = emptyT
@@ -111,7 +117,11 @@ manageProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
   <+> "vw"    -| only "GET"  (manageProjectVw ctn req)
   <+> "graph" -| only "GET"  (getProjectGraph ctn req)
-  <+> "node"  -| only "GET"  (getNodeDetail ctn req)
+  <+> "node"  -<
+    ( routes
+      <+> "edit"   -| only "GET" (getNodeEdit ctn req)
+      <+> "detail" -| only "GET" (getNodeDetail ctn req)
+    )
 
 index :: RootContainer 
   -> Text 

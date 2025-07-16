@@ -8,11 +8,17 @@ import Lucid.Base (Attributes, makeAttributes)
 hxGet_ :: Text -> Attributes
 hxGet_ = makeAttributes "hx-get"
 
+hxInclude_ :: Text -> Attributes
+hxInclude_ = makeAttributes "hx-include"
+
 hxPost_ :: Text -> Attributes
 hxPost_ = makeAttributes "hx-post"
 
 hxPushUrl_ :: Bool -> Attributes
 hxPushUrl_ = makeAttributes "hx-push-url" . boolText
+
+hxPushUrl'_ :: Text -> Attributes
+hxPushUrl'_ = makeAttributes "hx-push-url"
 
 hxReplaceUrl_ :: Bool -> Attributes
 hxReplaceUrl_ = makeAttributes "hx-replace-url" . boolText
