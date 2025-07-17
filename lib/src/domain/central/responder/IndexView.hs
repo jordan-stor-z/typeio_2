@@ -23,7 +23,10 @@ handleIndexView path req res = do
     [("Content-Type", "text/html; charset=utf-8")]
     (renderBS . indexTemplate path $ qs)
   where 
-    qs = queryTextToText . queryToQueryText . queryString $ req
+    qs = queryTextToText 
+         . queryToQueryText
+         . queryString 
+         $ req
 
 indexTemplate :: Text -> Maybe Text -> Html ()
 indexTemplate path qs = html_ $ do
@@ -31,11 +34,11 @@ indexTemplate path qs = html_ $ do
     title_   "TypeIO"
     link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
     link_    [ rel_ "stylesheet"
-             , href_ "https://fonts.googleapis.com/icon?family=Material+Icons"
+             , href_ "/static/styles/material.css"
              ]
     meta_    [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
-    script_  [src_ "https://unpkg.com/htmx.org@2.0.4"] empty 
-    script_  [src_ "https://unpkg.com/d3@7"] empty 
+    script_  [src_ "/static/script/htmx.js"] empty 
+    script_  [src_ "/static/script/d3.js"] empty 
   body_ $ do
     div_ 
       [ id_           "container"

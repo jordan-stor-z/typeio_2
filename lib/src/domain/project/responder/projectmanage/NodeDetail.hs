@@ -246,7 +246,8 @@ templateNodeEdit nde nsts = do
     header_ [class_ "node-header"] $ do
         h1_ [] (toHtml . title $ nde)
         div_ [id_ "node-actions"] $ do
-            button_ [ class_     "pill-button close-button"
+            div_ [ class_        "pill-indicator close-button"
+                 , id_           "node-edit-indicator"
                     , hxPost_    "/ui/project/node/edit?projectId=1&nodeId=1"
                     , hxInclude_ "form-node-edit"
                     , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
@@ -254,8 +255,7 @@ templateNodeEdit nde nsts = do
                     , hxSwap_    "innerHTML"
                     , hxTarget_  "#node-detail"
                     , hxTrigger_ "click"
-                    ] $ do
-                i_  [class_ "material-icons"] "done"
+                    ] empty
             button_ [ class_     "pill-button close-button"
                     , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
                     , hxPushUrl_ False 
@@ -267,7 +267,12 @@ templateNodeEdit nde nsts = do
     form_ [id_ "form-node-edit"] $ do
       section_ [class_ "column-textarea"] $ do
         label_ [class_ "property-label", for_ "description"] "Description:"
-        textarea_ [name_ "description"] (toHtml . description $ nde)
+        textarea_ [ name_ "description"
+                  , hxPost_ "/ui/project/node/description?projectId=1&nodeId=1" 
+                  , hxInclude_ "this"
+                  , hxTrigger_ "input changed delay:500ms"
+                  , hxTarget_ "#node-edit-indicator"
+                  ] (toHtml . description $ nde)
       section_ [class_ "node-properties"] $ do
         div_ [class_ "property-item"] $ do
           label_  [name_ "status"] "Status:"
@@ -280,6 +285,8 @@ templateNodeEdit nde nsts = do
         div_ [class_ "property-item"] $ do
           span_ [class_ "property-label"] "Last Updated:"
           span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
+    where 
+      empty = mempty :: Html ()
 
 formatUpdated :: UTCTime -> Text
 formatUpdated = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" 

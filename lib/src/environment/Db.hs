@@ -44,5 +44,7 @@ withPool cf = ContT with'
     c = config cf
     h = hooks cf
     with' k = 
-      runDatabaseLoggingT $ withPostgresqlPoolWithConf c h $ liftIO . k
+      runDatabaseLoggingT $ 
+        withPostgresqlPoolWithConf c h 
+        $ liftIO . k
 

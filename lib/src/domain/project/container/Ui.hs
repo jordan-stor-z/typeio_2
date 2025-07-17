@@ -8,6 +8,7 @@ import Domain.Project.Responder.ProjectCreate.View       (handleProjectCreateVw)
 import Domain.Project.Responder.ProjectManage.NodeDetail ( handleGetNodeDetail
                                                          , handleGetNodeEdit
                                                          )
+import Domain.Project.Responder.ProjectManage.Node.Save  (handlePostDescription)
 import Domain.Project.Responder.ProjectManage.View       (handleProjectManageView)
 import Domain.Project.Responder.ProjectManage.Graph      (handleProjectGraph)
 import Network.Wai (Application, Response, ResponseReceived)
@@ -20,6 +21,7 @@ data ProjectUiContainer = ProjectUiContainer
   , getProjectGraph :: Application
   , getNodeDetail   :: Application
   , getNodeEdit     :: Application
+  , postNodeEdit    :: Application
   , submitProject   :: Application 
   }
 
@@ -32,5 +34,6 @@ defaultContainer cpl = ProjectUiContainer
   , getProjectGraph = handleProjectGraph cpl
   , getNodeDetail   = handleGetNodeDetail cpl
   , getNodeEdit     = handleGetNodeEdit cpl
+  , postNodeEdit    = handlePostDescription cpl
   , submitProject   = handleProjectSubmit cpl
   }

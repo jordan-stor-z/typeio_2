@@ -62,6 +62,20 @@ body {
   box-shadow: none;
 }
 
+.pill-indicator {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  color: var(--accent);
+  padding: 0.2rem 0.6rem; 
+  font-weight: bold;
+  border-radius: 999px; 
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
 .pill-button {
   display: flex;
   align-items: center;

@@ -5,11 +5,11 @@ module Common.Web.Query where
 import Data.List              (find)
 import Data.Maybe             (fromMaybe)
 import Data.Text              (Text)
-import Network.HTTP.Types.URI (QueryText)
+import Network.HTTP.Types.URI (Query, QueryText)
 
 lookupVal :: Text -> QueryText -> Maybe Text 
 lookupVal k pr = find ((== k) . fst) pr >>= snd
- 
+
 queryTextToText :: QueryText -> Maybe Text
 queryTextToText [] = Nothing
 queryTextToText qs = Just $ foldr (\(k, v) acc -> 
