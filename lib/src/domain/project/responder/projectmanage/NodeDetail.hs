@@ -98,18 +98,19 @@ handleGetNodeEdit :: ConnectionPool
   -> (Response -> IO ResponseReceived) 
   -> IO ResponseReceived
 handleGetNodeEdit pl req respond = do
-  rslt <- runEitherT $ do
+  rslt <- flip runSqlPool pl . runEitherT $ do
        pyld  <- firstEitherT InvalidParams 
                 . validateForm 
                 $ form
-       (ndeM, nsts) <- lift . flip runSqlPool pl $ do
-            n  <- queryNode (payloadNodeId pyld)
-            ns <- queryNodeStatuses
-            pure (n, ns)
-       nde' <- hoistMaybe NodeNotFound ndeM 
-       nde  <- firstEitherT InvalidParams 
-              . validateNodeProjectId pyld
-              $ nde'
+       ndeM <- lift 
+                . queryNode 
+                . payloadNodeId 
+                $ pyld 
+       nsts <- lift queryNodeStatuses
+       nde  <- hoistMaybe NodeNotFound ndeM 
+                >>= ( firstEitherT InvalidParams
+                      . validateNodeProjectId pyld
+                    )
        return (nde, nsts)
   case rslt of
     Left e -> respond $ handleErr e
@@ -133,12 +134,11 @@ handleGetNodeDetail :: ConnectionPool
   -> (Response -> IO ResponseReceived) 
   -> IO ResponseReceived
 handleGetNodeDetail pl req respond = do
-  rslt <- runEitherT $ do
+  rslt <- flip runSqlPool pl . runEitherT $ do
        pyld  <- firstEitherT InvalidParams 
             . validateForm 
             $ form
        ndeM <- lift 
-               . flip runSqlPool pl 
                . queryNode 
                . payloadNodeId 
                $ pyld

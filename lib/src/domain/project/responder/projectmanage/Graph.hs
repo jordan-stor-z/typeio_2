@@ -133,15 +133,16 @@ buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
 
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
-  res <- runEitherT $ do
+  res <- flip runSqlPool pl . runEitherT $ do
     pid <- hoistEither 
            . first InvalidParams 
            . validateProjectId 
            $ qt
-    (ns, ds) <- lift . flip runSqlPool pl $ do
-      n <- queryNodes pid
-      d <- queryDependencies $ fmap nodeId n
-      pure (n, d)
+    ns  <- lift . queryNodes $ pid
+    ds  <- lift 
+           . queryDependencies 
+           . fmap nodeId 
+           $ ns
     ns'  <- hoistEither . notNullEither MissingNodes $ ns
     return $ buildGraph ns' ds 
   case res of
