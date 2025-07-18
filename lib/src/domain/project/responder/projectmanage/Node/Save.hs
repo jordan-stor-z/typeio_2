@@ -17,17 +17,19 @@ import Control.Monad.Trans.Class  (lift)
 import Common.Web.Query           (lookupVal)
 import Control.Monad.Reader       (ReaderT)
 import Control.Monad.Trans.Either ( hoistEither
-                                    , hoistMaybe
-                                    , firstEitherT
-                                    , runEitherT
-                                    , EitherT
-                                    )
-import Data.Maybe                   (listToMaybe)
-import Data.Int                     (Int64)
-import Data.Text                    (Text, unpack)
-import Network.HTTP.Types           (status200, status500)
-import Network.HTTP.Types.URI       (QueryText, queryToQueryText)
-import Network.Wai                  (Application, queryString, responseLBS)
+                                  , hoistMaybe
+                                  , firstEitherT
+                                  , runEitherT
+                                  , EitherT
+                                  )
+import Data.Maybe                 (listToMaybe)
+import Data.Int                   (Int64)
+import Data.Text                  (Text, unpack)
+import Data.Text.Encoding         (decodeUtf8)
+import Network.HTTP.Types         (status200, status500)
+import Network.HTTP.Types.URI     (QueryText, queryToQueryText)
+import Network.Wai                (Application, queryString, responseLBS)
+import Network.Wai.Parse          (parseRequestBody, lbsBackEnd, Param)
 
 data PostNodeDetailErr =
   InvalidParams [ValidationErr]
@@ -47,22 +49,20 @@ data PostNodeDescriptionPayload = PostNodeDescriptionPayload
 
 handlePostDescription :: ConnectionPool -> Application
 handlePostDescription pl req rspnd = do
+  form <- reqForm . fst <$> parseRequestBody lbsBackEnd req
   rslt <- flip runSqlPool pl . runEitherT $ do
     pyld <- firstEitherT InvalidParams
-            . validatePostDescriptionPayload
+            . validatePayload
             $ form
     ndM  <- lift 
             . queryNode 
             . payloadNodeId 
             $ pyld
     nd   <- hoistMaybe MissingNode ndM
-              >>= ( firstEitherT InvalidParams 
-                    . validateNodeProjectId pyld
-                  )
-    _    <- lift 
-            . updateNodeDescription pyld 
-            $ nd
-    pure nd 
+         >>= ( firstEitherT InvalidParams 
+              . validateNodeProjectId pyld
+             )
+    lift . updateDescription pyld $ nd
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
@@ -77,17 +77,12 @@ handlePostDescription pl req rspnd = do
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templateNodeNotFound
-    Right nd -> rspnd
+    Right _ -> rspnd
                 . responseLBS 
                   status200 
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templatePostSuccess
-  where
-    form = queryTextToForm
-           . queryToQueryText
-           . queryString
-           $ req
 
 queryNode :: Int64 
   -> ReaderT SqlBackend IO (Maybe (Entity M.Node))
@@ -101,20 +96,20 @@ queryNode nid = do
   where 
     nkey = toSqlKey @M.Node nid 
 
-updateNodeDescription :: 
+updateDescription :: 
   PostNodeDescriptionPayload
   -> Entity M.Node
   -> ReaderT SqlBackend IO ()
-updateNodeDescription pyld (Entity k e) = do
+updateDescription pyld (Entity k e) = do
   replace k node' 
   where
     node' = e { M.nodeDescription = unpack . payloadDescription $ pyld}
 
-queryTextToForm :: QueryText -> PostNodeDescriptionForm
-queryTextToForm qt = PostNodeDescriptionForm
-  { formNodeDescription = lookupVal "description" qt
-  , formNodeId          = lookupVal "nodeId"      qt
-  , formProjectId       = lookupVal "projectId"   qt
+reqForm :: [Param] -> PostNodeDescriptionForm
+reqForm ps = PostNodeDescriptionForm
+  { formNodeDescription = decodeUtf8 <$> lookup "description" ps
+  , formNodeId          = decodeUtf8 <$> lookup "nodeId"      ps 
+  , formProjectId       = decodeUtf8 <$> lookup "projectId"   ps 
   }
 
 templatePostSuccess :: Html ()
@@ -130,10 +125,10 @@ templatePostFail es = do
   i_ [class_ "material-icons"] "error"
   ul_ [] $ mapM_ (li_ [] . toHtml) es
 
-validatePostDescriptionPayload :: Monad m 
+validatePayload :: Monad m 
   => PostNodeDescriptionForm  
   -> EitherT [ValidationErr] m PostNodeDescriptionPayload
-validatePostDescriptionPayload form = 
+validatePayload form = 
   hoistEither . runValidation id $ do
     dsc <- formNodeDescription form 
            .$ id 

@@ -22,9 +22,17 @@ import Control.Monad                   (forM_, unless)
 import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, runEitherT, EitherT)
+import Data.Aeson                      ( (.=)
+                                       , encode
+                                       , object
+                                       , ToJSON(..)
+                                       )
 import Data.Int                        (Int64)
 import Data.Maybe                      (listToMaybe)
 import Data.Text                       (Text, pack, unpack)
+import Data.Text.Lazy                  (toStrict)
+import Data.Text.Lazy.Builder          (toLazyText)
+import Data.Text.Lazy.Builder.Int      (decimal)
 import Data.Time                       (UTCTime)
 import Data.Time.Format                (defaultTimeLocale, formatTime) 
 import Database.Esqueleto.Experimental ( (==.)
@@ -243,19 +251,21 @@ templateNodeDetail nde = do
 
 templateNodeEdit :: Node -> [NodeStatus] -> Html ()
 templateNodeEdit nde nsts = do
+    let t = toLazyText
+        z = decimal
     header_ [class_ "node-header"] $ do
         h1_ [] (toHtml . title $ nde)
         div_ [id_ "node-actions"] $ do
             div_ [ class_        "pill-indicator close-button"
                  , id_           "node-edit-indicator"
-                    , hxPost_    "/ui/project/node/edit?projectId=1&nodeId=1"
-                    , hxInclude_ "form-node-edit"
-                    , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
-                    , hxPushUrl_ False 
-                    , hxSwap_    "innerHTML"
-                    , hxTarget_  "#node-detail"
-                    , hxTrigger_ "click"
-                    ] empty
+                 , hxPost_    "/ui/project/node/edit?projectId=1&nodeId=1"
+                 , hxInclude_ "form-node-edit"
+                 , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
+                 , hxPushUrl_ False 
+                 , hxSwap_    "innerHTML"
+                 , hxTarget_  "#node-detail"
+                 , hxTrigger_ "click"
+                 ] empty
             button_ [ class_     "pill-button close-button"
                     , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
                     , hxPushUrl_ False 
@@ -267,10 +277,16 @@ templateNodeEdit nde nsts = do
     form_ [id_ "form-node-edit"] $ do
       section_ [class_ "column-textarea"] $ do
         label_ [class_ "property-label", for_ "description"] "Description:"
-        textarea_ [ name_ "description"
-                  , hxPost_ "/ui/project/node/description?projectId=1&nodeId=1" 
-                  , hxInclude_ "this"
-                  , hxTrigger_ "input changed delay:500ms"
+        textarea_ [ name_        "description"
+                  , hxPost_      "/ui/project/node/description" 
+                  , hxPushUrl_   False
+                  , hxInclude_   "this"
+                  , hxIndicator_ "#node-edit-indicator"
+                  , hxTrigger_   "input changed delay:500ms"
+                  , hxVals'_ $ object 
+                      [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                      , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                      ]
                   , hxTarget_ "#node-edit-indicator"
                   ] (toHtml . description $ nde)
       section_ [class_ "node-properties"] $ do

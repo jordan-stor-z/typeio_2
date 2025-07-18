@@ -164,3 +164,10 @@ label {
 select {
   max-width: 50%;
 }
+
+.pill-indicator .hx-request {
+  visibility: hidden;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+}
