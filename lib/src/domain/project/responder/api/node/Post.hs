@@ -15,7 +15,7 @@ import Common.Validation               ( (.$)
                                        , valRead
                                        )
 import Control.Monad.Trans.Class       (lift)
-import Control.Monad.Trans.Either      (hoistEither, runEitherT)
+import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, runEitherT)
 import Control.Monad.Reader            (ReaderT)
 import Data.Aeson                      ( (.=)
                                        , encode
@@ -37,7 +37,8 @@ import Database.Esqueleto.Experimental ( (==.)
                                        , val
                                        , where_, Entity
                                        )
-import Database.Persist.Sql            (ConnectionPool, entityKey, runSqlPool, SqlBackend)
+import Database.Persist                (Entity(..))
+import Database.Persist.Sql            (ConnectionPool, runSqlPool, SqlBackend)
 import Network.HTTP.Types              (status200, status404, status422, status500)
 import Network.Wai                     (Application, responseLBS)
 import Network.Wai.Parse               (lbsBackEnd, Param, parseRequestBody)
@@ -80,12 +81,19 @@ paramToPayload ps = PostNodeForm
 handlePostNode :: ConnectionPool -> Application
 handlePostNode pl req respond = do
   form <- paramToPayload . fst <$> parseRequestBody lbsBackEnd req
-  res  <- runEitherT $ do
-    pyl <- hoistEither $ validateForm form
-    now <- lift getCurrentTime
-    nde <- lift $ runSqlPool (insertNode pyl now) pl
-    hoistEither nde
-  case res of
+  now  <- getCurrentTime
+  rslt <- flip runSqlPool pl . runEitherT $ do
+    pyl <- hoistEither . validateForm $ form
+    pr  <- lift (queryProject . projectId $ pyl) 
+            >>= hoistMaybe ProjectNotFound
+    st  <- lift (queryStatus "active")
+            >>= hoistMaybe MissingStatus
+    tp  <- lift (queryType "project_root")
+            >>= hoistMaybe MissingType
+    let nd = toNode now pyl pr st tp
+    ky  <- lift . insert $ nd
+    pure $ Entity ky nd
+  case rslt of
     Right _ -> respond $ responseLBS
       status200 
       [("Content-Type", "application/json")]
@@ -94,7 +102,7 @@ handlePostNode pl req respond = do
     Left MissingStatus       -> serverExc
     Left MissingType         -> serverExc
     Left (FailValidation es) -> badRequest es
-  where
+  where 
     badRequest es = respond $ responseLBS
       status422 
       [("Content-Type", "application/json")]
@@ -107,6 +115,16 @@ handlePostNode pl req respond = do
       status500 
       [("Content-Type", "application/json")]
       (encode $ object ["error" .= ("Internal server error" :: Text)])
+    toNode now pyl pr st tp = M.Node
+      { M.nodeCreated      = now
+      , M.nodeDeleted      = Nothing
+      , M.nodeDescription  = unpack . description $ pyl 
+      , M.nodeNodeStatusId = entityKey st
+      , M.nodeNodeTypeId   = entityKey tp 
+      , M.nodeProjectId    = entityKey pr 
+      , M.nodeTitle        = unpack . title $ pyl 
+      , M.nodeUpdated      = now
+      }
 
 validateForm :: PostNodeForm -> Either InsertNodeResult PostNodePayload
 validateForm fm = runValidation FailValidation $ do

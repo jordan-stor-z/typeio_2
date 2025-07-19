@@ -54,14 +54,11 @@ handlePutDescription pl req rspnd = do
     pyld <- firstEitherT InvalidParams
             . validatePayload
             $ form
-    ndM  <- lift 
-            . queryNode 
-            . payloadNodeId 
-            $ pyld
-    nd   <- hoistMaybe MissingNode ndM
-         >>= ( firstEitherT InvalidParams 
-              . validateNodeProjectId pyld
-             )
+    nd   <- lift (queryNode . payloadNodeId $ pyld)
+            >>= hoistMaybe MissingNode
+            >>= ( firstEitherT InvalidParams
+                 . validateNodeProjectId pyld
+               )
     lift . updateDescription pyld $ nd
   case rslt of
     Left (InvalidParams e) -> rspnd 

@@ -53,19 +53,13 @@ handlePutNodeStatus pl req rspnd = do
     pyld <- firstEitherT InvalidParams
             . validatePayload
             $ form
-    ndM  <- lift 
-            . queryNode 
-            . payloadNodeId 
-            $ pyld
-    nd   <- hoistMaybe MissingNode ndM
-         >>= ( firstEitherT InvalidParams 
-              . validateNodeProjectId pyld
-             )
-    stM <- lift
-            . queryStatus 
-            . payloadStatus
-            $ pyld
-    st   <- hoistMaybe MissingStatus stM
+    nd   <- lift (queryNode . payloadNodeId $ pyld)
+            >>= hoistMaybe MissingNode
+            >>= ( firstEitherT InvalidParams 
+                 . validateNodeProjectId pyld
+                )
+    st   <- lift (queryStatus . payloadStatus $ pyld)
+            >>= hoistMaybe MissingStatus
     lift . updateStatus st $ nd
   case rslt of
     Left (InvalidParams e) -> rspnd 

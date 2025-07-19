@@ -13,8 +13,9 @@ import Common.Validation                           ( (.$)
                                                    , runValidation
                                                    , ValidationErr
                                                    )
+import Control.Monad.Reader                        (ReaderT)
+import Control.Monad.Trans.Either                  (hoistEither, hoistMaybe, runEitherT)
 import Control.Monad.Trans.Class                   (lift)
-import Control.Monad.Trans.Either                  (hoistEither, runEitherT)
 import Data.Aeson                                  ( (.=)
                                                    , encode
                                                    , object
@@ -26,7 +27,12 @@ import Data.Maybe                                  (listToMaybe)
 import qualified Data.Text as T                    (Text, unpack)
 import Data.Text.Encoding                          (decodeUtf8)
 import Data.Time                                   (getCurrentTime, UTCTime)
-import Database.Persist.Sql                        (runSqlPool, entityKey)
+import Database.Persist                            (Entity(..))
+import Database.Persist.Sql                        ( ConnectionPool
+                                                   , entityKey
+                                                   , runSqlPool
+                                                   , SqlBackend
+                                                   )
 import Database.Persist.Postgresql                 (ConnectionPool)
 import Database.Esqueleto.Experimental             ( (==.)
                                                    , from
@@ -45,7 +51,7 @@ import qualified Domain.Project.Model as M         ( Project(..)
 import Lucid                                       (renderBS)
 import Network.HTTP.Types                          (HeaderName, status200, status500)
 import Network.Wai                                 (Application, responseLBS)
-import Network.Wai.Parse                           (parseRequestBody, lbsBackEnd)
+import Network.Wai.Parse                           (parseRequestBody, lbsBackEnd, Param)
 import qualified Domain.Project.Responder.ProjectCreate.View as 
   V ( AddProjectForm(..)
     , projectCreateVwTemplate
@@ -70,36 +76,52 @@ data AddProjectPayload = AddProjectPayload
   , title       :: T.Text
   }
 
-handleProjectSubmit :: ConnectionPool -> Application 
+paramForm :: [Param] -> V.AddProjectForm
+paramForm ps = V.AddProjectForm
+  { V.description = decodeUtf8 <$> lookup "description" ps
+  , V.title       = decodeUtf8 <$> lookup "title" ps
+  }
+
+handleProjectSubmit :: ConnectionPool -> Application
 handleProjectSubmit pl req respond = do
-  ps <- fst <$> parseRequestBody lbsBackEnd req
-  let fm = V.AddProjectForm
-        { V.description = decodeUtf8 <$> lookup "description" ps 
-        , V.title       = decodeUtf8 <$> lookup "title" ps  
-        }
-  rs <- runEitherT $ do
-    p <- hoistEither $ buildPayload fm
-    t <- lift getCurrentTime
-    n <- lift $ insertProject p t pl
-    hoistEither n
-  case rs of
-    Left (FormValidationFail es) -> formAgain fm es
+  form <- paramForm . fst <$> parseRequestBody lbsBackEnd req
+  now  <- getCurrentTime
+  rslt <- flip runSqlPool pl . runEitherT $ do
+    pyld <- hoistEither . buildPayload $ form
+    st   <- lift (queryStatus "active")
+             >>= hoistMaybe MissingNodeStatus
+    tp   <- lift (queryType "project_root")
+             >>= hoistMaybe MissingNodeType
+    pkey <- lift . insert $ M.Project
+    let nd = M.Node
+          { M.nodeCreated      = now
+          , M.nodeDeleted      = Nothing
+          , M.nodeDescription  = T.unpack . description $ pyld
+          , M.nodeNodeStatusId = entityKey st
+          , M.nodeNodeTypeId   = entityKey tp
+          , M.nodeProjectId    = pkey
+          , M.nodeTitle        = T.unpack . title $ pyld
+          , M.nodeUpdated      = now
+          }
+    lift . insert $ nd
+  case rslt of
+    Left (FormValidationFail es) -> formAgain form es
     Left MissingNodeStatus       -> errorRes ("Missing node status" :: T.Text)
     Left MissingNodeType         -> errorRes ("Missing node type"   :: T.Text)
     Right _                      -> success ()
-  where
-    formAgain fm es = respond $ responseLBS
-      status200
-      [("Content-Type", "text/html; charset=utf-8")]
-      (renderBS $ V.projectCreateVwTemplate fm es)
-    errorRes _ = respond $ responseLBS
-      status500
-      []
-      "There was an error in adding the project"
-    success _  = respond $ responseLBS
-      status200 
-      [redirectHeader]
-      mempty
+    where
+      formAgain fm es = respond $ responseLBS
+        status200
+        [("Content-Type", "text/html; charset=utf-8")]
+        (renderBS $ V.projectCreateVwTemplate fm es)
+      errorRes _ = respond $ responseLBS
+        status500
+        []
+        "There was an error in adding the project"
+      success _  = respond $ responseLBS
+        status200 
+        [redirectHeader]
+        mempty   
 
 redirectHeader :: (HeaderName, ByteString)
 redirectHeader = 
@@ -121,40 +143,23 @@ buildPayload fm = runValidation FormValidationFail $ do
     >>= isNotEmpty "Title cannot be empty"
   return $ AddProjectPayload <$> dscr <*> ttl 
 
-insertProject :: 
-  AddProjectPayload  
-  -> UTCTime 
-  -> ConnectionPool 
-  -> IO (Either ProjectAddResult ())
-insertProject pyl tm pl = 
-  flip runSqlPool pl $ do
-    let descr = description pyl
-        ttl   = title pyl 
-    stsm <- fmap listToMaybe . select $ do 
-      s <- from $ table @M.NodeStatus
-      limit 1
-      where_ $ s.nodeStatusId ==. val "active"
-      pure s
-    typm <- fmap listToMaybe . select $ do
-      t <- from $ table @M.NodeType
-      limit 1
-      where_ $ t.nodeTypeId ==. val "project_root"
-      pure t
-    case (stsm, typm) of
-      (Nothing, _) -> return $ Left MissingNodeStatus 
-      (_, Nothing) -> return $ Left MissingNodeType 
-      (Just status, Just type_) -> do
-        pky  <- insert M.Project
-        let nd = M.Node
-             { M.nodeCreated      = tm
-             , M.nodeDeleted      = Nothing
-             , M.nodeDescription  = T.unpack descr 
-             , M.nodeNodeStatusId = entityKey status 
-             , M.nodeNodeTypeId   = entityKey type_ 
-             , M.nodeProjectId    = pky 
-             , M.nodeTitle        = T.unpack ttl
-             , M.nodeUpdated      = tm
-             }
-        _ <- insert nd
-        return $ Right ()
+queryStatus :: String
+  -> ReaderT SqlBackend IO (Maybe (Entity M.NodeStatus))
+queryStatus st = do
+  ns <- select $ do
+    s <- from $ table @M.NodeStatus
+    where_ $ s.nodeStatusId ==. val st
+    limit 1
+    pure s
+  return . listToMaybe $ ns
+
+queryType :: String
+  -> ReaderT SqlBackend IO (Maybe (Entity M.NodeType))
+queryType tp = do
+  ns <- select $ do
+    t <- from $ table @M.NodeType
+    where_ $ t.nodeTypeId ==. val tp
+    limit 1
+    pure t
+  return . listToMaybe $ ns
 

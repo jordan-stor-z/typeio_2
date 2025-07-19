@@ -133,40 +133,50 @@ buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
 
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
-  res <- flip runSqlPool pl . runEitherT $ do
+  rslt <- flip runSqlPool pl . runEitherT $ do
     pid <- hoistEither 
            . first InvalidParams 
            . validateProjectId 
            $ qt
-    ns  <- lift . queryNodes $ pid
+    ns  <- lift (queryNodes pid)
+           >>= hoistEither 
+               . notNullEither MissingNodes
     ds  <- lift 
            . queryDependencies 
            . fmap nodeId 
            $ ns
-    ns'  <- hoistEither . notNullEither MissingNodes $ ns
-    return $ buildGraph ns' ds 
-  case res of
-    Left (InvalidParams es) -> do
-      respond $ responseLBS
-        status403
-        [("Content-Type", "application/json")]
-        (encode $ object ["error" .= validationErrsToText es])
-    Left MissingNodes -> do
-      respond $ responseLBS
-        status403
-        [("Content-Type", "application/json")]
-        (encode $ object ["error" .= ("No nodes found for the project" :: Text)])
-    Right graph -> do
-      respond $ responseLBS
-        status200 
-        [("Content-Type", "text/html")]
-        (renderBS $ templateGraph graph)
+    pure . buildGraph ns $ ds 
+  case rslt of
+    Left (InvalidParams es) -> respondValErrs es
+    Left MissingNodes       -> respondMissingNodes
+    Right graph             -> respondSuccess graph
   where
+    respondMissingNodes = 
+      respond
+      . responseLBS
+        status403
+        [("Content-Type", "application/json")]
+      . encode 
+      . object 
+      $ ["error" .= ("No nodes found for the project" :: Text)]
+    respondValErrs es = 
+      respond 
+      . responseLBS
+        status403
+        [("Content-Type", "application/json")]
+      . encode
+      . object
+      $ ["error" .= (mconcat . map (pack . show) $ es)]
+    respondSuccess = 
+      respond 
+      . responseLBS
+        status200
+        [("Content-Type", "text/html")]
+      . renderBS
+      . templateGraph
     qt = queryToQueryText 
          . queryString 
          $ req
-    validationErrsToText :: [ValidationErr] -> Text
-    validationErrsToText = mconcat . map (pack . show)
 
 queryNodes :: Int64 -> ReaderT SqlBackend IO [Node]
 queryNodes pid = do
