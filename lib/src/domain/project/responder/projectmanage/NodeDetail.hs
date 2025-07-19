@@ -251,14 +251,11 @@ templateNodeDetail nde = do
 
 templateNodeEdit :: Node -> [NodeStatus] -> Html ()
 templateNodeEdit nde nsts = do
-    let t = toLazyText
-        z = decimal
     header_ [class_ "node-header"] $ do
         h1_ [] (toHtml . title $ nde)
         div_ [id_ "node-actions"] $ do
-            div_ [ class_        "pill-indicator close-button"
-                 , id_           "node-edit-indicator"
-                 , hxPost_    "/ui/project/node/edit?projectId=1&nodeId=1"
+            div_ [ class_     "pill-indicator close-button"
+                 , id_        "node-edit-indicator"
                  , hxInclude_ "form-node-edit"
                  , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
                  , hxPushUrl_ False 
@@ -278,7 +275,7 @@ templateNodeEdit nde nsts = do
       section_ [class_ "column-textarea"] $ do
         label_ [class_ "property-label", for_ "description"] "Description:"
         textarea_ [ name_        "description"
-                  , hxPost_      "/ui/project/node/description" 
+                  , hxPut_       "/ui/project/node/description" 
                   , hxPushUrl_   False
                   , hxInclude_   "this"
                   , hxIndicator_ "#node-edit-indicator"
@@ -291,8 +288,21 @@ templateNodeEdit nde nsts = do
                   ] (toHtml . description $ nde)
       section_ [class_ "node-properties"] $ do
         div_ [class_ "property-item"] $ do
-          label_  [name_ "status"] "Status:"
-          select_ [class_ "property-value pill-dropdown", selected_ "active"] $ do
+          label_  [for_ "status"] "Status:"
+          select_ [ class_    "property-value pill-dropdown",
+                    name_     "status",
+                    selected_ $ statusId nde,
+                    hxPut_    "/ui/project/node/status",
+                    hxPushUrl_ False,
+                    hxInclude_ "this",
+                    hxIndicator_ "#node-edit-indicator",
+                    hxTrigger_ "change",
+                    hxVals'_ $ object 
+                      [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                      , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                      ],
+                    hxTarget_ "#node-edit-indicator"
+                   ] $ do
             forM_ nsts $ \nst -> 
               option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
         div_ [class_ "property-item"] $ do

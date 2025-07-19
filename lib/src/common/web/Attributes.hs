@@ -22,6 +22,9 @@ hxIndicator_ = makeAttributes "hx-indicator"
 hxPost_ :: Text -> Attributes
 hxPost_ = makeAttributes "hx-post"
 
+hxPut_ :: Text -> Attributes
+hxPut_ = makeAttributes "hx-put"
+
 hxPushUrl_ :: Bool -> Attributes
 hxPushUrl_ = makeAttributes "hx-push-url" . boolText
 
