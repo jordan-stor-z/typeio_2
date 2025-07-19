@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Domain.Project.Responder.ProjectManage.NodeDetail where
+module Domain.Project.Responder.ProjectManage.Node.Detail where
 
 import Domain.Project.Responder.ProjectManage.Link
 import Lucid

@@ -121,8 +121,8 @@ manageProjectUiTree ctn req = emptyT
     ( routes
       <+> "edit"   -| only "GET" (getNodeEdit ctn req)
       <+> "detail" -| only "GET" (getNodeDetail ctn req)
-      <+> "description" -| only "PUT" (postNodeEdit ctn req)
-      <+> "status" -| only "PUT"  (putNodeStatus ctn req)
+      <+> "description" -| only "PUT"  (putNodeDescription ctn req)
+      <+> "status"      -| only "PUT"  (putNodeStatus ctn req)
     )
 
 index :: RootContainer 

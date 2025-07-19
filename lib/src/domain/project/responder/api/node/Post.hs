@@ -35,13 +35,14 @@ import Database.Esqueleto.Experimental ( (==.)
                                        , table
                                        , toSqlKey
                                        , val
-                                       , where_
+                                       , where_, Entity
                                        )
 import Database.Persist.Sql            (ConnectionPool, entityKey, runSqlPool, SqlBackend)
 import Network.HTTP.Types              (status200, status404, status422, status500)
 import Network.Wai                     (Application, responseLBS)
 import Network.Wai.Parse               (lbsBackEnd, Param, parseRequestBody)
 import qualified Domain.Project.Model  as M
+import Data.Maybe (listToMaybe)
 
 data InsertNodeResult =  
   FailValidation [ValidationErr]
@@ -122,6 +123,33 @@ validateForm fm = runValidation FailValidation $ do
             .$  decodeUtf8
              >>= isThere   "Title cannot be empty"
     return $ PostNodePayload <$> dscr <*> pid <*> ttl
+
+queryProject :: Int64 -> ReaderT SqlBackend IO (Maybe (Entity M.Project))
+queryProject pid = do
+  prj <- select $ do
+    p <- from $ table @M.Project
+    where_ $ p.id ==. (val . toSqlKey @M.Project $ pid)
+    limit 1
+    pure p
+  return . listToMaybe $ prj
+
+queryStatus :: Text -> ReaderT SqlBackend IO (Maybe (Entity M.NodeStatus))
+queryStatus st = do
+  ns <- select $ do
+    s <- from $ table @M.NodeStatus
+    where_ $ s.nodeStatusId ==. (val . unpack $ st)
+    limit 1
+    pure s
+  return . listToMaybe $ ns
+
+queryType :: Text -> ReaderT SqlBackend IO (Maybe (Entity M.NodeType))
+queryType tpe = do
+  tp <- select $ do
+    t <- from $ table @M.NodeType
+    where_ $ t.nodeTypeId ==. (val . unpack $ tpe)
+    limit 1
+    pure t
+  return . listToMaybe $ tp
 
 insertNode :: PostNodePayload
   -> UTCTime
