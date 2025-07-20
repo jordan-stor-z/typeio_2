@@ -7,6 +7,7 @@
 module Domain.Project.Responder.ProjectManage.Node.Detail where
 
 import Domain.Project.Responder.ProjectManage.Link
+import Domain.Project.Responder.ProjectManage.Node.Query
 import Lucid
 import Common.Validation               ( (.$)
                                        , isEq
@@ -103,6 +104,7 @@ handleGetNodeEdit pl req respond = do
                 . validateForm 
                 $ form
        ndeM <- lift 
+                . fmap (fmap toNodeSchema)
                 . queryNode 
                 . payloadNodeId 
                 $ pyld 
@@ -161,28 +163,16 @@ handleGetNodeDetail pl req respond = do
              . queryString 
              $ req
 
-queryNode :: Int64 -> ReaderT SqlBackend IO (Maybe Node)
-queryNode nid = do
-  ns <-  select $ do
-    n <- from $ table @M.Node
-    where_ (n.id ==. val nkey)
-    limit 1
-    pure n
-  return 
-    . listToMaybe 
-    . fmap toNodeSchema 
-    $ ns
-  where 
-    nkey = toSqlKey @M.Node nid 
-    toNodeSchema (Entity k e) = Node 
-      { nodeId      = fromSqlKey k
-      , description = pack . M.nodeDescription $ e
-      , projectId   = fromSqlKey . M.nodeProjectId $ e
-      , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-      , title       = pack . M.nodeTitle $ e
-      , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-      , updated     = M.nodeUpdated e
-      }
+toNodeSchema :: Entity M.Node -> Node
+toNodeSchema (Entity k e) = Node 
+  { nodeId      = fromSqlKey k
+  , description = pack . M.nodeDescription $ e
+  , projectId   = fromSqlKey . M.nodeProjectId $ e
+  , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
+  , title       = pack . M.nodeTitle $ e
+  , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+  , updated     = M.nodeUpdated e
+  }
 
 queryNodeStatuses :: ReaderT SqlBackend IO [NodeStatus]
 queryNodeStatuses = do 

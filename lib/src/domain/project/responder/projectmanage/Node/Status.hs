@@ -8,7 +8,7 @@ module Domain.Project.Responder.ProjectManage.Node.Status where
 
 import Lucid
 import Common.Validation
-import Common.Web.Attributes
+import Domain.Project.Responder.ProjectManage.Node.Query
 
 import qualified Domain.Project.Model as M
 
@@ -87,18 +87,6 @@ handlePutNodeStatus pl req rspnd = do
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templatePostSuccess
-
-queryNode :: Int64 
-  -> ReaderT SqlBackend IO (Maybe (Entity M.Node))
-queryNode nid = do
-  ns <-  select $ do
-    n <- from $ table @M.Node
-    where_ (n.id ==. val nkey)
-    limit 1
-    pure n
-  return . listToMaybe $ ns
-  where 
-    nkey = toSqlKey @M.Node nid 
 
 queryStatus :: Text 
   -> ReaderT SqlBackend IO (Maybe (Entity M.NodeStatus))
