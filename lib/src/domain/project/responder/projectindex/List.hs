@@ -42,7 +42,7 @@ handleProjectList cp respond = do
   ps <- runSqlPool queryProjectVw cp
   tp <- case ps of
     [] -> return templateEmptyProjects
-    _  -> return $ templateList ps
+    _  -> return . templateList $ ps
   respond $ responseLBS
     status200
     [("Content-Type", "text/html")]

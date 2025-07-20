@@ -59,6 +59,7 @@ library src
       , Domain.Project.Responder.ProjectManage.Node.Detail
       , Domain.Project.Responder.ProjectManage.Node.Save
       , Domain.Project.Responder.ProjectManage.Node.Status
+      , Domain.Project.Responder.ProjectManage.Node.Title
       , Domain.Project.Responder.ProjectManage.View
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.NodeStatus

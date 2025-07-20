@@ -10,6 +10,7 @@ import Domain.Project.Responder.ProjectManage.Node.Detail ( handleGetNodeDetail
                                                          )
 import Domain.Project.Responder.ProjectManage.Node.Save  (handlePutDescription)
 import Domain.Project.Responder.ProjectManage.Node.Status (handlePutNodeStatus)
+import Domain.Project.Responder.ProjectManage.Node.Title  (handlePutTitle)
 import Domain.Project.Responder.ProjectManage.View       (handleProjectManageView)
 import Domain.Project.Responder.ProjectManage.Graph      (handleProjectGraph)
 import Network.Wai (Application, Response, ResponseReceived)
@@ -24,6 +25,7 @@ data ProjectUiContainer = ProjectUiContainer
   , getNodeEdit        :: Application
   , putNodeDescription :: Application
   , putNodeStatus      :: Application
+  , putNodeTitle       :: Application
   , submitProject      :: Application 
   }
 
@@ -38,5 +40,6 @@ defaultContainer cpl = ProjectUiContainer
   , getNodeEdit        = handleGetNodeEdit    cpl
   , putNodeDescription = handlePutDescription cpl
   , putNodeStatus      = handlePutNodeStatus  cpl
+  , putNodeTitle       = handlePutTitle       cpl
   , submitProject      = handleProjectSubmit  cpl
   }
