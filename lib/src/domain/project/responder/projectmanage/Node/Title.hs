@@ -7,6 +7,8 @@ module Domain.Project.Responder.ProjectManage.Node.Title where
 import Lucid
 import Common.Validation
 import Domain.Project.Responder.ProjectManage.Node.Query
+import Domain.Project.Responder.ProjectManage.Node.Validation
+
 import qualified Domain.Project.Model as M
 
 import Database.Esqueleto.Experimental
@@ -49,10 +51,10 @@ handlePutTitle pl req rspnd = do
             . validatePayload
             $ form
     nd   <- lift (queryNode . payloadNodeId $ pyld)
-            >>= hoistMaybe MissingNode
-            >>= ( firstEitherT InvalidParams 
-                 . validateNodeProjectId pyld
-                )
+              >>= hoistMaybe MissingNode
+              >>= ( firstEitherT InvalidParams 
+                   . validateNodeProjectId (payloadProjectId pyld)
+                  )
     lift . updateTitle pyld $ nd
   case rslt of
     Left (InvalidParams e) -> rspnd 
@@ -127,15 +129,4 @@ validatePayload form =
              <$> nid 
              <*> pid
              <*> ttl
-
-validateNodeProjectId :: Monad m 
-  => PutNodeTitlePayload 
-  -> Entity M.Node 
-  -> EitherT [ValidationErr] m (Entity M.Node)
-validateNodeProjectId pyld (Entity k e) = hoistEither . runValidation id $ do
-  _ <- Just e
-    .$ (fromSqlKey . M.nodeProjectId)
-    >>= isEq (payloadProjectId pyld) 
-          "Invalid state. Node is not part of project"
-  return . Just . Entity k $ e
 

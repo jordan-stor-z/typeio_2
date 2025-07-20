@@ -9,6 +9,7 @@ module Domain.Project.Responder.ProjectManage.Node.Status where
 import Lucid
 import Common.Validation
 import Domain.Project.Responder.ProjectManage.Node.Query
+import Domain.Project.Responder.ProjectManage.Node.Validation
 
 import qualified Domain.Project.Model as M
 
@@ -56,7 +57,7 @@ handlePutNodeStatus pl req rspnd = do
     nd   <- lift (queryNode . payloadNodeId $ pyld)
             >>= hoistMaybe MissingNode
             >>= ( firstEitherT InvalidParams 
-                 . validateNodeProjectId pyld
+                 . validateNodeProjectId (payloadProjectId pyld) 
                 )
     st   <- lift (queryStatus . payloadStatus $ pyld)
             >>= hoistMaybe MissingStatus
@@ -150,15 +151,4 @@ validatePayload form =
              <$> st
              <*> nid 
              <*> pid
-
-validateNodeProjectId :: Monad m 
-  => PostNodeStatusPayload 
-  -> Entity M.Node 
-  -> EitherT [ValidationErr] m (Entity M.Node)
-validateNodeProjectId pyld (Entity k e) = hoistEither . runValidation id $ do
-  _ <- Just e
-    .$ (fromSqlKey . M.nodeProjectId)
-    >>= isEq (payloadProjectId pyld) 
-          "Invalid state. Node is not part of project"
-  return . Just . Entity k $ e
 

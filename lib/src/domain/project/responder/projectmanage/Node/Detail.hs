@@ -2,15 +2,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 
 module Domain.Project.Responder.ProjectManage.Node.Detail where
 
 import Domain.Project.Responder.ProjectManage.Link
 import Domain.Project.Responder.ProjectManage.Node.Query
+import Domain.Project.Responder.ProjectManage.Node.Validation
 import Lucid
 import Common.Validation               ( (.$)
-                                       , isEq
                                        , isThere 
                                        , isNotEmpty 
                                        , runValidation
@@ -23,33 +22,30 @@ import Control.Monad                   (forM_, unless)
 import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, runEitherT, EitherT)
-import Data.Aeson                      ( (.=)
-                                       , encode
-                                       , object
-                                       , ToJSON(..)
-                                       )
+import Data.Aeson                      ((.=) , object, ToJSON(..))
 import Data.Int                        (Int64)
-import Data.Maybe                      (listToMaybe)
 import Data.Text                       (Text, pack, unpack)
 import Data.Text.Lazy                  (toStrict)
 import Data.Text.Lazy.Builder          (toLazyText)
 import Data.Text.Lazy.Builder.Int      (decimal)
 import Data.Time                       (UTCTime)
 import Data.Time.Format                (defaultTimeLocale, formatTime) 
-import Database.Esqueleto.Experimental ( (==.)
-                                       , from
-                                       , limit
-                                       , select
-                                       , table
-                                       , val
-                                       , where_
-                                       )
+import Database.Esqueleto.Experimental (from, select, table)
 import Database.Persist                (Entity(..))
-import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend, toSqlKey)
+import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend)
 import Network.HTTP.Types              (status200)
 import Network.Wai                     (queryString, responseLBS, Request, Response, ResponseReceived)
 import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
+
+class NodeSchema a where
+  schemaNodeId :: a -> Int64
+  schemaProjectId :: a -> Int64
+  schemaTitle :: a -> Text
+  schemaDescription :: a -> Text
+  schemaUpdated :: a -> UTCTime
+  schemaStatusId :: a -> Text
+  schemaTypeId :: a -> Text
 
 data NodeDetailError = 
   InvalidParams [ValidationErr]
@@ -100,31 +96,28 @@ handleGetNodeEdit :: ConnectionPool
   -> IO ResponseReceived
 handleGetNodeEdit pl req respond = do
   rslt <- flip runSqlPool pl . runEitherT $ do
-       pyld  <- firstEitherT InvalidParams 
+       pyld <- firstEitherT InvalidParams 
                 . validateForm 
                 $ form
-       ndeM <- lift 
-                . fmap (fmap toNodeSchema)
-                . queryNode 
-                . payloadNodeId 
-                $ pyld 
-       nsts <- lift queryNodeStatuses
-       nde  <- hoistMaybe NodeNotFound ndeM 
+       nde  <- lift (queryNode . payloadNodeId $ pyld)
+                >>= hoistMaybe NodeNotFound
                 >>= ( firstEitherT InvalidParams
-                      . validateNodeProjectId pyld
+                      . validateNodeProjectId (payloadProjectId pyld) 
                     )
+       nsts <- lift queryNodeStatuses
        return (nde, nsts)
   case rslt of
     Left e -> respond $ handleErr e
     Right ( nde
           , nsts
           ) -> respond 
-            . responseLBS
-              status200 
-              [("Content-Type", "text-html")] 
-            . renderBS 
-            . templateNodeEdit nde 
-            $ nsts
+                . responseLBS
+                  status200 
+                  [("Content-Type", "text-html")] 
+                . renderBS 
+                . templateNodeEdit nsts
+                . toNodeSchema
+                $ nde
     where
       form = queryTextToForm 
              . queryToQueryText 
@@ -140,14 +133,11 @@ handleGetNodeDetail pl req respond = do
        pyld  <- firstEitherT InvalidParams 
             . validateForm 
             $ form
-       ndeM <- lift 
-               . queryNode 
-               . payloadNodeId 
-               $ pyld
-       nde <- hoistMaybe NodeNotFound ndeM 
-       firstEitherT InvalidParams 
-        . validateNodeProjectId pyld
-        $ nde
+       lift (queryNode . payloadNodeId $ pyld)
+          >>= hoistMaybe NodeNotFound
+          >>= ( firstEitherT InvalidParams 
+                . validateNodeProjectId (payloadProjectId pyld) 
+              )
   case rslt of
     Left  e   -> respond . handleErr $ e
     Right nde -> respond 
@@ -156,6 +146,7 @@ handleGetNodeDetail pl req respond = do
                    [("Content-Type", "text-html")]
                  . renderBS 
                  . templateNodeDetail 
+                 . toNodeSchema
                  $ nde 
     where
       form = queryTextToForm 
@@ -239,8 +230,8 @@ templateNodeDetail nde = do
                      <> "&projectId=" 
                      <> (pack . show $ pid)
 
-templateNodeEdit :: Node -> [NodeStatus] -> Html ()
-templateNodeEdit nde nsts = do
+templateNodeEdit :: [NodeStatus] -> Node -> Html ()
+templateNodeEdit nsts nde = do
     header_ [class_ "node-header"] $ do
         h1_ [] (toHtml . title $ nde)
         div_ [id_ "node-actions"] $ do
@@ -329,13 +320,4 @@ validateForm fm = hoistEither . runValidation id $ do
     >>= valRead    "Node id must be valid integer"
   return $ GetNodeDetailPayload <$> pid <*> nid 
 
-validateNodeProjectId :: Monad m 
-  => GetNodeDetailPayload 
-  -> Node 
-  -> EitherT [ValidationErr] m Node
-validateNodeProjectId fm nd = hoistEither . runValidation id $ do
-  _ <- Just nd
-    .$ projectId 
-    >>= isEq (payloadProjectId fm) "Invalid state. Node is not part of project"
-  return . Just $ nd
 
