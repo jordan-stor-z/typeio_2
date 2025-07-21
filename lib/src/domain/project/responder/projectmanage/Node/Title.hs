@@ -90,7 +90,7 @@ reqForm :: [Param] -> PutNodeTitleForm
 reqForm ps = PutNodeTitleForm 
   { formNodeId          = decodeUtf8 <$> lookup "nodeId"      ps 
   , formProjectId       = decodeUtf8 <$> lookup "projectId"   ps 
-  , formNodeTitle       = decodeUtf8 <$> lookup "nodeTitle"   ps 
+  , formNodeTitle       = decodeUtf8 <$> lookup "title"   ps 
   }
 
 templatePostSuccess :: Html ()

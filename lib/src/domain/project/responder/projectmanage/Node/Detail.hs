@@ -22,7 +22,7 @@ import Control.Monad                   (forM_, unless)
 import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, runEitherT, EitherT)
-import Data.Aeson                      ((.=) , object, ToJSON(..))
+import Data.Aeson                      ((.=) , object)
 import Data.Int                        (Int64)
 import Data.Text                       (Text, pack, unpack)
 import Data.Text.Lazy                  (toStrict)
@@ -115,7 +115,7 @@ handleGetNodeEdit pl req respond = do
                   status200 
                   [("Content-Type", "text-html")] 
                 . renderBS 
-                . templateNodeEdit nsts
+                . templateNodeEdit' nsts
                 . toNodeSchema
                 $ nde
     where
@@ -192,37 +192,120 @@ templateInvalidParams es = do
 
 templateNodeDetail :: Node -> Html ()
 templateNodeDetail nde = do
-    header_ [class_ "node-header"] $ do
-        h1_ [] (toHtml . title $ nde)
-        div_ [id_ "node-actions"] $ do
-            button_ [ class_     "pill-button close-button"
-                    , hxGet_     (editLink (nodeId nde) (projectId nde))
-                    , hxPushUrl_ False 
-                    , hxSwap_    "innerHTML"
-                    , hxTarget_  "#node-detail"
-                    , hxTrigger_ "click"
-                    ] $ do
-                i_  [class_ "material-icons"] "mode_edit"
-            button_ [ class_       "pill-button close-button"
-                    , hxGet_     "/ui/central/empty"
-                    , hxPushUrl'_ (projectLink (projectId nde))
-                    , hxSwap_    "innerHTML"
-                    , hxTarget_  "#node-detail"
-                    , hxTrigger_ "click"
-                    ] $ do
-                i_  [class_ "material-icons"] "close"
-    section_ [class_ "node-description"] $ do
-      p_ [] (toHtml . description $ nde)
-    section_ [class_ "node-properties"] $ do
-      div_ [class_ "property-item"] $ do
-        span_ [class_ "property-label"] "Status:"
-        span_ [class_ "property-value"] (toHtml . statusId $ nde)
-      div_ [class_ "property-item"] $ do
-        span_ [class_ "property-label"] "Type:"
-        span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
-      div_ [class_ "property-item"] $ do
-        span_ [class_ "property-label"] "Last Updated:"
-        span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
+    div_ [id_ "node-container"] $ do
+      div_ [class_ "component-actions"] $ do
+       button_ [ class_     "pill-button close-button"
+              , hxGet_     (editLink (nodeId nde) (projectId nde))
+              , hxPushUrl_ False 
+              , hxSwap_    "innerHTML"
+              , hxTarget_  "#node-detail"
+              , hxTrigger_ "click"
+              ] $ i_  [class_ "material-icons"] "mode_edit"
+       button_ [ class_       "pill-button close-button"
+              , hxGet_     "/ui/central/empty"
+              , hxPushUrl'_ (projectLink (projectId nde))
+              , hxSwap_    "innerHTML"
+              , hxTarget_  "#node-detail"
+              , hxTrigger_ "click"
+              ] $ i_  [class_ "material-icons"] "close"       
+      div_ [id_ "node-detail-1"] $ do
+        header_ [class_ "node-header"] $
+            h2_ [] (toHtml . title $ nde)
+        section_ [class_ "node-description"] $
+          p_ [] (toHtml . description $ nde)
+        section_ [class_ "node-properties"] $ do
+          div_ [class_ "property-item"] $ do
+            span_ [class_ "property-label"] "Status:"
+            span_ [class_ "property-value"] (toHtml . statusId $ nde)
+          div_ [class_ "property-item"] $ do
+            span_ [class_ "property-label"] "Type:"
+            span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+          div_ [class_ "property-item"] $ do
+            span_ [class_ "property-label"] "Last Updated:"
+            span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
+    where
+      editLink nid pid = "/ui/project/node/edit" 
+                     <> "?nodeId=" 
+                     <> (pack . show $ nid)
+                     <> "&projectId=" 
+                     <> (pack . show $ pid)
+
+templateNodeEdit' :: [NodeStatus] -> Node -> Html ()
+templateNodeEdit' nsts nde = do
+    div_ [id_ "node-container"] $ do
+      div_ [class_ "component-actions"] $ do
+       button_ [ class_     "pill-button highlight-success"
+              , hxGet_     (editLink (nodeId nde) (projectId nde))
+              , hxPushUrl_ False 
+              , hxSwap_    "innerHTML"
+              , hxTarget_  "#node-detail"
+              , hxTrigger_ "click"
+              ] $ i_  [class_ "material-icons"] "mode_edit"
+       button_ [ class_       "pill-button close-button"
+              , hxGet_     "/ui/central/empty"
+              , hxPushUrl'_ (projectLink (projectId nde))
+              , hxSwap_    "innerHTML"
+              , hxTarget_  "#node-detail"
+              , hxTrigger_ "click"
+              ] $ i_  [class_ "material-icons"] "close"       
+      div_ [id_ "node-detail-1"] $ do
+        section_ [class_ "column-textarea form-section"] $ do
+          label_ [class_ "property-label", for_ "title"] "Title:"
+          input_ [ type_        "text"
+                 , class_       "property-value"
+                 , id_          "node-title"
+                 , value_       $ title nde
+                 , name_        "title"
+                 , hxPut_       "/ui/project/node/title"
+                 , hxPushUrl_   False
+                 , hxInclude_   "this"
+                 , hxIndicator_ "#node-edit-indicator"
+                 , hxTrigger_   "input changed delay:500ms"
+                 , hxVals'_ $ object 
+                     [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                     , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                     ]
+                 , hxTarget_ "#node-edit-indicator"
+                 ]
+        section_ [class_ "column-textarea form-section"] $ do
+          label_ [class_ "property-label", for_ "description"] "Description:"
+          textarea_ [ name_        "description"
+                    , hxPut_       "/ui/project/node/description" 
+                    , hxPushUrl_   False
+                    , hxInclude_   "this"
+                    , hxIndicator_ "#node-edit-indicator"
+                    , hxTrigger_   "input changed delay:500ms"
+                    , hxVals'_ $ object 
+                        [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                        , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                        ]
+                    , hxTarget_ "#node-edit-indicator"
+                    ] (toHtml . description $ nde)
+        section_ [class_ "node-properties"] $ do
+          div_ [class_ "property-item"] $ do
+            label_  [for_ "status"] "Status:"
+            select_ [ class_    "property-value pill-dropdown",
+                      name_     "status",
+                      selected_ $ statusId nde,
+                      hxPut_    "/ui/project/node/status",
+                      hxPushUrl_ False,
+                      hxInclude_ "this",
+                      hxIndicator_ "#node-edit-indicator",
+                      hxTrigger_ "change",
+                      hxVals'_ $ object 
+                        [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                        , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                        ],
+                      hxTarget_ "#node-edit-indicator"
+                     ] $ do
+              forM_ nsts $ \nst -> 
+                option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
+          div_ [class_ "property-item"] $ do
+            span_ [class_ "property-label"] "Type:"
+            span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+          div_ [class_ "property-item"] $ do
+            span_ [class_ "property-label"] "Last Updated:"
+            span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
     where
       editLink nid pid = "/ui/project/node/edit" 
                      <> "?nodeId=" 
@@ -233,7 +316,6 @@ templateNodeDetail nde = do
 templateNodeEdit :: [NodeStatus] -> Node -> Html ()
 templateNodeEdit nsts nde = do
     header_ [class_ "node-header"] $ do
-        h1_ [] (toHtml . title $ nde)
         div_ [id_ "node-actions"] $ do
             div_ [ class_     "pill-indicator close-button"
                  , id_        "node-edit-indicator"
@@ -253,6 +335,23 @@ templateNodeEdit nsts nde = do
                     ] $ do
                 i_  [class_ "material-icons"] "close"
     form_ [id_ "form-node-edit"] $ do
+      label_ [class_ "property-label", for_ "title"] "Title:"
+      input_ [ type_        "text"
+             , class_       "property-value"
+             , id_          "node-title"
+             , value_       $ title nde
+             , name_        "title"
+             , hxPut_       "/ui/project/node/title"
+             , hxPushUrl_   False
+             , hxInclude_   "this"
+             , hxIndicator_ "#node-edit-indicator"
+             , hxTrigger_   "input changed delay:500ms"
+             , hxVals'_ $ object 
+                 [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
+                 , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                 ]
+             , hxTarget_ "#node-edit-indicator"
+             ]
       section_ [class_ "column-textarea"] $ do
         label_ [class_ "property-label", for_ "description"] "Description:"
         textarea_ [ name_        "description"

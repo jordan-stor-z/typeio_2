@@ -22,7 +22,7 @@ main :: IO ()
 main = do
   loadDotEnv
   cfg <- loadConfig
-  withApp cfg $ run (pt cfg) 
+  withApp cfg . run $ pt cfg
   where pt = port . webConf
 
 app :: RootContainer -> Application
@@ -30,7 +30,7 @@ app = routeRequest
   
 withApp :: AppConfig -> (Application -> IO r) -> IO r
 withApp cfg = runContT $ do
-  ev <- ContT $ withEnv cfg
-  ct <- ContT $ withRootContainer ev
-  md <- ContT $ withMiddleware ev ct
+  ev <- ContT . withEnv $ cfg
+  ct <- ContT . withRootContainer $ ev
+  md <- ContT . withMiddleware ev $ ct
   return . md . app $ ct 
