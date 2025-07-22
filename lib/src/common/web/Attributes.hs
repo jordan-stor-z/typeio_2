@@ -2,13 +2,15 @@
 
 module Common.Web.Attributes where
 
-import Data.Aeson (encode, ToJSON, (.=), object)
+import Data.Aeson (ToJSON, (.=), object)
 import Data.Aeson.Key (fromText)
 import Data.Aeson.Text (encodeToLazyText)
-import Data.Text.Encoding (decodeUtf8)
 import Data.Text  (Text)
 import Data.Text.Lazy (toStrict)
 import Lucid.Base (Attributes, makeAttributes)
+
+h_ :: Text -> Attributes
+h_ = makeAttributes "_"
 
 hxGet_ :: Text -> Attributes
 hxGet_ = makeAttributes "hx-get"

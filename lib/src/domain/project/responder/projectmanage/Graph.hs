@@ -127,7 +127,7 @@ buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
           { graphNodeId = nodeId n
           , label       = pack $ nodeName n
           , pinned      = nodeTypeId n == "project_root" 
-          , link        = nodeLink (nodeId n) (nodeProjectId n)
+          , link        = nodePanelLink (nodeId n) (nodeProjectId n)
           , push        = pushUrl (nodeId n) (nodeProjectId n)
           }
 

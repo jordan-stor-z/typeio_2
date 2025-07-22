@@ -56,7 +56,9 @@ library src
       , Domain.Project.Responder.Node
       , Domain.Project.Responder.ProjectManage.Graph
       , Domain.Project.Responder.ProjectManage.Link
+      , Domain.Project.Responder.ProjectManage.Node
       , Domain.Project.Responder.ProjectManage.Node.Detail
+      , Domain.Project.Responder.ProjectManage.Node.Edit
       , Domain.Project.Responder.ProjectManage.Node.Query
       , Domain.Project.Responder.ProjectManage.Node.Save
       , Domain.Project.Responder.ProjectManage.Node.Status

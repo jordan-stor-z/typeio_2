@@ -81,13 +81,13 @@ templateProject py = do
          , hxSwap_    "innerHTML"
          , hxTrigger_ "load"
          ] empty
-    div_ [ id_ "node-detail" 
+    div_ [ id_ "node-panel" 
          ] empty
     case nidM of
       Nothing  -> empty
       Just nid -> do
         div_ [ class_    "hidden" 
-             , hxGet_     (nodeLink nid pid)
+             , hxGet_     (nodePanelLink nid pid)
              , hxPushUrl_ False
              , hxTarget_  "#node-detail"
              , hxTrigger_ "load"

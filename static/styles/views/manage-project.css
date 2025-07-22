@@ -48,9 +48,11 @@
   width: 70%;
 }
 
-#node-detail {
+#node-panel {
   height: 100%;
   width: 28%;
+  display: flex;
+  flex-direction: row;
 }
 
 #node-detail header {
@@ -63,14 +65,36 @@
   margin: 0;
 }
 
-.node-properties {
+#node-properties {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 1rem;
 }
 
-.property-item {
+#node-properties article {
   display: contents;
+}
+
+section {
+  margin-bottom: 1rem;
+}
+
+label p {
+  display: inline-block;
+  margin: 0;
+}
+
+.indicator-label {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 14.5px;
+}
+
+.indicator-label i {
+  color: var(--success);
+  display: inline-block;
+  font-size: 1rem;
 }
 
 .property-label {
@@ -81,23 +105,7 @@
   text-align: left;
 }
 
-.node-header {
-  display: flex;
-  align-items: left;
-  justify-content: space-between;
-}
-
-.close-icon:hover {
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-#node-container {
-  display: flex;
-  flex-direction: row;
-}
-
-.component-actions {
+#panel-actions {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -192,6 +200,3 @@ select {
   border-radius: 50%;
 }
 
-.form-section {
-  margin-bottom: 1rem;
-}

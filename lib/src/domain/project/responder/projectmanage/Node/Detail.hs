@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Domain.Project.Responder.ProjectManage.Node.Detail where
@@ -19,20 +18,14 @@ import Common.Validation               ( (.$)
 import Common.Web.Attributes
 import Common.Web.Query                (lookupVal)
 import Control.Monad                   (forM_, unless)
-import Control.Monad.Reader            (ReaderT)
 import Control.Monad.Trans.Class       (lift)
 import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, runEitherT, EitherT)
-import Data.Aeson                      ((.=) , object)
 import Data.Int                        (Int64)
 import Data.Text                       (Text, pack, unpack)
-import Data.Text.Lazy                  (toStrict)
-import Data.Text.Lazy.Builder          (toLazyText)
-import Data.Text.Lazy.Builder.Int      (decimal)
 import Data.Time                       (UTCTime)
 import Data.Time.Format                (defaultTimeLocale, formatTime) 
-import Database.Esqueleto.Experimental (from, select, table)
 import Database.Persist                (Entity(..))
-import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool, SqlBackend)
+import Database.Persist.Sql            (ConnectionPool, fromSqlKey, runSqlPool)
 import Network.HTTP.Types              (status200)
 import Network.Wai                     (queryString, responseLBS, Request, Response, ResponseReceived)
 import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
@@ -61,10 +54,6 @@ data Node = Node
   , typeId      :: Text 
   }
 
-newtype NodeStatus = NodeStatus 
-  { nodeStatusId   :: Text
-  }
-
 data GetNodeDetailForm = GetNodeDetailForm
   { formProjectId :: Maybe Text 
   , formNodeId    :: Maybe Text 
@@ -74,6 +63,9 @@ data GetNodeDetailPayload = GetNodeDetailPayload
   { payloadProjectId :: Int64
   , payloadNodeId    :: Int64
   }
+
+formatUpdated :: UTCTime -> Text
+formatUpdated = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" 
 
 handleErr :: NodeDetailError -> Response
 handleErr er = case er of
@@ -89,40 +81,6 @@ handleErr er = case er of
           [("Content-Type", "text/html")]
         . renderBS 
         $ templateNodeNotFound
-
-handleGetNodeEdit :: ConnectionPool
-  -> Request 
-  -> (Response -> IO ResponseReceived) 
-  -> IO ResponseReceived
-handleGetNodeEdit pl req respond = do
-  rslt <- flip runSqlPool pl . runEitherT $ do
-       pyld <- firstEitherT InvalidParams 
-                . validateForm 
-                $ form
-       nde  <- lift (queryNode . payloadNodeId $ pyld)
-                >>= hoistMaybe NodeNotFound
-                >>= ( firstEitherT InvalidParams
-                      . validateNodeProjectId (payloadProjectId pyld) 
-                    )
-       nsts <- lift queryNodeStatuses
-       return (nde, nsts)
-  case rslt of
-    Left e -> respond $ handleErr e
-    Right ( nde
-          , nsts
-          ) -> respond 
-                . responseLBS
-                  status200 
-                  [("Content-Type", "text-html")] 
-                . renderBS 
-                . templateNodeEdit' nsts
-                . toNodeSchema
-                $ nde
-    where
-      form = queryTextToForm 
-             . queryToQueryText 
-             . queryString 
-             $ req
 
 handleGetNodeDetail :: ConnectionPool
   -> Request 
@@ -154,30 +112,17 @@ handleGetNodeDetail pl req respond = do
              . queryString 
              $ req
 
-toNodeSchema :: Entity M.Node -> Node
-toNodeSchema (Entity k e) = Node 
-  { nodeId      = fromSqlKey k
-  , description = pack . M.nodeDescription $ e
-  , projectId   = fromSqlKey . M.nodeProjectId $ e
-  , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-  , title       = pack . M.nodeTitle $ e
-  , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-  , updated     = M.nodeUpdated e
-  }
-
-queryNodeStatuses :: ReaderT SqlBackend IO [NodeStatus]
-queryNodeStatuses = do 
-  sts <- select . from $ table @M.NodeStatus
-  return . fmap toNodeStatusSchema $ sts
-  where
-    toNodeStatusSchema (Entity k _) = NodeStatus 
-      { nodeStatusId = pack . M.unNodeStatusKey $ k }
-
 queryTextToForm :: QueryText -> GetNodeDetailForm
 queryTextToForm qt = GetNodeDetailForm
   { formProjectId = lookupVal "projectId" qt
   , formNodeId    = lookupVal "nodeId" qt
   }
+
+showNodeType :: Text -> Text
+showNodeType typ = case typ of
+  "project_root" -> "Root"
+  "work"         -> "Work"
+  _              -> typ
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do
@@ -192,216 +137,40 @@ templateInvalidParams es = do
 
 templateNodeDetail :: Node -> Html ()
 templateNodeDetail nde = do
-    div_ [id_ "node-container"] $ do
-      div_ [class_ "component-actions"] $ do
-       button_ [ class_     "pill-button close-button"
-              , hxGet_     (editLink (nodeId nde) (projectId nde))
-              , hxPushUrl_ False 
-              , hxSwap_    "innerHTML"
-              , hxTarget_  "#node-detail"
-              , hxTrigger_ "click"
-              ] $ i_  [class_ "material-icons"] "mode_edit"
-       button_ [ class_       "pill-button close-button"
-              , hxGet_     "/ui/central/empty"
-              , hxPushUrl'_ (projectLink (projectId nde))
-              , hxSwap_    "innerHTML"
-              , hxTarget_  "#node-detail"
-              , hxTrigger_ "click"
-              ] $ i_  [class_ "material-icons"] "close"       
-      div_ [id_ "node-detail-1"] $ do
-        header_ [class_ "node-header"] $
-            h2_ [] (toHtml . title $ nde)
-        section_ [class_ "node-description"] $
-          p_ [] (toHtml . description $ nde)
-        section_ [class_ "node-properties"] $ do
-          div_ [class_ "property-item"] $ do
-            span_ [class_ "property-label"] "Status:"
-            span_ [class_ "property-value"] (toHtml . statusId $ nde)
-          div_ [class_ "property-item"] $ do
-            span_ [class_ "property-label"] "Type:"
-            span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
-          div_ [class_ "property-item"] $ do
-            span_ [class_ "property-label"] "Last Updated:"
-            span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
-    where
-      editLink nid pid = "/ui/project/node/edit" 
-                     <> "?nodeId=" 
-                     <> (pack . show $ nid)
-                     <> "&projectId=" 
-                     <> (pack . show $ pid)
+  header_ [] $
+      h2_ [] (toHtml . title $ nde)
+  section_ [] $
+    p_ [] (toHtml . description $ nde)
+  section_ [id_ "node-properties"] $ do
+    article_ [] $ do
+      span_ [class_ "property-label"] "Status:"
+      span_ [class_ "property-value"] (toHtml . statusId $ nde)
+    article_ [] $ do
+      span_ [class_ "property-label"] "Type:"
+      span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+    article_ [] $ do
+      span_ [class_ "property-label"] "Last Updated:"
+      span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
+    div_ [ class_ "hidden"
+         , hxGet_     $ editLink (nodeId nde) (projectId nde) 
+         , hxPushUrl_ False 
+         , hxSwap_    "innerHTML"
+         , hxTarget_  "#node-detail"
+         , hxTrigger_ "click from:#edit-button"
+         ] empty
+  where
+    empty = mempty :: Html ()
 
-templateNodeEdit' :: [NodeStatus] -> Node -> Html ()
-templateNodeEdit' nsts nde = do
-    div_ [id_ "node-container"] $ do
-      div_ [class_ "component-actions"] $ do
-       button_ [ class_     "pill-button highlight-success"
-              , hxGet_     (editLink (nodeId nde) (projectId nde))
-              , hxPushUrl_ False 
-              , hxSwap_    "innerHTML"
-              , hxTarget_  "#node-detail"
-              , hxTrigger_ "click"
-              ] $ i_  [class_ "material-icons"] "mode_edit"
-       button_ [ class_       "pill-button close-button"
-              , hxGet_     "/ui/central/empty"
-              , hxPushUrl'_ (projectLink (projectId nde))
-              , hxSwap_    "innerHTML"
-              , hxTarget_  "#node-detail"
-              , hxTrigger_ "click"
-              ] $ i_  [class_ "material-icons"] "close"       
-      div_ [id_ "node-detail-1"] $ do
-        section_ [class_ "column-textarea form-section"] $ do
-          label_ [class_ "property-label", for_ "title"] "Title:"
-          input_ [ type_        "text"
-                 , class_       "property-value"
-                 , id_          "node-title"
-                 , value_       $ title nde
-                 , name_        "title"
-                 , hxPut_       "/ui/project/node/title"
-                 , hxPushUrl_   False
-                 , hxInclude_   "this"
-                 , hxIndicator_ "#node-edit-indicator"
-                 , hxTrigger_   "input changed delay:500ms"
-                 , hxVals'_ $ object 
-                     [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                     , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                     ]
-                 , hxTarget_ "#node-edit-indicator"
-                 ]
-        section_ [class_ "column-textarea form-section"] $ do
-          label_ [class_ "property-label", for_ "description"] "Description:"
-          textarea_ [ name_        "description"
-                    , hxPut_       "/ui/project/node/description" 
-                    , hxPushUrl_   False
-                    , hxInclude_   "this"
-                    , hxIndicator_ "#node-edit-indicator"
-                    , hxTrigger_   "input changed delay:500ms"
-                    , hxVals'_ $ object 
-                        [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                        , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                        ]
-                    , hxTarget_ "#node-edit-indicator"
-                    ] (toHtml . description $ nde)
-        section_ [class_ "node-properties"] $ do
-          div_ [class_ "property-item"] $ do
-            label_  [for_ "status"] "Status:"
-            select_ [ class_    "property-value pill-dropdown",
-                      name_     "status",
-                      selected_ $ statusId nde,
-                      hxPut_    "/ui/project/node/status",
-                      hxPushUrl_ False,
-                      hxInclude_ "this",
-                      hxIndicator_ "#node-edit-indicator",
-                      hxTrigger_ "change",
-                      hxVals'_ $ object 
-                        [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                        , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                        ],
-                      hxTarget_ "#node-edit-indicator"
-                     ] $ do
-              forM_ nsts $ \nst -> 
-                option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
-          div_ [class_ "property-item"] $ do
-            span_ [class_ "property-label"] "Type:"
-            span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
-          div_ [class_ "property-item"] $ do
-            span_ [class_ "property-label"] "Last Updated:"
-            span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
-    where
-      editLink nid pid = "/ui/project/node/edit" 
-                     <> "?nodeId=" 
-                     <> (pack . show $ nid)
-                     <> "&projectId=" 
-                     <> (pack . show $ pid)
-
-templateNodeEdit :: [NodeStatus] -> Node -> Html ()
-templateNodeEdit nsts nde = do
-    header_ [class_ "node-header"] $ do
-        div_ [id_ "node-actions"] $ do
-            div_ [ class_     "pill-indicator close-button"
-                 , id_        "node-edit-indicator"
-                 , hxInclude_ "form-node-edit"
-                 , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
-                 , hxPushUrl_ False 
-                 , hxSwap_    "innerHTML"
-                 , hxTarget_  "#node-detail"
-                 , hxTrigger_ "click"
-                 ] empty
-            button_ [ class_     "pill-button close-button"
-                    , hxGet_     $ nodeLink (nodeId nde) (projectId nde)
-                    , hxPushUrl_ False 
-                    , hxSwap_    "innerHTML"
-                    , hxTarget_  "#node-detail"
-                    , hxTrigger_ "click"
-                    ] $ do
-                i_  [class_ "material-icons"] "close"
-    form_ [id_ "form-node-edit"] $ do
-      label_ [class_ "property-label", for_ "title"] "Title:"
-      input_ [ type_        "text"
-             , class_       "property-value"
-             , id_          "node-title"
-             , value_       $ title nde
-             , name_        "title"
-             , hxPut_       "/ui/project/node/title"
-             , hxPushUrl_   False
-             , hxInclude_   "this"
-             , hxIndicator_ "#node-edit-indicator"
-             , hxTrigger_   "input changed delay:500ms"
-             , hxVals'_ $ object 
-                 [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                 , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                 ]
-             , hxTarget_ "#node-edit-indicator"
-             ]
-      section_ [class_ "column-textarea"] $ do
-        label_ [class_ "property-label", for_ "description"] "Description:"
-        textarea_ [ name_        "description"
-                  , hxPut_       "/ui/project/node/description" 
-                  , hxPushUrl_   False
-                  , hxInclude_   "this"
-                  , hxIndicator_ "#node-edit-indicator"
-                  , hxTrigger_   "input changed delay:500ms"
-                  , hxVals'_ $ object 
-                      [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                      , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                      ]
-                  , hxTarget_ "#node-edit-indicator"
-                  ] (toHtml . description $ nde)
-      section_ [class_ "node-properties"] $ do
-        div_ [class_ "property-item"] $ do
-          label_  [for_ "status"] "Status:"
-          select_ [ class_    "property-value pill-dropdown",
-                    name_     "status",
-                    selected_ $ statusId nde,
-                    hxPut_    "/ui/project/node/status",
-                    hxPushUrl_ False,
-                    hxInclude_ "this",
-                    hxIndicator_ "#node-edit-indicator",
-                    hxTrigger_ "change",
-                    hxVals'_ $ object 
-                      [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                      , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                      ],
-                    hxTarget_ "#node-edit-indicator"
-                   ] $ do
-            forM_ nsts $ \nst -> 
-              option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
-        div_ [class_ "property-item"] $ do
-          span_ [class_ "property-label"] "Type:"
-          span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
-        div_ [class_ "property-item"] $ do
-          span_ [class_ "property-label"] "Last Updated:"
-          span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
-    where 
-      empty = mempty :: Html ()
-
-formatUpdated :: UTCTime -> Text
-formatUpdated = pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" 
-
-showNodeType :: Text -> Text
-showNodeType typ = case typ of
-  "project_root" -> "Root"
-  "work"         -> "Work"
-  _              -> typ
+toNodeSchema :: Entity M.Node -> Node
+toNodeSchema (Entity k e) = Node 
+  { nodeId      = fromSqlKey k
+  , description = pack . M.nodeDescription $ e
+  , projectId   = fromSqlKey . M.nodeProjectId $ e
+  , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
+  , title       = pack . M.nodeTitle $ e
+  , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+  , updated     = M.nodeUpdated e
+  }
 
 validateForm :: Monad m 
   => GetNodeDetailForm 
@@ -418,5 +187,4 @@ validateForm fm = hoistEither . runValidation id $ do
     >>= isNotEmpty "Node id must have a value"
     >>= valRead    "Node id must be valid integer"
   return $ GetNodeDetailPayload <$> pid <*> nid 
-
 

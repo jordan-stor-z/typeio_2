@@ -119,8 +119,9 @@ manageProjectUiTree ctn req = emptyT
   <+> "graph" -| only "GET"  (getProjectGraph ctn req)
   <+> "node"  -<
     ( routes
-      <+> "edit"        -| only "GET" (getNodeEdit ctn req)
-      <+> "detail"      -| only "GET" (getNodeDetail ctn req)
+      <+> "panel"       -| only "GET"  (getNodePanel ctn req)
+      <+> "edit"        -| only "GET"  (getNodeEdit ctn req)
+      <+> "detail"      -| only "GET"  (getNodeDetail ctn req)
       <+> "description" -| only "PUT"  (putNodeDescription ctn req)
       <+> "status"      -| only "PUT"  (putNodeStatus ctn req)
       <+> "title"       -| only "PUT"  (putNodeTitle ctn req)

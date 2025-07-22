@@ -24,9 +24,11 @@
   --border-color: #44444a;
 
   --error-color: #ff4d4d;
+  --success: #4caf50;
 
   /* Cards or containers */
   --surface: #78a0ff14
+
 }
 
 body {
@@ -92,8 +94,9 @@ body {
 }
 
 .pill-button:hover {
+  cursor: pointer;
   background: var(--accent);
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-shadow: none;
 }
 

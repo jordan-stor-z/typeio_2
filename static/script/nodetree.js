@@ -62,7 +62,7 @@
     .attr("class", "node")
     .attr("hx-get", d => d.link)
     .attr("hx-trigger", "click")
-    .attr("hx-target", "#node-detail")
+    .attr("hx-target", "#node-panel")
     .attr("hx-push-url", d => d.push)
     .attr("hx-swap", "innerHTML");
 
