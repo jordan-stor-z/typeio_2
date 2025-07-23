@@ -45,6 +45,7 @@ library src
       , Container.Build
       , Container.Root
       , Data.HashTree
+      , Data.Text.Util
       , Database.Init
       , Database.Logging
       , Domain.Central.Responder.Empty

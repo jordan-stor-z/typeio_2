@@ -47,8 +47,7 @@ indexTemplate path qs = html_ $ do
       , hxTrigger_    "load"
       , hxReplaceUrl_ True
       , hxSwap_       "innerHTML"
-      ] $ do 
-        p_ "loading..."
+      ] empty
   where 
     empty   = mempty :: Html ()
     lnk     = maybe path (path <>) qs

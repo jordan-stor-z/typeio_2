@@ -70,7 +70,7 @@ templateEmptyProjects = html_ $ do
   h2_ "Create your first project."
 
 templateList :: [ProjectItem] -> Html ()
-templateList ps = div_ [class_ "view"] $ do 
+templateList ps = div_ [id_ "view"] $ do 
   div_ [id_ "project-index", class_ "card-grid"] $ do
     forM_ ps $ \item -> do
       templateProjectItem item

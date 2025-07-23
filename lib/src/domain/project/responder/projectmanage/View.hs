@@ -74,7 +74,7 @@ templateProject py = do
   link_ [ rel_ "stylesheet"
         , href_ "/static/styles/views/manage-project.css"
         ]
-  div_ [ class_ "view" ] $ do
+  div_ [id_ "view"] $ do
     div_ [ id_ "tree-container" 
          , hxGet_     (graphLink pid)
          , hxPushUrl_ False
@@ -89,7 +89,7 @@ templateProject py = do
         div_ [ class_    "hidden" 
              , hxGet_     (nodePanelLink nid pid)
              , hxPushUrl_ False
-             , hxTarget_  "#node-detail"
+             , hxTarget_  "#node-panel"
              , hxTrigger_ "load"
              ] empty 
   where

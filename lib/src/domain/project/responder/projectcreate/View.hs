@@ -33,7 +33,7 @@ projectCreateVwTemplate :: AddProjectForm -> [Text] -> Html ()
 projectCreateVwTemplate payload errs = do
   templateNavHeader "Add Project" 
   link_ [rel_ "stylesheet", href_ "/static/styles/views/add-project.css"]
-  div_  [class_ "view"] $ do
+  div_  [id_ "view"] $ do
     form_ 
       [ id_ "form-create-project"
       , class_ "form-basic"

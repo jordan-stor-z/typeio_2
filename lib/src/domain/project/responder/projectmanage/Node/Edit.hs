@@ -25,9 +25,7 @@ import Control.Monad.Trans.Either      (hoistEither, hoistMaybe, firstEitherT, r
 import Data.Aeson                      ((.=) , object)
 import Data.Int                        (Int64)
 import Data.Text                       (Text, pack, unpack)
-import Data.Text.Lazy                  (toStrict)
-import Data.Text.Lazy.Builder          (toLazyText)
-import Data.Text.Lazy.Builder.Int      (decimal)
+import Data.Text.Util                  (intToText)
 import Data.Time                       (UTCTime)
 import Data.Time.Format                (defaultTimeLocale, formatTime) 
 import Database.Esqueleto.Experimental (from, select, table)
@@ -149,7 +147,7 @@ templateNodeEdit nsts nde = do
   section_ [class_ "column-textarea form-section"] $ do
     label_ [class_ "indicator-label property-label", for_ "title"] $ do
       p_ "Title:"
-      div_ [class_ "indicator-box"] "xx" 
+      div_ [class_ "indicator-box"] empty 
     input_ [ type_        "text"
            , class_       "property-value"
            , id_          "node-title"
@@ -158,51 +156,50 @@ templateNodeEdit nsts nde = do
            , hxPut_       "/ui/project/node/title"
            , hxPushUrl_   False
            , hxInclude_   "this"
-           , hxIndicator_ "#node-edit-indicator"
            , hxTrigger_   "input changed delay:500ms"
            , hxVals'_ $ object 
-               [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-               , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+               [ "projectId" .= (intToText . projectId $ nde)
+               , "nodeId"    .= (intToText . nodeId $ nde)
                ]
            , hxTarget_ "label[for=\"title\"] .indicator-box" 
-           , h_        "on input transition <label[for=\"title\"] .indicator-box i /> opacity to 0"
+           , h_ "on input transition <label[for=\"title\"] .indicator-box i /> opacity to 0"
            ]
   section_ [class_ "column-textarea form-section"] $ do
-    label_ [class_ "property-label", for_ "description"] "Description:"
+    label_ [class_ "indicator-label property-label", for_ "description"] $ do
+      p_ "Description:"
+      div_ [class_ "indicator-box"] empty 
     textarea_ [ name_        "description"
               , hxPut_       "/ui/project/node/description" 
               , hxPushUrl_   False
               , hxInclude_   "this"
-              , hxIndicator_ "#node-edit-indicator"
               , hxTrigger_   "input changed delay:500ms"
               , hxVals'_ $ object 
-                  [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                  , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
+                  [ "projectId" .= (intToText . projectId $ nde)
+                  , "nodeId"    .= (intToText .  nodeId $ nde)
                   ]
-              , hxTarget_ "#node-edit-indicator"
+              , hxTarget_ "label[for=\"description\"] .indicator-box"
+              , h_ "on input transition <label[for=\"description\"] .indicator-box i /> opacity to 0"
               ] (toHtml . description $ nde)
   section_ [id_ "node-properties"] $ do
     article_ [] $ do
-      label_  [for_ "status"] "Status:"
-      select_ [ class_    "property-value pill-dropdown",
-                name_     "status",
-                selected_ $ statusId nde,
-                hxPut_    "/ui/project/node/status",
-                hxPushUrl_ False,
-                hxInclude_ "this",
-                hxIndicator_ "#node-edit-indicator",
-                hxTrigger_ "change",
-                hxVals'_ $ object 
-                  [ "projectId" .= (toStrict . toLazyText . decimal $ projectId nde)
-                  , "nodeId"    .= (toStrict . toLazyText . decimal $ nodeId nde)
-                  ],
-                hxTarget_ "#node-edit-indicator"
-               ] $ do
-        forM_ nsts $ \nst -> 
-          option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
-    article_ [] $ do
-      span_ [class_ "property-label"] "Type:"
-      span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+      span_ [] $ do
+        label_  [for_ "status"] $ p_ "Status:"
+        select_ [ class_    "property-value pill-dropdown",
+                  name_     "status",
+                  selected_ $ statusId nde,
+                  hxPut_    "/ui/project/node/status",
+                  hxPushUrl_ False,
+                  hxInclude_ "this",
+                  hxTrigger_ "change",
+                  hxVals'_ $ object 
+                    [ "projectId" .= (intToText . projectId $ nde)
+                    , "nodeId"    .= (intToText . nodeId $ nde)
+                    ],
+                  hxTarget_ "#status-indicator"
+                 ] $ do
+          forM_ nsts $ \nst -> 
+            option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
+      div_ [id_ "status-indicator", class_ "indicator-box"] empty 
     div_ [ class_ "hidden"
          , hxGet_     $ nodeDetailLink (nodeId nde) (projectId nde) 
          , hxPushUrl_ False 

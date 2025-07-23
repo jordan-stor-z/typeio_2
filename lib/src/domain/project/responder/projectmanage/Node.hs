@@ -62,6 +62,7 @@ templateNodePanel nid pid = do
   div_ [id_ "panel-actions"] $ do
    button_ [ class_    "pill-button"
            , id_       "edit-button"
+           , h_ "on click toggle .selected on me"
            ] $ i_  [class_ "material-icons"] "mode_edit"
    button_ [ class_      "pill-button"
            , hxGet_      "/ui/central/empty"

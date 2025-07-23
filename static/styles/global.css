@@ -91,9 +91,10 @@ body {
   letter-spacing: 1px;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 47px;
 }
 
-.pill-button:hover {
+.pill-hover:hover {
   cursor: pointer;
   background: var(--accent);
   color: var(--text-primary);
@@ -156,7 +157,7 @@ body {
   font-size: 1rem;
 }
 
-.view {
+#view {
   padding: 0 2rem;
   height: 100%;
   width: 100%;
@@ -181,3 +182,8 @@ body {
   background-color: var(--accent-light);
   cursor: pointer;
 }
+
+.hidden {
+  visibility: hidden;
+}
+

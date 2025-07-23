@@ -18,7 +18,7 @@ handleProjectView respond = do
 projectIndexVwTemplate :: Html ()
 projectIndexVwTemplate = do
     templateNavHeader "Projects" 
-    div_ [class_ "view"] $ do
+    div_ [id_ "view"] $ do
       button_ 
         [ class_     "action-button"
         , hxGet_     "/ui/create-project/vw"

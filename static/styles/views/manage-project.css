@@ -1,63 +1,5 @@
-.link {
-  stroke: #999;
-  stroke-opacity: 0.6;
-  stroke-width: 2px;
-  marker-end: url(#arrow);
-}
-
-.node .root {
-  fill: var(--accent-bold);
-}
-
-.node .work {
-  fill: var(--accent-light); 
-}
-
-.node circle.root:hover {
-  fill: var(--accent-hover-bold);
-}
-
-.node circle.work:hover {
-  fill: var(--accent-hover-light);
-}
-
-.node circle:hover {
-  cursor: pointer;
-}
-
-.node circle {
-  r: 45;
-  stroke: white;
-  stroke-width: 1.5px;
-}
-
-.node text {
-  font: 12px sans-serif;
-  fill: var(--text-primary);
-  text-anchor: middle;
-  pointer-events: none;
-}
-
-.view {
-  display: flex;
-  flex-direction: row;
-}
-
-#tree-container {
-  height: 100%;
-  width: 70%;
-}
-
-#node-panel {
-  height: 100%;
-  width: 28%;
-  display: flex;
-  flex-direction: row;
-}
-
-#node-detail header {
-  display: flex;
-  flex-direction: column;
+.error {
+  background-color: var(--error-color);
 }
 
 #node-detail header h2 {
@@ -65,43 +7,52 @@
   margin: 0;
 }
 
-#node-properties {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
+#node-detail .column-textarea {
+  display: flex;
+  flex-direction: column;
+  align-items: left;
 }
 
-#node-properties article {
-  display: contents;
+#node-detail .column-textarea label {
+  margin-bottom: 0.6rem;
 }
 
-section {
+#node-detail select {
+  max-width: 50%;
+}
+
+#node-detail header {
+  display: flex;
+  flex-direction: column;
+}
+
+#node-detail section {
   margin-bottom: 1rem;
 }
 
-label p {
+#node-detail label p {
   display: inline-block;
   margin: 0;
 }
 
-.indicator-label {
+#node-detail .indicator-label {
   display: flex;
   justify-content: space-between;
   width: 100%;
   font-size: 14.5px;
 }
 
-.indicator-label i {
+#node-detail i {
   color: var(--success);
   display: inline-block;
   font-size: 1rem;
 }
 
-.property-label {
+#node-detail .property-label {
   font-weight: bold;
 }
 
-.property-value {
+#node-detail .property-value {
   text-align: left;
 }
 
@@ -110,36 +61,16 @@ label p {
   flex-direction: column;
   gap: 0.5rem;
   margin-right: 1rem;
+  width: 12%;
 }
 
-#node-detail-1 {
-  min-width: 30%;
+.pill-button.selected {
+  background: var(--accent);
+  color: var(--text-primary);
+  box-shadow: none;
 }
 
-#node-actions {
-  display: flex;
-  justify-content: left;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-/* TODO make global solution for form styles */
-form {
-  display:        flex;
-  flex-direction: column;
-  gap:            1rem;
-  width:          25rem;
-}
-
-form > * {
-  display:         flex;
-  flex-direction:  row;
-  justify-content: space-between;
-  padding:         0.5rem;
-}
-
-input,
-textarea {
+#node-detail input, textarea {
   background-color: var(--border-color);
   border:           none;
   box-sizing:       border-box;
@@ -153,50 +84,91 @@ textarea {
   width:            15rem;
 }
 
-input {
+#node-detail input {
   box-shadow:  none;
   height:      2rem;
   line-height: 2rem;
 }
 
-textarea {
+#node-detail textarea {
   padding-top: 0.5rem;
   height:      5rem;
   max-width:   15rem;
   resize:      none;
 }
 
-label {
+#node-detail label {
   display: inline-block;
   width:   4rem;
 }
 
-.error {
-  background-color: var(--error-color);
+#node-panel {
+  height: 100%;
+  width: 55%;
+  max-width: 45%;
+  padding-top: 4rem;
+  display: flex;
+  flex-direction: row;
 }
 
-.hidden {
-  visibility: hidden;
-}
-
-.column-textarea {
+#node-properties {
   display: flex;
   flex-direction: column;
-  align-items: left;
+  width: 80%;
 }
 
-.column-textarea label {
-  margin-bottom: 0.6rem;
+#node-properties article {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
 }
 
-select {
-  max-width: 50%;
+#tree-container {
+  height: 100%;
+  width: 70%;
 }
 
-.pill-indicator .hx-request {
-  visibility: hidden;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
+#tree-container .link {
+  stroke: #999;
+  stroke-opacity: 0.6;
+  stroke-width: 2px;
+  marker-end: url(#arrow);
 }
 
+#tree-container .node .root {
+  fill: var(--accent-bold);
+}
+
+#tree-container .node .work {
+  fill: var(--accent-light); 
+}
+
+#tree-container .node circle.root:hover {
+  fill: var(--accent-hover-bold);
+}
+
+#tree-container .node circle.work:hover {
+  fill: var(--accent-hover-light);
+}
+
+#tree-container .node circle:hover {
+  cursor: pointer;
+}
+
+#tree-container .node circle {
+  r: 45;
+  stroke: white;
+  stroke-width: 1.5px;
+}
+
+#tree-container .node text {
+  font: 12px sans-serif;
+  fill: var(--text-primary);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+#view {
+  display: flex;
+  flex-direction: row;
+}

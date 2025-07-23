@@ -36,7 +36,11 @@ hooks cf = PostgresConfHooks
   where
     defaultSV        = pgConfHooksGetServerVersion defaultPostgresConfHooks
     afterCreate conn = 
-      void $ execute_ conn $ "SET search_path TO " <> fromString (schema cf)
+      void . execute_ conn 
+           . (<>) "SET search_path TO " 
+           . fromString 
+           . schema 
+           $ cf
 
 withPool :: DbConfig -> ContT r IO (Pool SqlBackend)
 withPool cf = ContT with'
@@ -47,4 +51,3 @@ withPool cf = ContT with'
       runDatabaseLoggingT $ 
         withPostgresqlPoolWithConf c h 
         $ liftIO . k
-
