@@ -2,6 +2,18 @@
   background-color: var(--error-color);
 }
 
+.removed {
+  display: none;
+}
+
+svg {
+  opacity: 0;
+}
+
+#node-detail {
+  max-width: 65%;
+}
+
 #node-detail header h2 {
   display: inline-block;
   margin: 0;
@@ -28,6 +40,7 @@
 
 #node-detail section {
   margin-bottom: 1rem;
+  max-width: 100%;
 }
 
 #node-detail label p {
@@ -103,12 +116,12 @@
 }
 
 #node-panel {
+  display: flex;
+  flex-direction: row;
   height: 100%;
   width: 55%;
   max-width: 45%;
   padding-top: 4rem;
-  display: flex;
-  flex-direction: row;
 }
 
 #node-properties {

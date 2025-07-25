@@ -200,13 +200,6 @@ templateNodeEdit nsts nde = do
           forM_ nsts $ \nst -> 
             option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
       div_ [id_ "status-indicator", class_ "indicator-box"] empty 
-    div_ [ class_ "hidden"
-         , hxGet_     $ nodeDetailLink (nodeId nde) (projectId nde) 
-         , hxPushUrl_ False 
-         , hxSwap_    "innerHTML"
-         , hxTarget_  "#node-detail"
-         , hxTrigger_ "click from:#edit-button"
-         ] empty
     where
       empty = mempty :: Html ()
 

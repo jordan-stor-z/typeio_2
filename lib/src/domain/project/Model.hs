@@ -56,7 +56,6 @@ NodeType sql=node_type
   deriving Show
 
 Dependency sql=dependency
-  dependencyId Int sql=id
   nodeId       NodeId constraint=fk_dependency_node
   toNodeId     NodeId constraint=fk_dependency_tonode 
   deriving Show

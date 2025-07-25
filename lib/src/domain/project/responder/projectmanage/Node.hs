@@ -57,13 +57,29 @@ queryTextToForm qt = GetNodePanelForm
   , formNodeId    = lookupVal "nodeId"    qt
   }
 
+editToggle :: Int64 -> Int64 -> Html ()
+editToggle nid pid = do
+  button_ [ class_    "edit-button pill-button"
+          , hxGet_     $ editLink nid pid 
+          , hxPushUrl_ False 
+          , hxSwap_    "innerHTML"
+          , hxTarget_  "#node-detail"
+          , hxTrigger_ "click"
+          , h_ "on htmx:afterOnLoad toggle .removed on <.edit-button/>"
+          ] $ i_  [class_ "material-icons"] "mode_edit"
+  button_ [ class_    "edit-button pill-button removed selected"
+          , hxGet_     $ nodeDetailLink nid pid 
+          , hxPushUrl_ False 
+          , hxSwap_    "innerHTML"
+          , hxTarget_  "#node-detail"
+          , hxTrigger_ "click"
+          , h_ "on htmx:afterOnLoad toggle .removed on <.edit-button/>"
+          ] $ i_  [class_ "material-icons"] "mode_edit"
+
 templateNodePanel :: Int64 -> Int64 -> Html ()
 templateNodePanel nid pid = do
   div_ [id_ "panel-actions"] $ do
-   button_ [ class_    "pill-button"
-           , id_       "edit-button"
-           , h_ "on click toggle .selected on me"
-           ] $ i_  [class_ "material-icons"] "mode_edit"
+   editToggle nid pid
    button_ [ class_      "pill-button"
            , hxGet_      "/ui/central/empty"
            , hxPushUrl'_ $ projectLink pid
@@ -93,5 +109,5 @@ validateForm fm = runValidation id $ do
     >>= isThere    "Node id must be present"
     >>= isNotEmpty "Node id must have a value"
     >>= valRead    "Node id must be valid integer"
-  return $ GetNodePanelPayload <$> pid <*> nid 
+  return $ GetNodePanelPayload <$> nid <*> pid
 

@@ -151,15 +151,6 @@ templateNodeDetail nde = do
     article_ [] $ do
       span_ [class_ "property-label"] "Last Updated:"
       span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
-    div_ [ class_ "hidden"
-         , hxGet_     $ editLink (nodeId nde) (projectId nde) 
-         , hxPushUrl_ False 
-         , hxSwap_    "innerHTML"
-         , hxTarget_  "#node-detail"
-         , hxTrigger_ "click from:#edit-button"
-         ] empty
-  where
-    empty = mempty :: Html ()
 
 toNodeSchema :: Entity M.Node -> Node
 toNodeSchema (Entity k e) = Node 

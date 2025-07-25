@@ -6,6 +6,7 @@
 
 module Domain.Project.Responder.ProjectManage.Graph where
 
+import Common.Web.Attributes
 import Domain.Project.Responder.ProjectManage.Link
 import Lucid
 import Common.Either              (notNullEither)
@@ -83,7 +84,7 @@ data GraphNode = GraphNode
   , label       :: Text
   , pinned      :: Bool
   , link        :: Text
-  , push     :: Text
+  , push        :: Text
   }
 
 data Graph = Graph
@@ -222,6 +223,7 @@ templateGraph g = do
   svg_    [ id_     "tree-view"
           , height_ "100%"
           , width_  "100%"
+          , h_ "on load transition my opacity to 1 over 300ms"
           ] empty 
   where 
     empty = mempty :: Html ()

@@ -28,6 +28,7 @@ import Data.Text                       (Text, unpack)
 import Data.Text.Encoding              (decodeUtf8)
 import Data.Time                       (getCurrentTime, UTCTime)
 import Database.Esqueleto.Experimental ( (==.)
+                                       , (&&.)
                                        , from
                                        , insert
                                        , limit
@@ -50,6 +51,7 @@ data InsertNodeResult =
   | MissingStatus 
   | MissingType 
   | ProjectNotFound  
+  | ProjectRootNotFound
 
 data PostNodeForm = PostNodeForm
   { formDescription :: Maybe ByteString
@@ -88,10 +90,18 @@ handlePostNode pl req respond = do
             >>= hoistMaybe ProjectNotFound
     st  <- lift (queryStatus "active")
             >>= hoistMaybe MissingStatus
-    tp  <- lift (queryType "project_root")
+    tp  <- lift (queryType "work")
             >>= hoistMaybe MissingType
     let nd = toNode now pyl pr st tp
     ky  <- lift . insert $ nd
+    rtp <- lift (queryType "project_root")
+            >>= hoistMaybe MissingType
+    rt  <- lift (queryRoot (projectId pyl) rtp)
+            >>= hoistMaybe ProjectRootNotFound 
+    _ <- lift $ insert $ M.Dependency 
+            { M.dependencyNodeId = ky
+            , M.dependencyToNodeId = entityKey rt 
+            }
     pure $ Entity ky nd
   case rslt of
     Right _ -> respond $ responseLBS
@@ -99,6 +109,7 @@ handlePostNode pl req respond = do
       [("Content-Type", "application/json")]
       "Ok"
     Left ProjectNotFound     -> notFound ("Project not found" :: Text)
+    Left ProjectRootNotFound -> notFound ("Project root not found" :: Text)
     Left MissingStatus       -> serverExc
     Left MissingType         -> serverExc
     Left (FailValidation es) -> badRequest es
@@ -141,6 +152,18 @@ validateForm fm = runValidation FailValidation $ do
             .$  decodeUtf8
              >>= isThere   "Title cannot be empty"
     return $ PostNodePayload <$> dscr <*> pid <*> ttl
+
+queryRoot :: Int64 
+  -> Entity M.NodeType 
+  -> ReaderT SqlBackend IO (Maybe (Entity M.Node))
+queryRoot pid tp = do
+  nd <- select $ do
+    n <- from $ table @M.Node
+    where_ $ n.projectId ==. (val . toSqlKey @M.Project $ pid)
+      &&. n.nodeTypeId ==. (val . entityKey $ tp) 
+    limit 1
+    pure n
+  return . listToMaybe $ nd
 
 queryProject :: Int64 -> ReaderT SqlBackend IO (Maybe (Entity M.Project))
 queryProject pid = do

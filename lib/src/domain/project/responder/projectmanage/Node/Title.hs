@@ -5,6 +5,7 @@
 module Domain.Project.Responder.ProjectManage.Node.Title where 
 
 import Lucid
+import Common.Web.Attributes
 import Common.Validation
 import Domain.Project.Responder.ProjectManage.Node.Query
 import Domain.Project.Responder.ProjectManage.Node.Validation
@@ -21,7 +22,7 @@ import Control.Monad.Trans.Either ( hoistEither
                                   , EitherT
                                   )
 import Data.Int                   (Int64)
-import Data.Text                  (Text, unpack)
+import Data.Text                  (pack, Text, unpack)
 import Data.Text.Encoding         (decodeUtf8)
 import Network.HTTP.Types         (status200, status404, status500)
 import Network.Wai                (Application, responseLBS)
@@ -56,6 +57,7 @@ handlePutTitle pl req rspnd = do
                    . validateNodeProjectId (payloadProjectId pyld)
                   )
     lift . updateTitle pyld $ nd
+    pure . payloadNodeId $ pyld
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
@@ -70,12 +72,13 @@ handlePutTitle pl req rspnd = do
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templateNodeNotFound
-    Right _ -> rspnd
+    Right nid -> rspnd
                 . responseLBS 
                   status200 
                   [("Content-Type", "text/html")]
                 . renderBS
-                $ templatePostSuccess
+                . templatePostSuccess
+                $ nid
 
 updateTitle :: 
   PutNodeTitlePayload
@@ -93,9 +96,13 @@ reqForm ps = PutNodeTitleForm
   , formNodeTitle       = decodeUtf8 <$> lookup "title"   ps 
   }
 
-templatePostSuccess :: Html ()
-templatePostSuccess = do
-  i_  [class_ "material-icons"] "done"
+templatePostSuccess :: Int64 -> Html ()
+templatePostSuccess nid = do
+  i_  [ class_ "material-icons"
+      , h_ $ pack fadeNode
+      ] "done"
+  where
+    fadeNode = "on load transition <#node-text-" <> show nid <> "/> opacity to 0"
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do

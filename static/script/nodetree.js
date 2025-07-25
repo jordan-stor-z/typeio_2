@@ -59,6 +59,7 @@
     .selectAll("g")
     .data(nodes)
     .join("g")
+    .attr("id", d => `node-${d.id}`)
     .attr("class", "node")
     .attr("hx-get", d => d.link)
     .attr("hx-trigger", "click")
@@ -75,6 +76,7 @@
     .text(d => d.label)
     .attr("font-size", "10px")
     .attr("text-anchor", "middle")
+    .attr("id", d => `node-text-${d.id}`)
     .attr("dy", "0.35em")
     .attr("fill", "white");
 
@@ -86,5 +88,12 @@
       .attr("y2", d => d.target.y);
 
     node.attr("transform", d => `translate(${d.x},${d.y})`);
+  });
+
+  simulation.on("end", () => {
+      console.log('ENDED:::::');
+      svg.transition()
+        .duration(500) // Optional: smooth fade-in
+        .style("opacity", 1);
   });
 })();
