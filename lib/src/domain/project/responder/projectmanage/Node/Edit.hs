@@ -147,7 +147,8 @@ templateNodeEdit nsts nde = do
   section_ [class_ "column-textarea form-section"] $ do
     label_ [class_ "indicator-label property-label", for_ "title"] $ do
       p_ "Title:"
-      div_ [class_ "indicator-box"] empty 
+      div_ [id_ "title-indicator", class_ "indicator-box"] $
+        span_ [class_ "loading"] "xx" 
     input_ [ type_        "text"
            , class_       "property-value"
            , id_          "node-title"
@@ -162,7 +163,10 @@ templateNodeEdit nsts nde = do
                , "nodeId"    .= (intToText . nodeId $ nde)
                ]
            , hxTarget_ "label[for=\"title\"] .indicator-box" 
-           , h_ "on input transition <label[for=\"title\"] .indicator-box i /> opacity to 0"
+           , h_ $ "init set my.icount to 0 "
+                 <> "on input increment my.icount "
+                 <> "if my.icount mod 8 === 0 "
+                 <> "then set #title-indicator's innerHTML to \"<span class=\"loading\"></span>\" "
            ]
   section_ [class_ "column-textarea form-section"] $ do
     label_ [class_ "indicator-label property-label", for_ "description"] $ do

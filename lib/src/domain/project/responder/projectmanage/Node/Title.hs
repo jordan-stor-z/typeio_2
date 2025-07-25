@@ -27,6 +27,7 @@ import Data.Text.Encoding         (decodeUtf8)
 import Network.HTTP.Types         (status200, status404, status500)
 import Network.Wai                (Application, responseLBS)
 import Network.Wai.Parse          (parseRequestBody, lbsBackEnd, Param)
+import Data.Text.Util (intToText)
 
 data PutTitleErr =
   InvalidParams [ValidationErr]
@@ -57,7 +58,7 @@ handlePutTitle pl req rspnd = do
                    . validateNodeProjectId (payloadProjectId pyld)
                   )
     lift . updateTitle pyld $ nd
-    pure . payloadNodeId $ pyld
+    pure (payloadNodeId pyld, payloadTitle pyld)
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
@@ -72,12 +73,12 @@ handlePutTitle pl req rspnd = do
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templateNodeNotFound
-    Right nid -> rspnd
+    Right (nid, ttl) -> rspnd
                 . responseLBS 
                   status200 
                   [("Content-Type", "text/html")]
                 . renderBS
-                . templatePostSuccess
+                . templatePostSuccess ttl
                 $ nid
 
 updateTitle :: 
@@ -96,13 +97,23 @@ reqForm ps = PutNodeTitleForm
   , formNodeTitle       = decodeUtf8 <$> lookup "title"   ps 
   }
 
-templatePostSuccess :: Int64 -> Html ()
-templatePostSuccess nid = do
+templatePostSuccess :: Text -> Int64 -> Html ()
+templatePostSuccess ttl nid = do
   i_  [ class_ "material-icons"
-      , h_ $ pack fadeNode
+      , h_     putNodeTitle 
       ] "done"
   where
-    fadeNode = "on load transition <#node-text-" <> show nid <> "/> opacity to 0"
+    putNodeTitle = "on htmx:beforeCleanupElement from #node-detail put \"" 
+                   <> ttl 
+                   <> "\" into " 
+                   <> nodeTextId 
+                   <> " then add .flash to "
+                   <> nodeGId
+                   <> " then wait 500ms"
+                   <> " then remove .flash from "
+                   <> nodeGId 
+    nodeTextId   = "#node-text-" <> intToText nid
+    nodeGId      = "#node-" <> intToText nid
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do

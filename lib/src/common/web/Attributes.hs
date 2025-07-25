@@ -39,6 +39,9 @@ hxReplaceUrl_ = makeAttributes "hx-replace-url" . boolText
 hxSwap_ :: Text -> Attributes
 hxSwap_ = makeAttributes "hx-swap"
 
+hxSync_ :: Text -> Attributes
+hxSync_ = makeAttributes "hx-sync"
+
 hxTarget_ :: Text -> Attributes
 hxTarget_ = makeAttributes "hx-target"
 

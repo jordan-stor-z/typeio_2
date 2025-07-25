@@ -14,6 +14,8 @@
   --accent: #6ca0dc;
   --accent-light: #3a4a5a;
   --accent-bold: #2f5d85;
+  --accent-select: #4a6b9c;
+  --accent-success: #4caf50;
   
   /* Accent hover */
   --accent-hover: #5b8cc7;

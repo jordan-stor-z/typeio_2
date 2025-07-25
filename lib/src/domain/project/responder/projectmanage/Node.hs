@@ -18,6 +18,7 @@ import Data.Text                 (Text, unpack)
 import Network.HTTP.Types.Status (status200, status400)
 import Network.HTTP.Types.URI    (QueryText, queryToQueryText)
 import Network.Wai               (Application, queryString, responseLBS)
+import Data.Text.Util (intToText)
 
 data GetNodePanelForm = GetNodePanelForm
   { formNodeId    :: Maybe Text
@@ -78,7 +79,12 @@ editToggle nid pid = do
 
 templateNodePanel :: Int64 -> Int64 -> Html ()
 templateNodePanel nid pid = do
-  div_ [id_ "panel-actions"] $ do
+  div_ [ id_ "panel-actions"
+       , h_ $ "init add .node-highlight to #node-"
+              <> intToText nid
+              <> " on htmx:beforeCleanupElement remove .node-highlight from #node-"
+              <> intToText nid
+       ] $ do
    editToggle nid pid
    button_ [ class_      "pill-button"
            , hxGet_      "/ui/central/empty"
@@ -86,6 +92,7 @@ templateNodePanel nid pid = do
            , hxSwap_     "innerHTML"
            , hxTarget_   "#node-panel"
            , hxTrigger_  "click"
+           , h_ $ "on htmx:beforeCleanupElement remove .node-higlight from #node-" <> intToText nid
            ] $ i_  [class_ "material-icons"] "close"
   div_ [ id_ "node-detail"
         , hxGet_ $ nodeDetailLink nid pid

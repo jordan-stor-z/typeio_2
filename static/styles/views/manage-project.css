@@ -156,6 +156,12 @@ svg {
   fill: var(--accent-light); 
 }
 
+#tree-container .node.node-highlight circle {
+  stroke-width: 1.7; /* Thinner border */
+  filter: drop-shadow(0 0 7px var(--accent-hover-light)); /* Blue glow; adjust color, blur (5px), and opacity */
+  pointer-events: none;
+}
+
 #tree-container .node circle.root:hover {
   fill: var(--accent-hover-bold);
 }
@@ -184,4 +190,41 @@ svg {
 #view {
   display: flex;
   flex-direction: row;
+}
+
+.flash circle {
+  animation: flashAnimation 500ms ease-in-out;
+}
+
+/* Keyframes for flash: start at regular, peak at brighter blue, end at regular */
+@keyframes flashAnimation {
+  20% {
+    fill: var(--accent); /* Flash color: a brighter/deeper light blue (deepskyblue) */
+  }
+}
+
+.loading::before {
+  content: '⠋'; /* Starting braille dot pattern */
+  display: inline-block;
+  width: 1em; /* Fixed width to prevent jumping */
+  text-align: center;
+}
+
+/* Loading class triggers the animation */
+.loading::before {
+  animation: brailleSpin 1s steps(10) infinite; /* 1s cycle, 10 steps for the 10 patterns, loops forever */
+}
+
+/* Keyframes for the braille spinner cycle: ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ */
+@keyframes brailleSpin {
+  0% { content: '⠋'; }
+  10% { content: '⠙'; }
+  20% { content: '⠹'; }
+  30% { content: '⠸'; }
+  40% { content: '⠼'; }
+  50% { content: '⠴'; }
+  60% { content: '⠦'; }
+  70% { content: '⠧'; }
+  80% { content: '⠇'; }
+  90% { content: '⠏'; }
 }

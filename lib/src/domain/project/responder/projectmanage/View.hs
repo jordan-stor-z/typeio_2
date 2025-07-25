@@ -91,6 +91,7 @@ templateProject py = do
              , hxPushUrl_ False
              , hxTarget_  "#node-panel"
              , hxTrigger_ "load"
+             , hxSync_ "#tree-container:queue last"
              ] empty 
   where
     empty = mempty :: Html ()
