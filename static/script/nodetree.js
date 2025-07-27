@@ -65,7 +65,8 @@
     .attr("hx-trigger", "click")
     .attr("hx-target", "#node-panel")
     .attr("hx-push-url", d => d.push)
-    .attr("hx-swap", "innerHTML");
+    .attr("hx-swap", "innerHTML")
+    .attr("_", "on node:titleUpdated from #node-panel add .flash to me then wait 500ms then remove .flash from me");
 
   node.append("circle")
     .attr("class", d => d.pinned ? "root" : "work")
@@ -78,7 +79,8 @@
     .attr("text-anchor", "middle")
     .attr("id", d => `node-text-${d.id}`)
     .attr("dy", "0.35em")
-    .attr("fill", "white");
+    .attr("fill", "white")
+    .attr("_", "on node:titleUpdated(title) from #node-panel put title into me")
 
   simulation.on("tick", () => {
     link
@@ -91,7 +93,6 @@
   });
 
   simulation.on("end", () => {
-      console.log('ENDED:::::');
       svg.transition()
         .duration(500) // Optional: smooth fade-in
         .style("opacity", 1);

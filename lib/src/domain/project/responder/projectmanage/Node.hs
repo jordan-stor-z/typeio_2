@@ -92,7 +92,6 @@ templateNodePanel nid pid = do
            , hxSwap_     "innerHTML"
            , hxTarget_   "#node-panel"
            , hxTrigger_  "click"
-           , h_ $ "on htmx:beforeCleanupElement remove .node-higlight from #node-" <> intToText nid
            ] $ i_  [class_ "material-icons"] "close"
   div_ [ id_ "node-detail"
         , hxGet_ $ nodeDetailLink nid pid

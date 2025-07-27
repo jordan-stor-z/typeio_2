@@ -166,7 +166,7 @@ templateNodeEdit nsts nde = do
            , h_ $ "init set my.icount to 0 "
                  <> "on input increment my.icount "
                  <> "if my.icount mod 8 === 0 "
-                 <> "then set #title-indicator's innerHTML to \"<span class=\"loading\"></span>\" "
+                 <> "then set #title-indicator's innerHTML to 'xx' "
            ]
   section_ [class_ "column-textarea form-section"] $ do
     label_ [class_ "indicator-label property-label", for_ "description"] $ do

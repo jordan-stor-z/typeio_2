@@ -223,8 +223,9 @@ templateGraph g = do
   svg_    [ id_     "tree-view"
           , height_ "100%"
           , width_  "100%"
-          , h_ "on load transition my opacity to 1 over 300ms"
+          , h_ "on load transition my opacity to 1 over 200ms"
           ] empty 
+  div_ [class_ "hidden", h_ "on node:titleUpdated from #node-panel log event"] empty
   where 
     empty = mempty :: Html ()
     gd    = encode g

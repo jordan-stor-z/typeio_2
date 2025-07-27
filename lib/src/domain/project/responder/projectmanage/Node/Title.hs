@@ -97,23 +97,19 @@ reqForm ps = PutNodeTitleForm
   , formNodeTitle       = decodeUtf8 <$> lookup "title"   ps 
   }
 
+eventNodeTitleUpdated :: Text -> Text
+eventNodeTitleUpdated ttl = "node:titleUpdated(title: \"" 
+                            <> ttl 
+                            <> "\")"
+
 templatePostSuccess :: Text -> Int64 -> Html ()
 templatePostSuccess ttl nid = do
   i_  [ class_ "material-icons"
-      , h_     putNodeTitle 
+      , h_     $ "on htmx:beforeCleanupElement 1 from #node-detail"
+                 <> " trigger " 
+                 <> eventNodeTitleUpdated ttl
+                 <>  " on #node-detail" 
       ] "done"
-  where
-    putNodeTitle = "on htmx:beforeCleanupElement from #node-detail put \"" 
-                   <> ttl 
-                   <> "\" into " 
-                   <> nodeTextId 
-                   <> " then add .flash to "
-                   <> nodeGId
-                   <> " then wait 500ms"
-                   <> " then remove .flash from "
-                   <> nodeGId 
-    nodeTextId   = "#node-text-" <> intToText nid
-    nodeGId      = "#node-" <> intToText nid
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do
