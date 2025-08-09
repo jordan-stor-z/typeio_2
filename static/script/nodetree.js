@@ -66,7 +66,18 @@
     .attr("hx-target", "#node-panel")
     .attr("hx-push-url", d => d.push)
     .attr("hx-swap", "innerHTML")
-    .attr("_", "on node:titleUpdated from #node-panel add .flash to me then wait 500ms then remove .flash from me");
+
+  const updaters = zoomGroup.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "hidden")
+    .attr("_", d => `on nodePanel:onEditClosed(nodeId)[nodeId==${d.id}] from #node-panel trigger click on me`)
+    .attr("hx-get", d => `/ui/project/node/refresh?nodeId=${d.id}&projectId=${d.projectId}`)
+    .attr("hx-trigger", "click")
+    .attr("hx-target", d => `#node-${d.id}`)
+    .attr("hx-swap", "innerHTML")
+    .attr("hx-push-url", "false");
 
   node.append("circle")
     .attr("class", d => d.pinned ? "root" : "work")

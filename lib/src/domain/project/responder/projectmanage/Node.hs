@@ -74,7 +74,11 @@ editToggle nid pid = do
           , hxSwap_    "innerHTML"
           , hxTarget_  "#node-detail"
           , hxTrigger_ "click"
-          , h_ "on htmx:afterOnLoad toggle .removed on <.edit-button/>"
+          , h_ $ "on htmx:afterOnLoad" 
+                 <> " toggle .removed on .edit-button"
+                 <> " then trigger nodePanel:onEditClosed(nodeId:"
+                 <> intToText nid
+                 <> ")"
           ] $ i_  [class_ "material-icons"] "mode_edit"
 
 templateNodePanel :: Int64 -> Int64 -> Html ()

@@ -81,6 +81,7 @@ pushUrl nid pid = "/ui/project/vw"
 
 data GraphNode = GraphNode 
   { graphNodeId :: Int64
+  , projectId   :: Int64
   , label       :: Text
   , pinned      :: Bool
   , link        :: Text
@@ -99,8 +100,9 @@ instance ToJSON Graph where
            ]
 
 instance ToJSON GraphNode where
-  toJSON (GraphNode gid lbl pnd lnk psh) =
+  toJSON (GraphNode gid pid lbl pnd lnk psh) =
     object [ "id"     .= gid
+           , "projectId" .= pid
            , "label"  .= lbl
            , "pinned" .= pnd
            , "link"   .= lnk 
@@ -126,6 +128,7 @@ buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
     toLink d  = GraphLink (childNodeId d) (parentNodeId d)
     toGNode n = GraphNode 
           { graphNodeId = nodeId n
+          , projectId   = nodeProjectId n
           , label       = pack $ nodeName n
           , pinned      = nodeTypeId n == "project_root" 
           , link        = nodePanelLink (nodeId n) (nodeProjectId n)
@@ -225,7 +228,6 @@ templateGraph g = do
           , width_  "100%"
           , h_ "on load transition my opacity to 1 over 200ms"
           ] empty 
-  div_ [class_ "hidden", h_ "on node:titleUpdated from #node-panel log event"] empty
   where 
     empty = mempty :: Html ()
     gd    = encode g

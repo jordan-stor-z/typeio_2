@@ -144,66 +144,66 @@ templateInvalidParams es = do
 
 templateNodeEdit :: [NodeStatus] -> Node -> Html ()
 templateNodeEdit nsts nde = do
-  section_ [class_ "column-textarea form-section"] $ do
-    label_ [class_ "indicator-label property-label", for_ "title"] $ do
-      p_ "Title:"
-      div_ [id_ "title-indicator", class_ "indicator-box"] $
-        span_ [class_ "loading"] "xx" 
-    input_ [ type_        "text"
-           , class_       "property-value"
-           , id_          "node-title"
-           , value_       $ title nde
-           , name_        "title"
-           , hxPut_       "/ui/project/node/title"
-           , hxPushUrl_   False
-           , hxInclude_   "this"
-           , hxTrigger_   "input changed delay:500ms"
-           , hxVals'_ $ object 
-               [ "projectId" .= (intToText . projectId $ nde)
-               , "nodeId"    .= (intToText . nodeId $ nde)
-               ]
-           , hxTarget_ "label[for=\"title\"] .indicator-box" 
-           , h_ $ "init set my.icount to 0 "
-                 <> "on input increment my.icount "
-                 <> "if my.icount mod 8 === 0 "
-                 <> "then set #title-indicator's innerHTML to 'xx' "
-           ]
-  section_ [class_ "column-textarea form-section"] $ do
-    label_ [class_ "indicator-label property-label", for_ "description"] $ do
-      p_ "Description:"
-      div_ [class_ "indicator-box"] empty 
-    textarea_ [ name_        "description"
-              , hxPut_       "/ui/project/node/description" 
-              , hxPushUrl_   False
-              , hxInclude_   "this"
-              , hxTrigger_   "input changed delay:500ms"
-              , hxVals'_ $ object 
-                  [ "projectId" .= (intToText . projectId $ nde)
-                  , "nodeId"    .= (intToText .  nodeId $ nde)
-                  ]
-              , hxTarget_ "label[for=\"description\"] .indicator-box"
-              , h_ "on input transition <label[for=\"description\"] .indicator-box i /> opacity to 0"
-              ] (toHtml . description $ nde)
-  section_ [id_ "node-properties"] $ do
-    article_ [] $ do
-      span_ [] $ do
-        label_  [for_ "status"] $ p_ "Status:"
-        select_ [ class_    "property-value pill-dropdown",
-                  name_     "status",
-                  selected_ $ statusId nde,
-                  hxPut_    "/ui/project/node/status",
-                  hxPushUrl_ False,
-                  hxInclude_ "this",
-                  hxTrigger_ "change",
-                  hxVals'_ $ object 
+    section_ [class_ "column-textarea form-section"] $ do
+      label_ [class_ "indicator-label property-label", for_ "title"] $ do
+        p_ "Title:"
+        div_ [id_ "title-indicator", class_ "indicator-box"] $
+          span_ [class_ "loading"] "xx" 
+      input_ [ type_        "text"
+             , class_       "property-value"
+             , id_          "node-title"
+             , value_       $ title nde
+             , name_        "title"
+             , hxPut_       "/ui/project/node/title"
+             , hxPushUrl_   False
+             , hxInclude_   "this"
+             , hxTrigger_   "input changed delay:500ms"
+             , hxVals'_ $ object 
+                 [ "projectId" .= (intToText . projectId $ nde)
+                 , "nodeId"    .= (intToText . nodeId $ nde)
+                 ]
+             , hxTarget_ "label[for=\"title\"] .indicator-box" 
+             , h_ $ "init set my.icount to 0 "
+                   <> "on input increment my.icount "
+                   <> "if my.icount mod 8 === 0 "
+                   <> "then set #title-indicator's innerHTML to 'xx' "
+             ]
+    section_ [class_ "column-textarea form-section"] $ do
+      label_ [class_ "indicator-label property-label", for_ "description"] $ do
+        p_ "Description:"
+        div_ [class_ "indicator-box"] empty 
+      textarea_ [ name_        "description"
+                , hxPut_       "/ui/project/node/description" 
+                , hxPushUrl_   False
+                , hxInclude_   "this"
+                , hxTrigger_   "input changed delay:500ms"
+                , hxVals'_ $ object 
                     [ "projectId" .= (intToText . projectId $ nde)
-                    , "nodeId"    .= (intToText . nodeId $ nde)
-                    ],
-                  hxTarget_ "#status-indicator"
-                 ] $ do
-          forM_ nsts $ \nst -> 
-            option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
-      div_ [id_ "status-indicator", class_ "indicator-box"] empty 
+                    , "nodeId"    .= (intToText .  nodeId $ nde)
+                    ]
+                , hxTarget_ "label[for=\"description\"] .indicator-box"
+                , h_ "on input transition <label[for=\"description\"] .indicator-box i /> opacity to 0"
+                ] (toHtml . description $ nde)
+    section_ [id_ "node-properties"] $ do
+      article_ [] $ do
+        span_ [] $ do
+          label_  [for_ "status"] $ p_ "Status:"
+          select_ [ class_    "property-value pill-dropdown",
+                    name_     "status",
+                    selected_ $ statusId nde,
+                    hxPut_    "/ui/project/node/status",
+                    hxPushUrl_ False,
+                    hxInclude_ "this",
+                    hxTrigger_ "change",
+                    hxVals'_ $ object 
+                      [ "projectId" .= (intToText . projectId $ nde)
+                      , "nodeId"    .= (intToText . nodeId $ nde)
+                      ],
+                    hxTarget_ "#status-indicator"
+                   ] $ do
+            forM_ nsts $ \nst -> 
+              option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
+        div_ [id_ "status-indicator", class_ "indicator-box"] empty 
     where
       empty = mempty :: Html ()
 
