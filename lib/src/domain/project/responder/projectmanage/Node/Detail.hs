@@ -31,28 +31,9 @@ import Network.Wai                     (queryString, responseLBS, Request, Respo
 import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
 
-class NodeSchema a where
-  schemaNodeId :: a -> Int64
-  schemaProjectId :: a -> Int64
-  schemaTitle :: a -> Text
-  schemaDescription :: a -> Text
-  schemaUpdated :: a -> UTCTime
-  schemaStatusId :: a -> Text
-  schemaTypeId :: a -> Text
-
 data NodeDetailError = 
   InvalidParams [ValidationErr]
   | NodeNotFound
-
-data Node = Node
-  { nodeId      :: Int64
-  , projectId   :: Int64
-  , title       :: Text
-  , description :: Text
-  , updated     :: UTCTime
-  , statusId    :: Text
-  , typeId      :: Text 
-  }
 
 data GetNodeDetailForm = GetNodeDetailForm
   { formProjectId :: Maybe Text 
@@ -104,7 +85,7 @@ handleGetNodeDetail pl req respond = do
                    [("Content-Type", "text-html")]
                  . renderBS 
                  . templateNodeDetail 
-                 . toNodeSchema
+                 . entityVal 
                  $ nde 
     where
       form = queryTextToForm 
@@ -135,33 +116,22 @@ templateInvalidParams es = do
       div_ [class_ "error-messages"] $ do
         forM_ es $ p_ [class_ "error-message"] . toHtml
 
-templateNodeDetail :: Node -> Html ()
+templateNodeDetail :: M.Node -> Html ()
 templateNodeDetail nde = do
   header_ [] $
-      h2_ [] (toHtml . title $ nde)
+      h2_ [] (toHtml . pack . M.nodeTitle $ nde)
   section_ [] $
-    p_ [] (toHtml . description $ nde)
+    p_ [] (toHtml . pack . M.nodeDescription $ nde)
   section_ [id_ "node-properties"] $ do
     article_ [] $ do
       span_ [class_ "property-label"] "Status:"
-      span_ [class_ "property-value"] (toHtml . statusId $ nde)
+      span_ [class_ "property-value"] (toHtml . pack . M.unNodeStatusKey . M.nodeNodeStatusId $ nde)
     article_ [] $ do
       span_ [class_ "property-label"] "Type:"
-      span_ [class_ "property-value"] (toHtml . showNodeType . typeId $ nde)
+      span_ [class_ "property-value"] (toHtml . pack . M.unNodeTypeKey . M.nodeNodeTypeId $ nde)
     article_ [] $ do
       span_ [class_ "property-label"] "Last Updated:"
-      span_ [class_ "property-value"] (toHtml . formatUpdated . updated $ nde)
-
-toNodeSchema :: Entity M.Node -> Node
-toNodeSchema (Entity k e) = Node 
-  { nodeId      = fromSqlKey k
-  , description = pack . M.nodeDescription $ e
-  , projectId   = fromSqlKey . M.nodeProjectId $ e
-  , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-  , title       = pack . M.nodeTitle $ e
-  , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-  , updated     = M.nodeUpdated e
-  }
+      span_ [class_ "property-value"] (toHtml . formatUpdated . M.nodeUpdated $ nde)
 
 validateForm :: Monad m 
   => GetNodeDetailForm 

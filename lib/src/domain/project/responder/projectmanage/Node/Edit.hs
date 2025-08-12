@@ -5,7 +5,6 @@
 
 module Domain.Project.Responder.ProjectManage.Node.Edit where
 
-import Domain.Project.Responder.ProjectManage.Link
 import Domain.Project.Responder.ProjectManage.Node.Query
 import Domain.Project.Responder.ProjectManage.Node.Validation
 import Lucid
@@ -39,20 +38,6 @@ import qualified Domain.Project.Model as M
 data NodeEditErr = 
   InvalidParams [ValidationErr]
   | NodeNotFound
-
-data Node = Node
-  { nodeId      :: Int64
-  , projectId   :: Int64
-  , title       :: Text
-  , description :: Text
-  , updated     :: UTCTime
-  , statusId    :: Text
-  , typeId      :: Text 
-  }
-
-newtype NodeStatus = NodeStatus 
-  { nodeStatusId   :: Text
-  }
 
 data GetNodeEditForm = GetNodeEditForm 
   { formProjectId :: Maybe Text 
@@ -104,8 +89,7 @@ handleGetNodeEdit pl req respond = do
                   status200 
                   [("Content-Type", "text-html")] 
                 . renderBS 
-                . templateNodeEdit (fmap toNodeStatusSchema nsts)
-                . toNodeSchema
+                . templateNodeEdit nsts
                 $ nde
     where
       form = queryTextToForm 
@@ -142,8 +126,8 @@ templateInvalidParams es = do
       div_ [class_ "error-messages"] $ do
         forM_ es $ p_ [class_ "error-message"] . toHtml
 
-templateNodeEdit :: [NodeStatus] -> Node -> Html ()
-templateNodeEdit nsts nde = do
+templateNodeEdit :: [Entity M.NodeStatus] -> Entity M.Node -> Html ()
+templateNodeEdit nsts (Entity k nde) = do
     section_ [class_ "column-textarea form-section"] $ do
       label_ [class_ "indicator-label property-label", for_ "title"] $ do
         p_ "Title:"
@@ -152,15 +136,15 @@ templateNodeEdit nsts nde = do
       input_ [ type_        "text"
              , class_       "property-value"
              , id_          "node-title"
-             , value_       $ title nde
+             , value_       (pack . M.nodeTitle $ nde)
              , name_        "title"
              , hxPut_       "/ui/project/node/title"
              , hxPushUrl_   False
              , hxInclude_   "this"
              , hxTrigger_   "input changed delay:500ms"
              , hxVals'_ $ object 
-                 [ "projectId" .= (intToText . projectId $ nde)
-                 , "nodeId"    .= (intToText . nodeId $ nde)
+                 [ "projectId" .= (intToText . fromSqlKey . M.nodeProjectId $ nde)
+                 , "nodeId"    .= (intToText . fromSqlKey $ k)
                  ]
              , hxTarget_ "label[for=\"title\"] .indicator-box" 
              , h_ $ "init set my.icount to 0 "
@@ -178,49 +162,35 @@ templateNodeEdit nsts nde = do
                 , hxInclude_   "this"
                 , hxTrigger_   "input changed delay:500ms"
                 , hxVals'_ $ object 
-                    [ "projectId" .= (intToText . projectId $ nde)
-                    , "nodeId"    .= (intToText .  nodeId $ nde)
+                    [ "projectId" .= (intToText . fromSqlKey . M.nodeProjectId $ nde)
+                    , "nodeId"    .= (intToText . fromSqlKey $ k)
                     ]
                 , hxTarget_ "label[for=\"description\"] .indicator-box"
                 , h_ "on input transition <label[for=\"description\"] .indicator-box i /> opacity to 0"
-                ] (toHtml . description $ nde)
+                ] (toHtml . M.nodeDescription $ nde)
     section_ [id_ "node-properties"] $ do
       article_ [] $ do
         span_ [] $ do
           label_  [for_ "status"] $ p_ "Status:"
           select_ [ class_    "property-value pill-dropdown",
                     name_     "status",
-                    selected_ $ statusId nde,
+                    selected_ (pack . M.unNodeStatusKey . M.nodeNodeStatusId $ nde),
                     hxPut_    "/ui/project/node/status",
                     hxPushUrl_ False,
                     hxInclude_ "this",
                     hxTrigger_ "change",
                     hxVals'_ $ object 
-                      [ "projectId" .= (intToText . projectId $ nde)
-                      , "nodeId"    .= (intToText . nodeId $ nde)
+                      [ "projectId" .= (intToText . fromSqlKey . M.nodeProjectId $ nde)
+                      , "nodeId"    .= (intToText . fromSqlKey $ k)
                       ],
                     hxTarget_ "#status-indicator"
                    ] $ do
             forM_ nsts $ \nst -> 
-              option_ [value_ (nodeStatusId nst)] (toHtml . nodeStatusId $ nst) 
+              option_ [value_ (pack . M.unNodeStatusKey . entityKey $ nst)]
+                (toHtml . pack . M.unNodeStatusKey . entityKey $ nst) 
         div_ [id_ "status-indicator", class_ "indicator-box"] empty 
     where
       empty = mempty :: Html ()
-
-toNodeStatusSchema :: Entity M.NodeStatus -> NodeStatus
-toNodeStatusSchema (Entity k _) = NodeStatus 
-  { nodeStatusId = pack . M.unNodeStatusKey $ k }
-
-toNodeSchema :: Entity M.Node -> Node
-toNodeSchema (Entity k e) = Node 
-  { nodeId      = fromSqlKey k
-  , description = pack . M.nodeDescription $ e
-  , projectId   = fromSqlKey . M.nodeProjectId $ e
-  , statusId    = pack . M.unNodeStatusKey . M.nodeNodeStatusId $ e
-  , title       = pack . M.nodeTitle $ e
-  , typeId      = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-  , updated     = M.nodeUpdated e
-  }
 
 validateForm :: Monad m 
   => GetNodeEditForm 
