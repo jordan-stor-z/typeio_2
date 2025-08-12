@@ -13,6 +13,7 @@ import Domain.Project.Responder.ProjectManage.Node.Status (handlePutNodeStatus)
 import Domain.Project.Responder.ProjectManage.Node.Title  (handlePutTitle)
 import Domain.Project.Responder.ProjectManage.View        (handleProjectManageView)
 import Domain.Project.Responder.ProjectManage.Graph       (handleProjectGraph)
+import Domain.Project.Responder.ProjectManage.Node.Refresh (handleGetNodeRefresh)
 import Network.Wai                                        ( Application
                                                           , Response
                                                           , ResponseReceived
@@ -27,6 +28,7 @@ data ProjectUiContainer = ProjectUiContainer
   , getNodeDetail      :: Application
   , getNodeEdit        :: Application
   , getNodePanel       :: Application
+  , getNodeRefresh     :: Application
   , putNodeDescription :: Application
   , putNodeStatus      :: Application
   , putNodeTitle       :: Application
@@ -43,6 +45,7 @@ defaultContainer cpl = ProjectUiContainer
   , getNodeDetail      = handleGetNodeDetail  cpl
   , getNodeEdit        = handleGetNodeEdit    cpl
   , getNodePanel       = handleGetNodePanel 
+  , getNodeRefresh     = handleGetNodeRefresh cpl
   , putNodeDescription = handlePutDescription cpl
   , putNodeStatus      = handlePutNodeStatus  cpl
   , putNodeTitle       = handlePutTitle       cpl

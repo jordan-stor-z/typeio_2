@@ -26,6 +26,13 @@ nodeDetailLink nid pid = "/ui/project/node/detail"
                      <> "&projectId=" 
                      <> (pack . show $ pid)
 
+nodeRefreshLink :: Int64 -> Int64 -> Text -> Text
+nodeRefreshLink nid pid clientTitle = "/ui/project/node/refresh?nodeId=" 
+                          <> (pack . show $ nid) 
+                          <> "&projectId="
+                          <> (pack . show $ pid) 
+                          <> "&clientTitle="
+                          <> clientTitle
 graphLink :: Int64 -> Text
 graphLink pid = "/ui/project/graph" 
                 <> "?projectId=" 

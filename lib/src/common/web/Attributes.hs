@@ -48,6 +48,51 @@ hxTarget_ = makeAttributes "hx-target"
 hxTrigger_ :: Text -> Attributes
 hxTrigger_ = makeAttributes "hx-trigger"
 
+d_ :: Text -> Attributes
+d_ = makeAttributes "d"
+
+fill_ :: Text -> Attributes
+fill_ = makeAttributes "fill"
+
+markerWidth_ :: Text -> Attributes
+markerWidth_ = makeAttributes "markerWidth"
+
+markerHeight_ :: Text -> Attributes
+markerHeight_ = makeAttributes "markerHeight"
+
+markerEnd_ :: Text -> Attributes
+markerEnd_ = makeAttributes "marker-end"
+
+orient_ :: Text -> Attributes
+orient_ = makeAttributes "orient"
+
+refX_ :: Text -> Attributes
+refX_ = makeAttributes "refX"
+
+refY_ :: Text -> Attributes
+refY_ = makeAttributes "refY"
+
+stroke_ :: Text -> Attributes 
+stroke_ = makeAttributes "stroke"
+
+strokeOpacity_ :: Text -> Attributes
+strokeOpacity_ = makeAttributes "stroke-opacity"
+
+strokeWidth_ :: Text -> Attributes
+strokeWidth_ = makeAttributes "stroke-width"
+
+viewBox_ :: Text -> Attributes
+viewBox_ = makeAttributes "viewBox"
+
+fontSize_ :: Text -> Attributes
+fontSize_ = makeAttributes "font-size"
+
+textAnchor_ :: Text -> Attributes
+textAnchor_ = makeAttributes "text-anchor"
+
+dy_ :: Text -> Attributes
+dy_ = makeAttributes "dy"
+
 hxVals_ :: [(Text, Text)] -> Attributes
 hxVals_ = makeAttributes "hx-vals" 
   . toStrict 

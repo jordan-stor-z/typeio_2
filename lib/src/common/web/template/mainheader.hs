@@ -15,6 +15,6 @@ templateNavHeader current = do
          , hxSwap_ "innerHTML"
          , hxTarget_ "#container"
          ] "textio"
-    h2_  []              (toHtml current)
+    h2_  [] (toHtml current)
     div_ [class_ "dot"]  mempty
     

@@ -36,6 +36,7 @@ library src
       Common.Either
       , Common.Validation
       , Common.Web.Attributes
+      , Common.Web.Elements
       , Common.Web.Query
       , Common.Web.Template.MainHeader
       , Common.Web.Validation
@@ -108,6 +109,7 @@ library src
       , hashable
       , http-types
       , lucid2
+      , lucid-svg
       , mtl
       , monad-logger
       , network-uri 

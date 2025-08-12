@@ -7,8 +7,9 @@
 module Domain.Project.Responder.ProjectManage.Graph where
 
 import Common.Web.Attributes
+import Common.Web.Elements
 import Domain.Project.Responder.ProjectManage.Link
-import Lucid
+import Lucid  
 import Common.Either              (notNullEither)
 import Common.Validation          ( (.$)
                                   , isNotEmpty
@@ -48,6 +49,7 @@ import qualified Domain.Project.Model as M ( Dependency(..)
                                            , unNodeStatusKey
                                            , unNodeTypeKey
                                            )
+import Control.Monad (forM_)
 
 data GetGraphError = 
   InvalidParams [ValidationErr]
@@ -69,8 +71,6 @@ data Node = Node
   , nodeTypeId      :: String
   , nodeUpdated     :: UTCTime 
   }
-
-
 
 pushUrl:: Int64 -> Int64 -> Text
 pushUrl nid pid = "/ui/project/vw"
@@ -177,7 +177,7 @@ handleProjectGraph pl req respond = do
         status200
         [("Content-Type", "text/html")]
       . renderBS
-      . templateGraph
+      . templateGraph'
     qt = queryToQueryText 
          . queryString 
          $ req
@@ -218,6 +218,75 @@ queryDependencies nids = do
         , childNodeId  = fromSqlKey . M.dependencyNodeId $ d 
         , parentNodeId = fromSqlKey . M.dependencyToNodeId $ d 
         }
+
+templateGraph' :: Graph -> Html ()
+templateGraph' g = do
+  script_ [id_ "graph-data", type_ "application/json"] gd
+  script_ [src_ "/static/script/nodetree2.js"] empty 
+  svg_    [ id_     "tree-view"
+          , height_ "100%"
+          , width_  "100%"
+          , h_ "on load transition my opacity to 1 over 200ms"
+          ] $ do 
+    defs_ [ id_           "arrow" 
+          , viewBox_      "0 -5 10 10"
+          , refX_         "30"
+          , refY_         "0"
+          , markerWidth_  "6"
+          , markerHeight_ "6"
+          , orient_       "auto"
+          ] $ do 
+      path_ [ d_    "M0,-5L10,0L0,5"
+            , fill_ "#999"
+            ] empty
+    g_ [class_ "zoom-group"] $ do 
+      g_ [class_ "links"] $ do
+        forM_ (links g) $ \_ -> 
+          line_ [ class_         "link"
+                , stroke_        "#999"
+                , strokeOpacity_ "0.6"
+                , strokeWidth_   "2"
+                , markerEnd_     "url(#arrow)"] empty
+      g_ [class_ "nodes"] $ do
+        forM_ (nodes g) $ \n -> do 
+          g_ [ id_ $       "node-" <> (pack . show . graphNodeId $ n)
+             , class_      "node"
+             , hxGet_      $ link n
+             , hxTrigger_  "click"
+             , hxTarget_   "#node-panel"
+             , hxPushUrl'_ $ push n
+             , hxSwap_     "innerHTML"
+             ] $ do
+            circle_ [ class_ $ if pinned n then "root" else "work"
+                    , stroke_      "white"
+                    , strokeWidth_ "1.5"
+                    ] empty
+            text_ [ id_       $ "node-text-" 
+                                <> (pack . show . graphNodeId $ n)
+                  , fontSize_   "10"
+                  , textAnchor_ "middle"
+                  , dy_         "0.35em"
+                  , fill_       "white"
+                  ] (toHtml . label $ n)
+      g_ [ id_ "updaters" ] $ do
+        forM_ (nodes g) $ \n -> do 
+            g_ [ class_ "hidden"
+               , h_ $ "on nodePanel:onEditClosed(nodeId)[nodeId=="
+                    <> (pack . show . graphNodeId $ n)
+                    <> "] from #node-panel trigger click on me"
+               , hxGet_ $ nodeRefreshLink 
+                          (graphNodeId n) 
+                          (projectId n) 
+                          (label n) 
+               , hxTrigger_   "click"
+               , hxTarget_ $  "#node-text-" 
+                              <> (pack . show . graphNodeId $ n)
+               , hxSwap_      "innerHTML"
+               , hxPushUrl_   False
+                ] empty
+  where
+    empty = mempty :: Html ()
+    gd    = encode g
 
 templateGraph :: Graph -> Html ()
 templateGraph g = do

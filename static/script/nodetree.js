@@ -73,9 +73,9 @@
     .join("g")
     .attr("class", "hidden")
     .attr("_", d => `on nodePanel:onEditClosed(nodeId)[nodeId==${d.id}] from #node-panel trigger click on me`)
-    .attr("hx-get", d => `/ui/project/node/refresh?nodeId=${d.id}&projectId=${d.projectId}`)
+    .attr("hx-get", d => `/ui/project/node/refresh?nodeId=${d.id}&projectId=${d.projectId}&clientTitle=${d.label}`)
     .attr("hx-trigger", "click")
-    .attr("hx-target", d => `#node-${d.id}`)
+    .attr("hx-target", d => `#node-text-${d.id}`)
     .attr("hx-swap", "innerHTML")
     .attr("hx-push-url", "false");
 
