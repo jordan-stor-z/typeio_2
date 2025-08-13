@@ -54,14 +54,15 @@ handlePutNodeStatus pl req rspnd = do
     pyld <- firstEitherT InvalidParams
             . validatePayload
             $ form
-    nd   <- lift (queryNode . payloadNodeId $ pyld)
+    nd <- lift (queryNode . payloadNodeId $ pyld)
             >>= hoistMaybe MissingNode
             >>= ( firstEitherT InvalidParams 
                  . validateNodeProjectId (payloadProjectId pyld) 
                 )
-    st   <- lift (queryStatus . payloadStatus $ pyld)
+    st <- lift (queryStatus . payloadStatus $ pyld)
             >>= hoistMaybe MissingStatus
-    lift . updateStatus st $ nd
+    lift . replace (entityKey nd) $ 
+      (entityVal nd) { M.nodeNodeStatusId = entityKey st }
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
@@ -98,15 +99,6 @@ queryStatus st = do
     limit 1
     pure s
   return . listToMaybe $ ns
-
-updateStatus :: 
-  Entity M.NodeStatus 
-  -> Entity M.Node
-  -> ReaderT SqlBackend IO ()
-updateStatus st (Entity k e) = do
-  replace k node' 
-  where
-    node' = e { M.nodeNodeStatusId = entityKey st } 
 
 reqForm :: [Param] -> PostNodeStatusForm 
 reqForm ps = PostNodeStatusForm 

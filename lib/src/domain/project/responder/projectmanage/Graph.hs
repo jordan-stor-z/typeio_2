@@ -9,7 +9,7 @@ module Domain.Project.Responder.ProjectManage.Graph where
 import Common.Web.Attributes
 import Common.Web.Elements
 import Domain.Project.Responder.ProjectManage.Link
-import Lucid  
+import Lucid 
 import Common.Either              (notNullEither)
 import Common.Validation          ( (.$)
                                   , isNotEmpty
@@ -19,6 +19,7 @@ import Common.Validation          ( (.$)
                                   , valRead
                                   )
 import Common.Web.Query           (lookupVal)
+import Control.Monad              (forM_)
 import Control.Monad.Trans.Class  (lift)
 import Control.Monad.Trans.Either (hoistEither, runEitherT)
 import Control.Monad.Reader       (ReaderT)
@@ -26,7 +27,6 @@ import Data.Aeson                 (encode, ToJSON(..), (.=), object)
 import Data.Int                   (Int64)
 import Data.Bifunctor             (first)
 import Data.Text                  (pack, Text, unpack)
-import Data.Time.Clock            (UTCTime)
 import Database.Esqueleto.Experimental ( from
                                        , fromSqlKey
                                        , select
@@ -38,59 +38,35 @@ import Database.Esqueleto.Experimental ( from
                                        , val
                                        , valList
                                        )
-import Database.Persist               (Entity(..))
-import Database.Persist.Sql           (ConnectionPool, SqlBackend, runSqlPool)
-import Network.HTTP.Types             (status200, status403, queryToQueryText)
-import Network.HTTP.Types.URI         (QueryText)
-import Network.Wai                    (Application, responseLBS, Request (queryString))
+import Database.Persist                (Entity(..))
+import Database.Persist.Sql            (ConnectionPool, SqlBackend, runSqlPool)
+import Network.HTTP.Types              (status200, status403, queryToQueryText)
+import Network.HTTP.Types.URI          (QueryText)
+import Network.Wai                     ( Application
+                                       , responseLBS
+                                       , Request (queryString)
+                                       )
 import qualified Domain.Project.Model as M ( Dependency(..)
                                            , Node(..)
                                            , Project(..)
-                                           , unNodeStatusKey
                                            , unNodeTypeKey
                                            )
-import Control.Monad (forM_)
 
 data GetGraphError = 
   InvalidParams [ValidationErr]
   | MissingNodes 
 
-data Dependency = Dependency
-  { dependencyId :: Int64
-  , childNodeId  :: Int64
-  , parentNodeId :: Int64
-  }
-
-data Node = Node
-  { nodeId          :: Int64
-  , nodeName        :: String
-  , nodeDescription :: String
-  , nodeProjectId   :: Int64
-  , nodeStatusId    :: String
-  , nodeTitle       :: String
-  , nodeTypeId      :: String
-  , nodeUpdated     :: UTCTime 
-  }
-
-pushUrl:: Int64 -> Int64 -> Text
-pushUrl nid pid = "/ui/project/vw"
-                   <> "?projectId=" 
-                   <> (pack . show $ pid)
-                   <> "&nodeId=" 
-                   <> (pack . show $ nid)
 
 data GraphNode = GraphNode 
   { graphNodeId :: Int64
-  , projectId   :: Int64
   , label       :: Text
-  , pinned      :: Bool
-  , link        :: Text
-  , push        :: Text
+  , nodeType    :: Text
+  , projectId   :: Int64
   }
 
 data Graph = Graph
-  { nodes :: [GraphNode]
-  , links :: [GraphLink]
+  { links :: [GraphLink]
+  , nodes :: [GraphNode]
   }
 
 instance ToJSON Graph where
@@ -100,13 +76,11 @@ instance ToJSON Graph where
            ]
 
 instance ToJSON GraphNode where
-  toJSON (GraphNode gid pid lbl pnd lnk psh) =
-    object [ "id"     .= gid
+  toJSON (GraphNode gid pid typ lbl) =
+    object [ "id"        .= gid
            , "projectId" .= pid
-           , "label"  .= lbl
-           , "pinned" .= pnd
-           , "link"   .= lnk 
-           , "push" .= psh
+           , "label"     .= lbl
+           , "nodeType"  .= typ 
            ]
 
 data GraphLink = GraphLink
@@ -122,18 +96,24 @@ instance ToJSON GraphLink where
 
 type ProjectId = Text
 
-buildGraph :: [Node] -> [Dependency] -> Graph 
-buildGraph ns ds = Graph (map toGNode ns) (map toLink ds)
+buildGraph :: [Entity M.Node] -> [M.Dependency] -> Graph 
+buildGraph ns ds = Graph (map toLink ds) (map toGNode ns)
   where
-    toLink d  = GraphLink (childNodeId d) (parentNodeId d)
-    toGNode n = GraphNode 
-          { graphNodeId = nodeId n
-          , projectId   = nodeProjectId n
-          , label       = pack $ nodeName n
-          , pinned      = nodeTypeId n == "project_root" 
-          , link        = nodePanelLink (nodeId n) (nodeProjectId n)
-          , push        = pushUrl (nodeId n) (nodeProjectId n)
+    toLink d = GraphLink 
+          { source = fromSqlKey . M.dependencyNodeId $ d
+          , target = fromSqlKey . M.dependencyToNodeId $ d
           }
+    toGNode (Entity k e) = GraphNode 
+          { graphNodeId = fromSqlKey k 
+          , projectId   = fromSqlKey . M.nodeProjectId $ e
+          , label       = pack . M.nodeTitle $ e
+          , nodeType    = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+          }
+
+classNodeType :: GraphNode -> Text
+classNodeType n = if nodeType n == "project_root" 
+                  then "root" 
+                  else "work"
 
 handleProjectGraph :: ConnectionPool ->  Application
 handleProjectGraph pl req respond = do
@@ -147,9 +127,9 @@ handleProjectGraph pl req respond = do
                . notNullEither MissingNodes
     ds  <- lift 
            . queryDependencies 
-           . fmap nodeId 
+           . fmap (fromSqlKey . entityKey) 
            $ ns
-    pure . buildGraph ns $ ds 
+    pure . buildGraph ns . fmap entityVal $ ds 
   case rslt of
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes       -> respondMissingNodes
@@ -182,42 +162,31 @@ handleProjectGraph pl req respond = do
          . queryString 
          $ req
 
-queryNodes :: Int64 -> ReaderT SqlBackend IO [Node]
+pushUrl:: Int64 -> Int64 -> Text
+pushUrl nid pid = "/ui/project/vw"
+                   <> "?projectId=" 
+                   <> (pack . show $ pid)
+                   <> "&nodeId=" 
+                   <> (pack . show $ nid)
+
+queryNodes :: Int64 -> ReaderT SqlBackend IO [Entity M.Node]
 queryNodes pid = do
-  ns <- select $ do
+  select $ do
     n <- from $ table @M.Node
     where_ (n.projectId ==. val pkey)
     pure n
-  return $ toNodeSchema <$> ns
   where 
     pkey = toSqlKey @M.Project pid 
-    toNodeSchema (Entity k e) = Node 
-      { nodeId          = fromSqlKey k
-      , nodeName        = M.nodeTitle e
-      , nodeDescription = M.nodeDescription e
-      , nodeProjectId   = fromSqlKey . M.nodeProjectId $ e
-      , nodeStatusId    = M.unNodeStatusKey . M.nodeNodeStatusId $ e
-      , nodeTitle       = M.nodeTitle e
-      , nodeTypeId      = M.unNodeTypeKey . M.nodeNodeTypeId $ e
-      , nodeUpdated     = M.nodeUpdated e
-      }
 
-queryDependencies :: [Int64] -> ReaderT SqlBackend IO [Dependency]
+queryDependencies :: [Int64] -> ReaderT SqlBackend IO [Entity M.Dependency]
 queryDependencies []   = return []
 queryDependencies nids = do
-  let nkeys = toSqlKey @M.Node <$> nids
-  ds <- select $ do
+  select $ do
     d <- from $ table @M.Dependency
     where_ (d.nodeId `in_` valList nkeys)
     pure d
-  return $ toDependencySchema <$> ds
   where
-    toDependencySchema (Entity k d) = 
-      Dependency 
-        { dependencyId = fromSqlKey k
-        , childNodeId  = fromSqlKey . M.dependencyNodeId $ d 
-        , parentNodeId = fromSqlKey . M.dependencyToNodeId $ d 
-        }
+    nkeys = toSqlKey @M.Node <$> nids
 
 templateGraph' :: Graph -> Html ()
 templateGraph' g = do
@@ -251,13 +220,17 @@ templateGraph' g = do
         forM_ (nodes g) $ \n -> do 
           g_ [ id_ $       "node-" <> (pack . show . graphNodeId $ n)
              , class_      "node"
-             , hxGet_      $ link n
+             , hxGet_      $ nodePanelLink
+                              (graphNodeId n) 
+                              (projectId n)
              , hxTrigger_  "click"
              , hxTarget_   "#node-panel"
-             , hxPushUrl'_ $ push n
+             , hxPushUrl'_ $ pushUrl 
+                              (graphNodeId n) 
+                              (projectId n) 
              , hxSwap_     "innerHTML"
              ] $ do
-            circle_ [ class_ $ if pinned n then "root" else "work"
+            circle_ [ class_ $ classNodeType n 
                     , stroke_      "white"
                     , strokeWidth_ "1.5"
                     ] empty
@@ -285,19 +258,6 @@ templateGraph' g = do
                , hxPushUrl_   False
                 ] empty
   where
-    empty = mempty :: Html ()
-    gd    = encode g
-
-templateGraph :: Graph -> Html ()
-templateGraph g = do
-  script_ [id_ "graph-data", type_ "application/json"] gd
-  script_ [src_ "/static/script/nodetree.js"]          empty 
-  svg_    [ id_     "tree-view"
-          , height_ "100%"
-          , width_  "100%"
-          , h_ "on load transition my opacity to 1 over 200ms"
-          ] empty 
-  where 
     empty = mempty :: Html ()
     gd    = encode g
 

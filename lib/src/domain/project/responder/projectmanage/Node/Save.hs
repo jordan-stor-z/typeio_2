@@ -13,7 +13,6 @@ import qualified Domain.Project.Model as M
 
 import Database.Esqueleto.Experimental
 import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Reader       (ReaderT)
 import Control.Monad.Trans.Either ( hoistEither
                                   , hoistMaybe
                                   , firstEitherT
@@ -55,7 +54,8 @@ handlePutDescription pl req rspnd = do
               >>= ( firstEitherT InvalidParams
                    . validateNodeProjectId (payloadProjectId pyld) 
                  )
-    lift . updateDescription pyld $ nd
+    lift . replace (entityKey nd $ 
+      (entityVal nd) { M.nodeDescription = unpack . payloadDescription $ pyld }
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
@@ -76,15 +76,6 @@ handlePutDescription pl req rspnd = do
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templatePutSuccess
-
-updateDescription :: 
-  PutNodeDescriptionPayload
-  -> Entity M.Node
-  -> ReaderT SqlBackend IO ()
-updateDescription pyld (Entity k e) = do
-  replace k node' 
-  where
-    node' = e { M.nodeDescription = unpack . payloadDescription $ pyld}
 
 reqForm :: [Param] -> PutNodeDescriptionForm
 reqForm ps = PutNodeDescriptionForm

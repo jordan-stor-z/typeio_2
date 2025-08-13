@@ -30,24 +30,6 @@ data ManageProjectPayload = ManageProjectPayload
   , payloadProjectId :: Int64
   }
 
-queryTextToForm :: QueryText -> ManageProjectForm
-queryTextToForm qt = ManageProjectForm
-  { formNodeId = lookupVal "nodeId" qt
-  , formProjectId = lookupVal "projectId" qt
-  }
-
-validateForm :: ManageProjectForm -> Either [ValidationErr] ManageProjectPayload
-validateForm fm = runValidation id $ do
-  pid <- formProjectId fm
-    .$ unpack
-    >>= isThere    "Project id is required"
-    >>= isNotEmpty "Project id must have value"
-    >>= valRead    "Project id must be valid integer"
-  nid <- formNodeId fm
-    .$ unpack
-    >>= valRead "Node id must be valid integer"
-  return $ ManageProjectPayload nid <$> pid
-
 handleProjectManageView :: Application
 handleProjectManageView req respond = do
   case pidE of
@@ -67,6 +49,12 @@ handleProjectManageView req respond = do
           . queryToQueryText 
           . queryString 
           $ req
+
+queryTextToForm :: QueryText -> ManageProjectForm
+queryTextToForm qt = ManageProjectForm
+  { formNodeId = lookupVal "nodeId" qt
+  , formProjectId = lookupVal "projectId" qt
+  }
 
 templateProject :: ManageProjectPayload -> Html ()
 templateProject py = do
@@ -97,3 +85,17 @@ templateProject py = do
     empty = mempty :: Html ()
     nidM  = payloadNodeId py
     pid   = payloadProjectId py
+
+validateForm :: ManageProjectForm -> Either [ValidationErr] ManageProjectPayload
+validateForm fm = runValidation id $ do
+  pid <- formProjectId fm
+    .$ unpack
+    >>= isThere    "Project id is required"
+    >>= isNotEmpty "Project id must have value"
+    >>= valRead    "Project id must be valid integer"
+  nid <- formNodeId fm
+    .$ unpack
+    >>= valRead "Node id must be valid integer"
+  return $ ManageProjectPayload nid <$> pid
+
+
