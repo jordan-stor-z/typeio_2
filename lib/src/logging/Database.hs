@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Database.Logging where
+module Logging.Database where
 
 import Data.Char (toLower)
 import Control.Monad.IO.Unlift (MonadUnliftIO)

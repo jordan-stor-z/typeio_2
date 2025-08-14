@@ -18,7 +18,7 @@ import Database.Persist.Postgresql ( PostgresConfHooks(..)
                                    , PostgresConf(..)
                                    )
 import Database.PostgreSQL.Simple  (execute_)
-import Database.Logging            (runDatabaseLoggingT)
+import Logging.Database            (runDatabaseLoggingT)
 
 config :: DbConfig -> PostgresConf
 config cf = PostgresConf 

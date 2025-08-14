@@ -41,7 +41,6 @@ library src
       , Container.Build
       , Container.Root
       , Database.Init
-      , Database.Logging
       , Domain.Central.Responder.IndexView
       , Domain.Central.Responder.Seed
       , Domain.Central.Container.Api

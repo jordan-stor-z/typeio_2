@@ -47,8 +47,6 @@ library src
       , Container.Root
       , Data.HashTree
       , Data.Text.Util
-      , Database.Init
-      , Database.Logging
       , Domain.Central.Responder.Empty
       , Domain.Central.Responder.IndexView
       , Domain.Central.Responder.Seed
@@ -88,6 +86,7 @@ library src
       , Domain.System.Middleware.Logging.Request
       , Domain.System.Middleware.Logging.Response
       , Logging.Core
+      , Logging.Database
       , Environment.Acquire
       , Environment.Db
       , Environment.Env

@@ -54,7 +54,7 @@ handlePutDescription pl req rspnd = do
               >>= ( firstEitherT InvalidParams
                    . validateNodeProjectId (payloadProjectId pyld) 
                  )
-    lift . replace (entityKey nd $ 
+    lift . replace (entityKey nd) $ 
       (entityVal nd) { M.nodeDescription = unpack . payloadDescription $ pyld }
   case rslt of
     Left (InvalidParams e) -> rspnd 
