@@ -16,7 +16,7 @@ data ConfigDisplay = ConfigDisplay
 instance ToJSON ConfigDisplay where
   toJSON (ConfigDisplay cf cs) =
     object
-      [ "config" .= cf
+      [ "config"           .= cf
       , "connectionString" .= cs
       ]
 

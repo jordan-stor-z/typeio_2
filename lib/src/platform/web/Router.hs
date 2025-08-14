@@ -16,7 +16,7 @@ import Container.Root               (RootContainer(..))
 import Data.Maybe                   (fromMaybe)
 import Data.Text                    (pack, Text)
 import Domain.Central.Container.Api (CentralApiContainer(..))
-import Domain.Central.Container.Ui  (CentralUiContainer(..))
+import qualified Domain.Central.Responder.Ui.Container as CU
 import Domain.Project.Container.Api (ProjectApiContainer(..))
 import Domain.Project.Container.Ui  (ProjectUiContainer(..))
 import Domain.System.Container.Api  (SystemApiContainer(..))
@@ -99,9 +99,9 @@ uiTree ctn req = emptyT
     prjCtn = projectUiContainer ctn
     ctlCtn = centralUiContainer ctn
 
-centralUiTree :: CentralUiContainer -> RouteTree
+centralUiTree :: CU.Container -> RouteTree
 centralUiTree ct = routes
-  <+> "empty" -| only "GET" (getEmptyView ct)
+  <+> "empty" -| only "GET" (CU.emptyView ct)
 
 projectIndexUiTree :: ProjectUiContainer -> Request -> RouteTree
 projectIndexUiTree ctn _ = emptyT
@@ -131,5 +131,5 @@ manageProjectUiTree ctn req = emptyT
 index :: RootContainer 
   -> Text 
   -> Application 
-index = indexView . centralUiContainer 
+index = CU.indexView . centralUiContainer 
 

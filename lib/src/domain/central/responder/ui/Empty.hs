@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Central.Responder.Empty where
+module Domain.Central.Responder.Ui.Empty where
 
 import Lucid 
 import Network.HTTP.Types (status200)

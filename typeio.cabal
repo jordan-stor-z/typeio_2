@@ -46,11 +46,11 @@ library src
       , Data.Either
       , Data.HashTree
       , Data.Text.Util
-      , Domain.Central.Responder.Empty
-      , Domain.Central.Responder.IndexView
+      , Domain.Central.Responder.Ui.Empty
+      , Domain.Central.Responder.Ui.IndexView
+      , Domain.Central.Responder.Ui.Container
       , Domain.Central.Responder.Seed
       , Domain.Central.Container.Api
-      , Domain.Central.Container.Ui
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Api.Node.Get
       , Domain.Project.Responder.Api.Node.Post
@@ -76,7 +76,6 @@ library src
       , Domain.Project.Container.Api
       , Domain.Project.Container.Ui
       , Domain.Project.Model
-      , Domain.Project.Rules
       , Domain.System.Responder.Config
       , Domain.System.Container.Api
       , Domain.System.Container.Middleware

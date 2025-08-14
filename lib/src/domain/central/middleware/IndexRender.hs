@@ -6,7 +6,7 @@ import Data.ByteString.Char8 (pack, unpack)
 import Data.CaseInsensitive (mk)
 import Data.List (intercalate)
 import qualified Data.Text as T (pack, unpack)
-import Domain.Central.Container.Ui (CentralUiContainer(..))
+import Domain.Central.Responder.Ui.Container (Container(..))
 import Network.HTTP.Types (RequestHeaders)
 import Network.Wai (Middleware, requestHeaders, pathInfo)
 
@@ -16,7 +16,7 @@ hasHexHeader headerName headers =
     Just value -> unpack value == "true"
     Nothing    -> False
 
-renderIndexMiddleware :: CentralUiContainer -> Middleware
+renderIndexMiddleware :: Container -> Middleware
 renderIndexMiddleware ct app req respond = 
   let
     path         = pathInfo req

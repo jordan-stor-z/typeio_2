@@ -4,7 +4,7 @@ import Config.App      (AppConfig(..))
 import Container.Root  (RootContainer(..))
 import Environment.Env (Env(..))
 import qualified Domain.Central.Container.Api as CA
-import qualified Domain.Central.Container.Ui  as CU
+import qualified Domain.Central.Responder.Ui.Container as CU
 import qualified Domain.Project.Container.Api as PA                 
 import qualified Domain.Project.Container.Ui  as PU
 import qualified Domain.System.Container.Api  as SA

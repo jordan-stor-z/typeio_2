@@ -56,6 +56,10 @@ data GetGraphError =
   InvalidParams [ValidationErr]
   | MissingNodes 
 
+data Graph = Graph
+  { links :: [GraphLink]
+  , nodes :: [GraphNode]
+  }
 
 data GraphNode = GraphNode 
   { graphNodeId :: Int64
@@ -64,15 +68,21 @@ data GraphNode = GraphNode
   , projectId   :: Int64
   }
 
-data Graph = Graph
-  { links :: [GraphLink]
-  , nodes :: [GraphNode]
+data GraphLink = GraphLink
+  { source :: Int64
+  , target :: Int64
   }
 
 instance ToJSON Graph where
   toJSON (Graph ns ls) =
     object [ "nodes" .= ns
            , "links" .= ls
+           ]
+
+instance ToJSON GraphLink where
+  toJSON (GraphLink src tgt) =
+    object [ "source" .= src
+           , "target" .= tgt
            ]
 
 instance ToJSON GraphNode where
@@ -82,33 +92,6 @@ instance ToJSON GraphNode where
            , "label"     .= lbl
            , "nodeType"  .= typ 
            ]
-
-data GraphLink = GraphLink
-  { source :: Int64
-  , target :: Int64
-  }
-
-instance ToJSON GraphLink where
-  toJSON (GraphLink src tgt) =
-    object [ "source" .= src
-           , "target" .= tgt
-           ]
-
-type ProjectId = Text
-
-buildGraph :: [Entity M.Node] -> [M.Dependency] -> Graph 
-buildGraph ns ds = Graph (map toLink ds) (map toGNode ns)
-  where
-    toLink d = GraphLink 
-          { source = fromSqlKey . M.dependencyNodeId $ d
-          , target = fromSqlKey . M.dependencyToNodeId $ d
-          }
-    toGNode (Entity k e) = GraphNode 
-          { graphNodeId = fromSqlKey k 
-          , projectId   = fromSqlKey . M.nodeProjectId $ e
-          , label       = pack . M.nodeTitle $ e
-          , nodeType    = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-          }
 
 classNodeType :: GraphNode -> Text
 classNodeType n = if nodeType n == "project_root" 
@@ -129,7 +112,7 @@ handleProjectGraph pl req respond = do
            . queryDependencies 
            . fmap (fromSqlKey . entityKey) 
            $ ns
-    pure . buildGraph ns . fmap entityVal $ ds 
+    pure . toGraph ns . fmap entityVal $ ds 
   case rslt of
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes       -> respondMissingNodes
@@ -157,7 +140,7 @@ handleProjectGraph pl req respond = do
         status200
         [("Content-Type", "text/html")]
       . renderBS
-      . templateGraph'
+      . templateGraph
     qt = queryToQueryText 
          . queryString 
          $ req
@@ -188,8 +171,8 @@ queryDependencies nids = do
   where
     nkeys = toSqlKey @M.Node <$> nids
 
-templateGraph' :: Graph -> Html ()
-templateGraph' g = do
+templateGraph :: Graph -> Html ()
+templateGraph g = do
   script_ [id_ "graph-data", type_ "application/json"] gd
   script_ [src_ "/static/script/nodetree2.js"] empty 
   svg_    [ id_     "tree-view"
@@ -260,6 +243,20 @@ templateGraph' g = do
   where
     empty = mempty :: Html ()
     gd    = encode g
+
+toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph 
+toGraph ns ds = Graph (map toLink ds) (map toGNode ns)
+  where
+    toLink d = GraphLink 
+          { source = fromSqlKey . M.dependencyNodeId $ d
+          , target = fromSqlKey . M.dependencyToNodeId $ d
+          }
+    toGNode (Entity k e) = GraphNode 
+          { graphNodeId = fromSqlKey k 
+          , projectId   = fromSqlKey . M.nodeProjectId $ e
+          , label       = pack . M.nodeTitle $ e
+          , nodeType    = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+          }
 
 validateProjectId ::  QueryText -> Either [ValidationErr] Int64
 validateProjectId qt = runValidation id $ do
