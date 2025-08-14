@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Save where
+module Domain.Project.Responder.ProjectManage.Node.Description where
 
 import Lucid
 import Common.Validation
@@ -26,7 +26,7 @@ import Network.HTTP.Types         (status200, status500)
 import Network.Wai                (Application, responseLBS)
 import Network.Wai.Parse          (parseRequestBody, lbsBackEnd, Param)
 
-data PutNodeDetailErr =
+data PutNodeDescriptionErr =
   InvalidParams [ValidationErr]
   | MissingNode
 
@@ -120,5 +120,4 @@ validatePayload form =
              <$> dsc 
              <*> nid 
              <*> pid
-
 

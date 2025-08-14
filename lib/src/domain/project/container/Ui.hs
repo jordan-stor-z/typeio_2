@@ -1,23 +1,23 @@
 module Domain.Project.Container.Ui where
 
-import Database.Persist.Sql (ConnectionPool)
-import Domain.Project.Responder.ProjectIndex.List         (handleProjectList)
-import Domain.Project.Responder.ProjectIndex.View         (handleProjectView)
-import Domain.Project.Responder.ProjectCreate.Submit      (handleProjectSubmit)
-import Domain.Project.Responder.ProjectCreate.View        (handleProjectCreateVw)
-import Domain.Project.Responder.ProjectManage.Node        (handleGetNodePanel)
-import Domain.Project.Responder.ProjectManage.Node.Detail (handleGetNodeDetail)
-import Domain.Project.Responder.ProjectManage.Node.Edit   (handleGetNodeEdit) 
-import Domain.Project.Responder.ProjectManage.Node.Save   (handlePutDescription)
-import Domain.Project.Responder.ProjectManage.Node.Status (handlePutNodeStatus)
-import Domain.Project.Responder.ProjectManage.Node.Title  (handlePutTitle)
-import Domain.Project.Responder.ProjectManage.View        (handleProjectManageView)
-import Domain.Project.Responder.ProjectManage.Graph       (handleProjectGraph)
-import Domain.Project.Responder.ProjectManage.Node.Refresh (handleGetNodeRefresh)
-import Network.Wai                                        ( Application
-                                                          , Response
-                                                          , ResponseReceived
-                                                          )
+import Database.Persist.Sql                                    (ConnectionPool)
+import Domain.Project.Responder.ProjectIndex.List              (handleProjectList)
+import Domain.Project.Responder.ProjectIndex.View              (handleProjectView)
+import Domain.Project.Responder.ProjectCreate.Submit           (handleProjectSubmit) 
+import Domain.Project.Responder.ProjectCreate.View             (handleProjectCreateVw)
+import Domain.Project.Responder.ProjectManage.Node             (handleGetNodePanel)
+import Domain.Project.Responder.ProjectManage.Node.Description (handlePutDescription)
+import Domain.Project.Responder.ProjectManage.Node.Detail      (handleGetNodeDetail)
+import Domain.Project.Responder.ProjectManage.Node.Edit        (handleGetNodeEdit)
+import Domain.Project.Responder.ProjectManage.Node.Status      (handlePutNodeStatus)
+import Domain.Project.Responder.ProjectManage.Node.Title       (handlePutTitle)
+import Domain.Project.Responder.ProjectManage.View             (handleProjectManageView)
+import Domain.Project.Responder.ProjectManage.Graph            (handleProjectGraph)
+import Domain.Project.Responder.ProjectManage.Node.Refresh     (handleGetNodeRefresh)
+import Network.Wai                                             ( Application
+                                                               , Response
+                                                               , ResponseReceived
+                                                               )
 
 data ProjectUiContainer = ProjectUiContainer
   { projectIndexVw     :: (Response -> IO ResponseReceived) -> IO ResponseReceived 
