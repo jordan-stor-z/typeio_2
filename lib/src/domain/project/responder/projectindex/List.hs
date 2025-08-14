@@ -25,72 +25,53 @@ import Database.Esqueleto.Experimental ( desc
 import Database.Persist.Postgresql     (ConnectionPool)
 import Database.Persist.Sql            (runSqlPool, SqlBackend)
 import Database.Persist                (Entity(..))
-import Domain.Project.Model            (ProjectVw(..))
 import Network.HTTP.Types              (status200)
 import Network.Wai                     (Response, responseLBS, ResponseReceived)
-
-data ProjectItem = ProjectItem
-  { description :: String 
-  , projectId   :: Int64 
-  , title       :: String
-  , lastUpdated :: UTCTime 
-  } deriving (Show, Eq)
+import qualified Domain.Project.Model as M 
 
 handleProjectList :: ConnectionPool 
   -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 handleProjectList cp respond = do
   ps <- runSqlPool queryProjectVw cp
   tp <- case ps of
-    [] -> return templateEmptyProjects
-    _  -> return . templateList $ ps
+    [] -> pure templateEmptyProjects
+    _  -> pure . templateList . map entityVal $ ps
   respond $ responseLBS
     status200
     [("Content-Type", "text/html")]
     (renderBS tp)
 
-queryProjectVw :: ReaderT SqlBackend IO [ProjectItem] 
-queryProjectVw = do
-  fmap (map toSchema') $ select $ do
-    p <- from $ table @ProjectVw
+queryProjectVw :: ReaderT SqlBackend IO [Entity M.ProjectVw]
+queryProjectVw = 
+  select $ do
+    p <- from $ table @M.ProjectVw
     orderBy [desc p.lastUpdated]
     limit 50
     offset 0
     pure p
-  where
-    toSchema' :: Entity ProjectVw -> ProjectItem
-    toSchema' (Entity _ p) = ProjectItem
-      { description = projectVwDescription p
-      , projectId   = fromSqlKey . projectVwProjectId $ p
-      , title       = projectVwTitle p 
-      , lastUpdated = projectVwLastUpdated p
-      }
 
 templateEmptyProjects :: Html ()
 templateEmptyProjects = html_ $ do
   h2_ "Create your first project."
 
-templateList :: [ProjectItem] -> Html ()
+templateList :: [M.ProjectVw] -> Html ()
 templateList ps = div_ [id_ "view"] $ do 
   div_ [id_ "project-index", class_ "card-grid"] $ do
-    forM_ ps $ \item -> do
-      templateProjectItem item
-
-templateProjectItem :: ProjectItem -> Html ()
-templateProjectItem item = do
-  div_ [ id_        "project-item"
-       , class_     "nav-target"
-       , hxGet_     (projectLink . projectId $ item)
-       , hxPushUrl_ True
-       , hxSwap_    "innerHTML"
-       , hxTarget_  "#container"
-       , hxTrigger_ "click"
-       ] $ do
-    span_ [class_ "id"] (display' . projectId $ item)
-    div_  [class_ "content"] $ do
-      h3_   (toHtml . title $ item)
-      span_ (toHtml . description $ item)
-      br_ []
-      span_ (("Updated: " <>) . display' . lastUpdated $ item)
-  where 
-    display' :: Show a => a -> Html ()
-    display' = toHtml . show
+    forM_ ps $ \p -> do
+      div_ [ id_        "project-item"
+           , class_     "nav-target"
+           , hxGet_     (projectLink . fromSqlKey . M.projectVwProjectId $ p)
+           , hxPushUrl_ True
+           , hxSwap_    "innerHTML"
+           , hxTarget_  "#container"
+           , hxTrigger_ "click"
+           ] $ do
+        span_ [class_ "id"] (display' . M.projectVwProjectId $ p)
+        div_  [class_ "content"] $ do
+          h3_   (toHtml . M.projectVwTitle $ p)
+          span_ (toHtml . M.projectVwDescription $ p)
+          br_ []
+          span_ (("Updated: " <>) . display' . M.projectVwLastUpdated $ p)
+      where 
+        display' :: Show a => a -> Html ()
+        display' = toHtml . show

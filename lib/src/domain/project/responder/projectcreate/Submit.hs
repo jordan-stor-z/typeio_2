@@ -26,14 +26,12 @@ import Data.ByteString                             (toStrict, ByteString)
 import Data.Maybe                                  (listToMaybe)
 import qualified Data.Text as T                    (Text, unpack)
 import Data.Text.Encoding                          (decodeUtf8)
-import Data.Time                                   (getCurrentTime, UTCTime)
+import Data.Time                                   (getCurrentTime)
 import Database.Persist                            (Entity(..))
 import Database.Persist.Sql                        ( ConnectionPool
-                                                   , entityKey
                                                    , runSqlPool
                                                    , SqlBackend
                                                    )
-import Database.Persist.Postgresql                 (ConnectionPool)
 import Database.Esqueleto.Experimental             ( (==.)
                                                    , from
                                                    , insert
