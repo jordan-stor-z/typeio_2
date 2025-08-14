@@ -10,7 +10,6 @@ import Common.Web.Attributes
 import Common.Web.Elements
 import Domain.Project.Responder.ProjectManage.Link
 import Lucid 
-import Common.Either              (notNullEither)
 import Common.Validation          ( (.$)
                                   , isNotEmpty
                                   , isThere
@@ -24,6 +23,7 @@ import Control.Monad.Trans.Class  (lift)
 import Control.Monad.Trans.Either (hoistEither, runEitherT)
 import Control.Monad.Reader       (ReaderT)
 import Data.Aeson                 (encode, ToJSON(..), (.=), object)
+import Data.Either                (notNullEither)
 import Data.Int                   (Int64)
 import Data.Bifunctor             (first)
 import Data.Text                  (pack, Text, unpack)

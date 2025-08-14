@@ -1,4 +1,4 @@
-module Common.Either where
+module Data.Either where
 
 listToEither :: a -> [b] -> Either a b
 listToEither e []    = Left e

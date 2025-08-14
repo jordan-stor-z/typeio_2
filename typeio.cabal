@@ -33,18 +33,17 @@ library src
     exposed-modules:
       Platform.Web
     other-modules:
-      Common.Either
-      , Common.Validation
+      Common.Validation
       , Common.Web.Attributes
       , Common.Web.Elements
       , Common.Web.Query
       , Common.Web.Template.MainHeader
-      , Common.Web.Validation
       , Config.App
       , Config.Db
       , Config.Web
       , Container.Build
       , Container.Root
+      , Data.Either
       , Data.HashTree
       , Data.Text.Util
       , Domain.Central.Responder.Empty
@@ -53,7 +52,11 @@ library src
       , Domain.Central.Container.Api
       , Domain.Central.Container.Ui
       , Domain.Central.Middleware.IndexRender
-      , Domain.Project.Responder.Node
+      , Domain.Project.Responder.Api.Node.Get
+      , Domain.Project.Responder.Api.Node.Post
+      , Domain.Project.Responder.Api.NodeStatus.Get
+      , Domain.Project.Responder.Api.NodeType.Get
+      , Domain.Project.Responder.Api.Project.Get
       , Domain.Project.Responder.ProjectManage.Graph
       , Domain.Project.Responder.ProjectManage.Link
       , Domain.Project.Responder.ProjectManage.Node
@@ -66,10 +69,6 @@ library src
       , Domain.Project.Responder.ProjectManage.Node.Title
       , Domain.Project.Responder.ProjectManage.Node.Validation
       , Domain.Project.Responder.ProjectManage.View
-      , Domain.Project.Responder.Api.Node.Post
-      , Domain.Project.Responder.NodeStatus
-      , Domain.Project.Responder.NodeType
-      , Domain.Project.Responder.Project
       , Domain.Project.Responder.ProjectCreate.Submit
       , Domain.Project.Responder.ProjectCreate.View
       , Domain.Project.Responder.ProjectIndex.List

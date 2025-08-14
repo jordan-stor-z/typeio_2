@@ -3,9 +3,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Domain.Project.Responder.NodeType where
+module Domain.Project.Responder.Api.NodeStatus.Get where
 
-import Data.Aeson                         ((.=)
+import Data.Aeson                          ((.=)
                                            , encode
                                            , toJSON
                                            , ToJSON
@@ -14,25 +14,25 @@ import Data.Aeson                         ((.=)
 import Database.Esqueleto.Experimental     (from, select, table)
 import Database.Persist                    (Entity(..))
 import Database.Persist.Sql                (ConnectionPool, runSqlPool)
-import qualified Domain.Project.Model as M (NodeType(..), unNodeTypeKey)
+import qualified Domain.Project.Model as M (NodeStatus(..), unNodeStatusKey)
 import Network.HTTP.Types                  (status200)
 import Network.Wai                         (Response, responseLBS, ResponseReceived)
 
-newtype NodeType = NodeType
-  { nodeTypeId :: String
+newtype NodeStatus = NodeStatus
+  { nodeStatusId :: String
   }
 
-instance ToJSON NodeType where
-  toJSON (NodeType ntId) =
-    object [ "nodeTypeId" .= ntId ]
+instance ToJSON NodeStatus where
+  toJSON (NodeStatus ntId) =
+    object [ "nodeStatusId" .= ntId ]
 
-handleGetNodeTypes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
-handleGetNodeTypes pl respond = do
+handleGetNodeStatuses :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleGetNodeStatuses pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
   where
-    query = select $ from $ table @M.NodeType
-    toSchema (Entity k _) = NodeType
-      { nodeTypeId = M.unNodeTypeKey k
+    query = select $ from $ table @M.NodeStatus
+    toSchema (Entity k _) = NodeStatus
+      { nodeStatusId = M.unNodeStatusKey k
       }
 

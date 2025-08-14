@@ -1,15 +1,15 @@
 module Domain.Project.Container.Api where
 
-import Database.Persist.Sql                   (ConnectionPool)
-import Domain.Project.Responder.Node          (handleGetNodes)
-import Domain.Project.Responder.NodeStatus    (handleGetNodeStatuses)
-import Domain.Project.Responder.NodeType      (handleGetNodeTypes)
-import Domain.Project.Responder.Project       (handleGetProjects)
-import Domain.Project.Responder.Api.Node.Post (handlePostNode)
-import Network.Wai                            (Application
-                                              , Response
-                                              , ResponseReceived
-                                              )
+import Database.Persist.Sql                        (ConnectionPool)
+import Domain.Project.Responder.Api.Node.Get       (handleGetNodes)
+import Domain.Project.Responder.Api.NodeStatus.Get (handleGetNodeStatuses)
+import Domain.Project.Responder.Api.NodeType.Get   (handleGetNodeTypes)
+import Domain.Project.Responder.Api.Project.Get    (handleGetProjects)
+import Domain.Project.Responder.Api.Node.Post      (handlePostNode)
+import Network.Wai                                 (Application
+                                                  , Response
+                                                  , ResponseReceived
+                                                  )
 
 data ProjectApiContainer = ProjectApiContainer
   { apiGetNodes        :: (Response -> IO ResponseReceived) -> IO ResponseReceived

@@ -6,7 +6,6 @@
 
 module Domain.Project.Responder.Api.Node.Post where
 
-import Common.Either                   (listToEither)
 import Common.Validation               ( (.$)
                                        , isThere 
                                        , isNotEmpty 
@@ -23,6 +22,7 @@ import Data.Aeson                      ( (.=)
                                        , ToJSON(..)
                                        )
 import Data.ByteString                 (ByteString)
+import Data.Either                     (listToEither)
 import Data.Int                        (Int64)
 import Data.Text                       (Text, unpack)
 import Data.Text.Encoding              (decodeUtf8)

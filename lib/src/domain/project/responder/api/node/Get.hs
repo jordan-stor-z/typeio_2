@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Domain.Project.Responder.Node where
+module Domain.Project.Responder.Api.Node.Get where
 
 import Data.Aeson                          ((.=)
                                            , encode
