@@ -4,9 +4,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Domain.Project.Responder.ProjectIndex.List where
+module Domain.Project.Responder.Ui.ProjectIndex.List where
 
-import Domain.Project.Responder.ProjectManage.Link
+import Domain.Project.Responder.Api.ProjectManage.Link
 import Lucid
 import Common.Web.Attributes
 import Control.Monad                   (forM_)

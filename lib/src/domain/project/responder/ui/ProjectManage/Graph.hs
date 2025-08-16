@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Domain.Project.Responder.ProjectManage.Graph where
+module Domain.Project.Responder.Ui.ProjectManage.Graph where
 
 import Common.Web.Attributes
 import Common.Web.Elements

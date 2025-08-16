@@ -1,8 +1,8 @@
-module Domain.Central.Container.Api where
+module Domain.Central.Responder.Api.Container where
 
 import Database.Persist.Sql          (ConnectionPool)
-import Domain.Central.Responder.Seed (handleSeedDatabase)
-import Network.Wai                   (Response, ResponseReceived)
+import Domain.Central.Responder.Api.Seed (handleSeedDatabase)
+import Network.Wai                        (Response, ResponseReceived)
 
 newtype CentralApiContainer = CentralApiContainer 
   { apiSeedDatabase :: (Response -> IO ResponseReceived) -> IO ResponseReceived 

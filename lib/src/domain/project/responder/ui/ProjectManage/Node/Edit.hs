@@ -3,10 +3,10 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Edit where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Edit where
 
-import Domain.Project.Responder.ProjectManage.Node.Query
-import Domain.Project.Responder.ProjectManage.Node.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Node.Query
+import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 import Lucid
 import Common.Validation               ( (.$)
                                        , isThere 

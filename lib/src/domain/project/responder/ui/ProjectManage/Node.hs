@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node where
+module Domain.Project.Responder.Ui.ProjectManage.Node where
 
 import Common.Web.Attributes
 import Domain.Project.Responder.ProjectManage.Link

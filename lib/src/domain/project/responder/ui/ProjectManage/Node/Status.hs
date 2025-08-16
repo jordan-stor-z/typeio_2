@@ -4,12 +4,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Status where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Status where
 
 import Lucid
 import Common.Validation
-import Domain.Project.Responder.ProjectManage.Node.Query
-import Domain.Project.Responder.ProjectManage.Node.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Node.Query
+import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 
 import qualified Domain.Project.Model as M
 

@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE DataKinds #-}
 
-module Domain.Project.Responder.ProjectCreate.Submit where
+module Domain.Project.Responder.Ui.ProjectCreate.Submit where
 
 import Common.Validation                           ( (.$)
                                                    , isThere 

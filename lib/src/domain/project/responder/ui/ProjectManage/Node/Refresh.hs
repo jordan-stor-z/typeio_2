@@ -2,14 +2,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Refresh where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Refresh where
 
 import Lucid
 import Common.Web.Attributes
 import Common.Web.Elements
 import Common.Validation
-import Domain.Project.Responder.ProjectManage.Node.Query
-import Domain.Project.Responder.ProjectManage.Node.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Node.Query
+import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 
 import qualified Domain.Project.Model as M
 

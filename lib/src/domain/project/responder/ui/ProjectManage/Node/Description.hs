@@ -2,12 +2,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Title where 
+module Domain.Project.Responder.Ui.ProjectManage.Node.Description where
 
 import Lucid
 import Common.Validation
-import Domain.Project.Responder.ProjectManage.Node.Query
-import Domain.Project.Responder.ProjectManage.Node.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Node.Query 
+import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 
 import qualified Domain.Project.Model as M
 
@@ -22,28 +22,28 @@ import Control.Monad.Trans.Either ( hoistEither
 import Data.Int                   (Int64)
 import Data.Text                  (Text, unpack)
 import Data.Text.Encoding         (decodeUtf8)
-import Network.HTTP.Types         (status200, status404, status500)
+import Network.HTTP.Types         (status200, status500)
 import Network.Wai                (Application, responseLBS)
 import Network.Wai.Parse          (parseRequestBody, lbsBackEnd, Param)
 
-data PutTitleErr =
+data PutNodeDescriptionErr =
   InvalidParams [ValidationErr]
   | MissingNode
 
-data PutNodeTitleForm = PutNodeTitleForm 
-  { formNodeTitle  :: Maybe Text 
-  , formNodeId     :: Maybe Text 
-  , formProjectId  :: Maybe Text
+data PutNodeDescriptionForm = PutNodeDescriptionForm
+  { formNodeDescription :: Maybe Text 
+  , formNodeId          :: Maybe Text 
+  , formProjectId       :: Maybe Text
   }
 
-data PutNodeTitlePayload = PutNodeTitlePayload 
-  { payloadNodeId    :: Int64 
-  , payloadProjectId :: Int64
-  , payloadTitle     :: Text 
+data PutNodeDescriptionPayload = PutNodeDescriptionPayload
+  { payloadDescription :: Text
+  , payloadNodeId      :: Int64 
+  , payloadProjectId   :: Int64
   }
 
-handlePutTitle :: ConnectionPool -> Application
-handlePutTitle pl req rspnd = do
+handlePutDescription :: ConnectionPool -> Application
+handlePutDescription pl req rspnd = do
   form <- reqForm . fst <$> parseRequestBody lbsBackEnd req
   rslt <- flip runSqlPool pl . runEitherT $ do
     pyld <- firstEitherT InvalidParams
@@ -51,22 +51,22 @@ handlePutTitle pl req rspnd = do
             $ form
     nd   <- lift (queryNode . payloadNodeId $ pyld)
               >>= hoistMaybe MissingNode
-              >>= ( firstEitherT InvalidParams 
-                   . validateNodeProjectId (payloadProjectId pyld)
-                  )
+              >>= ( firstEitherT InvalidParams
+                   . validateNodeProjectId (payloadProjectId pyld) 
+                 )
     lift . replace (entityKey nd) $ 
-      (entityVal nd) { M.nodeTitle = unpack . payloadTitle $ pyld }
+      (entityVal nd) { M.nodeDescription = unpack . payloadDescription $ pyld }
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
                   status500
                   [("Content-Type", "text/html")]
                 . renderBS
-                . templatePostFail 
+                . templatePutFail 
                 $ e
     Left MissingNode -> rspnd
                 . responseLBS 
-                  status404 
+                  status500
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templateNodeNotFound
@@ -75,33 +75,37 @@ handlePutTitle pl req rspnd = do
                   status200 
                   [("Content-Type", "text/html")]
                 . renderBS
-                $ templatePostSuccess
+                $ templatePutSuccess
 
-reqForm :: [Param] -> PutNodeTitleForm 
-reqForm ps = PutNodeTitleForm 
-  { formNodeId          = decodeUtf8 <$> lookup "nodeId"      ps 
+reqForm :: [Param] -> PutNodeDescriptionForm
+reqForm ps = PutNodeDescriptionForm
+  { formNodeDescription = decodeUtf8 <$> lookup "description" ps
+  , formNodeId          = decodeUtf8 <$> lookup "nodeId"      ps 
   , formProjectId       = decodeUtf8 <$> lookup "projectId"   ps 
-  , formNodeTitle       = decodeUtf8 <$> lookup "title"   ps 
   }
 
-templatePostSuccess :: Html ()
-templatePostSuccess = do
+templatePutSuccess :: Html ()
+templatePutSuccess = do
   i_  [class_ "material-icons"] "done"
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do
   p_ [] "Node not found"
 
-templatePostFail :: [ValidationErr] -> Html ()
-templatePostFail es = do
+templatePutFail :: [ValidationErr] -> Html ()
+templatePutFail es = do
   i_ [class_ "material-icons"] "error"
   ul_ [] $ mapM_ (li_ [] . toHtml) es
 
 validatePayload :: Monad m 
-  => PutNodeTitleForm  
-  -> EitherT [ValidationErr] m PutNodeTitlePayload 
+  => PutNodeDescriptionForm  
+  -> EitherT [ValidationErr] m PutNodeDescriptionPayload
 validatePayload form = 
   hoistEither . runValidation id $ do
+    dsc <- formNodeDescription form 
+           .$ id 
+           >>= isThere    "Node description is required"
+           >>= isNotEmpty "Node description cannot be empty"
     nid <- formNodeId form
            .$ unpack
            >>= isThere    "Node id is required"
@@ -112,12 +116,8 @@ validatePayload form =
            >>= isThere    "Project id is required"
            >>= isNotEmpty "Project id must have value"
            >>= valRead    "Project id must be valid integer"
-    ttl <- formNodeTitle form
-           .$ id
-           >>= isThere    "Node title is required"
-           >>= isNotEmpty "Node title cannot be empty"
-    return $ PutNodeTitlePayload 
-             <$> nid 
+    return $ PutNodeDescriptionPayload 
+             <$> dsc 
+             <*> nid 
              <*> pid
-             <*> ttl
 

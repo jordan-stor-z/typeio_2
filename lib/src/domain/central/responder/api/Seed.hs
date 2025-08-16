@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Central.Responder.Seed where
+module Domain.Central.Responder.Api.Seed where
 import Network.Wai (ResponseReceived)
 
 import Database.Persist            (insertUnique)

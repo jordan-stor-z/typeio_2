@@ -2,11 +2,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Detail where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Detail where
 
-import Domain.Project.Responder.ProjectManage.Link
-import Domain.Project.Responder.ProjectManage.Node.Query
-import Domain.Project.Responder.ProjectManage.Node.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Link
+import Domain.Project.Responder.Ui.ProjectManage.Node.Query
+import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 import Lucid
 import Common.Validation               ( (.$)
                                        , isThere 

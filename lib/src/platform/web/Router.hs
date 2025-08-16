@@ -4,25 +4,33 @@
 
 module Platform.Web.Router where
 
-import Config.App                   (webDefaultPath)
-import Data.HashTree                ( (-<)
-                                    , (<+>)
-                                    , (-|)
-                                    , HashTree(..)
-                                    , emptyT
-                                    , findPath
-                                    )
-import Container.Root               (RootContainer(..))
-import Data.Maybe                   (fromMaybe)
-import Data.Text                    (pack, Text)
-import Domain.Central.Container.Api (CentralApiContainer(..))
+import Config.App                             (webDefaultPath)
+import Data.HashTree                          ( (-<)
+                                              , (<+>)
+                                              , (-|)
+                                              , HashTree(..)
+                                              , emptyT
+                                              , findPath
+                                              )
+import Container.Root                         (RootContainer(..))
+import Data.Maybe                             (fromMaybe)
+import Data.Text                              (pack, Text)
+import Domain.Central.Container               (CentralContainer(..))
+import Domain.Central.Responder.Api.Container (CentralApiContainer(..))
+import Domain.Project.Container.Api           (ProjectApiContainer(..))
+import Domain.Project.Container.Ui            (ProjectUiContainer(..))
+import Domain.System.Container.Api            (SystemApiContainer(..))
+import Control.Applicative                    ((<|>))
+import Network.HTTP.Types                     (status404, Method)
+import Network.Wai                            ( Application
+                                              , pathInfo
+                                              , Request
+                                              , requestMethod
+                                              , Response
+                                              , ResponseReceived
+                                              , responseLBS
+                                              )
 import qualified Domain.Central.Responder.Ui.Container as CU
-import Domain.Project.Container.Api (ProjectApiContainer(..))
-import Domain.Project.Container.Ui  (ProjectUiContainer(..))
-import Domain.System.Container.Api  (SystemApiContainer(..))
-import Control.Applicative ((<|>))
-import Network.HTTP.Types           (status404, Method)
-import Network.Wai                  (Application, pathInfo, Request, requestMethod, Response, ResponseReceived, responseLBS)
 
 type RouteTree = HashTree Text MethodTree 
 
@@ -66,7 +74,7 @@ apiTree ctn req = emptyT
   <+> "project" -< projectApiTree prjCtn req 
   <+> "system"  -< systemApiTree  sysCtn req 
   where
-    ctrCtn = centralApiContainer ctn
+    ctrCtn = centralApiContainer . central $ ctn
     prjCtn = projectApiContainer ctn
     sysCtn = systemApiContainer  ctn
 
@@ -97,7 +105,7 @@ uiTree ctn req = emptyT
   <+> "projects"       -< projectIndexUiTree  prjCtn req
   where
     prjCtn = projectUiContainer ctn
-    ctlCtn = centralUiContainer ctn
+    ctlCtn = centralUiContainer . central $ ctn
 
 centralUiTree :: CU.Container -> RouteTree
 centralUiTree ct = routes
@@ -131,5 +139,5 @@ manageProjectUiTree ctn req = emptyT
 index :: RootContainer 
   -> Text 
   -> Application 
-index = CU.indexView . centralUiContainer 
+index = CU.indexView . centralUiContainer . central
 

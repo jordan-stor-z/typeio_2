@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Link where
+module Domain.Project.Responder.Ui.ProjectManage.Link where
 
 import Data.Int  (Int64)
 import Data.Text (Text, pack)

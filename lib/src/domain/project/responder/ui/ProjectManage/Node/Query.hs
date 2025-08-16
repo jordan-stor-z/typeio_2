@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Query where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Query where
 
 import qualified Domain.Project.Model as M
 import Database.Esqueleto.Experimental

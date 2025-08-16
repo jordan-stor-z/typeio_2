@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.View where
+module Domain.Project.Responder.Ui.ProjectManage.View where
 
-import Domain.Project.Responder.ProjectManage.Link
+import Domain.Project.Responder.Ui.ProjectManage.Link
 import Lucid
 import Common.Validation              ((.$)
                                       , ValidationErr

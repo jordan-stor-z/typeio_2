@@ -46,33 +46,34 @@ library src
       , Data.Either
       , Data.HashTree
       , Data.Text.Util
+      , Domain.Central.Container
       , Domain.Central.Responder.Ui.Empty
       , Domain.Central.Responder.Ui.IndexView
       , Domain.Central.Responder.Ui.Container
-      , Domain.Central.Responder.Seed
-      , Domain.Central.Container.Api
+      , Domain.Central.Responder.Api.Seed
+      , Domain.Central.Responder.Api.Container
       , Domain.Central.Middleware.IndexRender
       , Domain.Project.Responder.Api.Node.Get
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.Api.NodeStatus.Get
       , Domain.Project.Responder.Api.NodeType.Get
       , Domain.Project.Responder.Api.Project.Get
-      , Domain.Project.Responder.ProjectManage.Graph
-      , Domain.Project.Responder.ProjectManage.Link
-      , Domain.Project.Responder.ProjectManage.Node
-      , Domain.Project.Responder.ProjectManage.Node.Description
-      , Domain.Project.Responder.ProjectManage.Node.Detail
-      , Domain.Project.Responder.ProjectManage.Node.Edit
-      , Domain.Project.Responder.ProjectManage.Node.Query
-      , Domain.Project.Responder.ProjectManage.Node.Refresh
-      , Domain.Project.Responder.ProjectManage.Node.Status
-      , Domain.Project.Responder.ProjectManage.Node.Title
-      , Domain.Project.Responder.ProjectManage.Node.Validation
-      , Domain.Project.Responder.ProjectManage.View
-      , Domain.Project.Responder.ProjectCreate.Submit
-      , Domain.Project.Responder.ProjectCreate.View
-      , Domain.Project.Responder.ProjectIndex.List
-      , Domain.Project.Responder.ProjectIndex.View
+      , Domain.Project.Responder.Ui.ProjectManage.Graph
+      , Domain.Project.Responder.Ui.ProjectManage.Link
+      , Domain.Project.Responder.Ui.ProjectManage.Node
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Description
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Detail
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Edit
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Query
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Refresh
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Status
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Title
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Validation
+      , Domain.Project.Responder.Ui.ProjectManage.View
+      , Domain.Project.Responder.Ui.ProjectCreate.Submit
+      , Domain.Project.Responder.Ui.ProjectCreate.View
+      , Domain.Project.Responder.Ui.ProjectIndex.List
+      , Domain.Project.Responder.Ui.ProjectIndex.View
       , Domain.Project.Container.Api
       , Domain.Project.Container.Ui
       , Domain.Project.Model

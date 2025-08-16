@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectManage.Node.Validation where
+module Domain.Project.Responder.Ui.ProjectManage.Node.Validation where
 
 import qualified Domain.Project.Model as M
 import Common.Validation          ((.$), ValidationErr, runValidation, isEq)

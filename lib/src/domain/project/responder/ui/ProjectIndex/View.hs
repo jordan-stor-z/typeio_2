@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Domain.Project.Responder.ProjectIndex.View where
+module Domain.Project.Responder.Ui.ProjectIndex.View where
 
 import Lucid
 import Common.Web.Attributes
