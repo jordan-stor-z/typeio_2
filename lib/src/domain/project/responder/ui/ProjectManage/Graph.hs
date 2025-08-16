@@ -8,7 +8,7 @@ module Domain.Project.Responder.Ui.ProjectManage.Graph where
 
 import Common.Web.Attributes
 import Common.Web.Elements
-import Domain.Project.Responder.ProjectManage.Link
+import Domain.Project.Responder.Ui.ProjectManage.Link
 import Lucid 
 import Common.Validation          ( (.$)
                                   , isNotEmpty

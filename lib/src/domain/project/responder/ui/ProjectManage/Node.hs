@@ -3,7 +3,7 @@
 module Domain.Project.Responder.Ui.ProjectManage.Node where
 
 import Common.Web.Attributes
-import Domain.Project.Responder.ProjectManage.Link
+import Domain.Project.Responder.Ui.ProjectManage.Link
 import Lucid 
 import Common.Web.Query          (lookupVal)
 import Common.Validation         ( (.$)

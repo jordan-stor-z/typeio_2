@@ -6,7 +6,7 @@
 
 module Domain.Project.Responder.Ui.ProjectIndex.List where
 
-import Domain.Project.Responder.Api.ProjectManage.Link
+import Domain.Project.Responder.Ui.ProjectManage.Link
 import Lucid
 import Common.Web.Attributes
 import Control.Monad                   (forM_)

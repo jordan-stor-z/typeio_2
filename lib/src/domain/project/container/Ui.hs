@@ -13,7 +13,7 @@ import Domain.Project.Responder.Ui.ProjectManage.Node.Status      (handlePutNode
 import Domain.Project.Responder.Ui.ProjectManage.Node.Title       (handlePutTitle)
 import Domain.Project.Responder.Ui.ProjectManage.View             (handleProjectManageView)
 import Domain.Project.Responder.Ui.ProjectManage.Graph            (handleProjectGraph)
-import Domain.Project.Responder.ProjectManage.Node.Refresh     (handleGetNodeRefresh)
+import Domain.Project.Responder.Ui.ProjectManage.Node.Refresh     (handleGetNodeRefresh)
 import Network.Wai                                             ( Application
                                                                , Response
                                                                , ResponseReceived

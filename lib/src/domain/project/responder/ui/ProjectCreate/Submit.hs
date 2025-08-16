@@ -50,7 +50,7 @@ import Lucid                                       (renderBS)
 import Network.HTTP.Types                          (HeaderName, status200, status500)
 import Network.Wai                                 (Application, responseLBS)
 import Network.Wai.Parse                           (parseRequestBody, lbsBackEnd, Param)
-import qualified Domain.Project.Responder.ProjectCreate.View as 
+import qualified Domain.Project.Responder.Ui.ProjectCreate.View as 
   V ( AddProjectForm(..)
     , projectCreateVwTemplate
     )
