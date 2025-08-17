@@ -28,6 +28,7 @@ import Database.Persist                (Entity(..))
 import Network.HTTP.Types              (status200)
 import Network.Wai                     (Response, responseLBS, ResponseReceived)
 import qualified Domain.Project.Model as M 
+import Data.Text.Util (intToText)
 
 handleProjectList :: ConnectionPool 
   -> (Response -> IO ResponseReceived) -> IO ResponseReceived
@@ -66,12 +67,19 @@ templateList ps = div_ [id_ "view"] $ do
            , hxTarget_  "#container"
            , hxTrigger_ "click"
            ] $ do
-        span_ [class_ "id"] (display' . M.projectVwProjectId $ p)
+        span_ [class_ "id"] $ 
+          toHtml 
+          . intToText 
+          . fromSqlKey 
+          . M.projectVwProjectId 
+          $ p
         div_  [class_ "content"] $ do
           h3_   (toHtml . M.projectVwTitle $ p)
           span_ (toHtml . M.projectVwDescription $ p)
           br_ []
-          span_ (("Updated: " <>) . display' . M.projectVwLastUpdated $ p)
-      where 
-        display' :: Show a => a -> Html ()
-        display' = toHtml . show
+          span_ $ 
+            ("Updated: " <>) 
+            . toHtml 
+            . show 
+            . M.projectVwLastUpdated 
+            $ p

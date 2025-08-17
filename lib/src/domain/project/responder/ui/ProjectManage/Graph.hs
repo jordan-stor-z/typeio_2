@@ -75,8 +75,8 @@ data GraphLink = GraphLink
 
 instance ToJSON Graph where
   toJSON (Graph ns ls) =
-    object [ "nodes" .= ns
-           , "links" .= ls
+    object [ "links" .= ls
+           , "nodes" .= ns
            ]
 
 instance ToJSON GraphLink where
@@ -173,7 +173,7 @@ queryDependencies nids = do
 
 templateGraph :: Graph -> Html ()
 templateGraph g = do
-  script_ [id_ "graph-data", type_ "application/json"] gd
+  script_ [id_ "graph-data", type_ "application/json"] $ encode g 
   script_ [src_ "/static/script/nodetree2.js"] empty 
   svg_    [ id_     "tree-view"
           , height_ "100%"
@@ -242,7 +242,6 @@ templateGraph g = do
                 ] empty
   where
     empty = mempty :: Html ()
-    gd    = encode g
 
 toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph 
 toGraph ns ds = Graph (map toLink ds) (map toGNode ns)
