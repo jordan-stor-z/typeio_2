@@ -74,9 +74,9 @@ data GraphLink = GraphLink
   }
 
 instance ToJSON Graph where
-  toJSON (Graph ns ls) =
-    object [ "links" .= ls
-           , "nodes" .= ns
+  toJSON g =
+    object [ "links" .= links g
+           , "nodes" .= nodes g
            ]
 
 instance ToJSON GraphLink where
@@ -86,11 +86,11 @@ instance ToJSON GraphLink where
            ]
 
 instance ToJSON GraphNode where
-  toJSON (GraphNode gid pid typ lbl) =
-    object [ "id"        .= gid
-           , "projectId" .= pid
-           , "label"     .= lbl
-           , "nodeType"  .= typ 
+  toJSON nd =
+    object [ "id"        .= graphNodeId nd
+           , "projectId" .= projectId nd
+           , "label"     .= label nd
+           , "nodeType"  .= nodeType nd
            ]
 
 classNodeType :: GraphNode -> Text
