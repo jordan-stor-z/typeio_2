@@ -83,7 +83,7 @@ handleGetNodeRefresh pl req rspnd = do
         status200 
         [("Content-Type", "text/html")]
       . renderBS
-      . templateYesRefresh
+      . templateRefresh 
       $ nd
     Right (Same, _) ->
       rspnd
@@ -104,18 +104,19 @@ queryTextToForm qt = GetNodeRefreshForm
   , formClientNodeTitle = lookupVal "clientTitle" qt
   }
 
-templateYesRefresh :: Entity M.Node -> Html ()
-templateYesRefresh (Entity k e) = do
+templateRefresh :: Entity M.Node -> Html ()
+templateRefresh (Entity k e) = do
   g_ [ class_ "hidden" 
-     , h_ $ "on load add .flash to #node-"
-            <> nidText
-            <> " then wait 200s then remove .flash from #node-"
-            <> nidText 
+     , h_ $ "on load add .flash to "
+            <> nsel 
+            <> " then wait 500ms"
+            <> " then remove .flash from "
+            <> nsel 
      ] empty
   toHtml . pack . M.nodeTitle $ e
   where
     empty = mempty :: Html ()
-    nidText = intToText . fromSqlKey $ k
+    nsel = (<>) "#node-" . intToText . fromSqlKey $ k
 
 validatePayload :: Monad m 
   => GetNodeRefreshForm  
