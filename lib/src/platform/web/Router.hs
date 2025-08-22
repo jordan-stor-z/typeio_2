@@ -17,8 +17,6 @@ import Data.Maybe                             (fromMaybe)
 import Data.Text                              (pack, Text)
 import Domain.Central.Container               (CentralContainer(..))
 import Domain.Central.Responder.Api.Container (CentralApiContainer(..))
-import Domain.Project.Container.Api           (ProjectApiContainer(..))
-import Domain.Project.Container.Ui            (ProjectUiContainer(..))
 import qualified Domain.Project.Responder.Api.Container as PA
 import qualified Domain.Project.Responder.Ui.Container  as PU
 import qualified Domain.Project.Container               as PC
@@ -85,16 +83,16 @@ centralApiTree :: CentralApiContainer -> RouteTree
 centralApiTree ctn = emptyT
   <+> "seed-database" -| only "POST" (apiSeedDatabase ctn)
 
-projectApiTree :: ProjectApiContainer -> Request -> RouteTree
+projectApiTree :: PA.Container -> Request -> RouteTree
 projectApiTree ctn req = emptyT 
   <+> "nodes"    -| 
     ( methods 
-      <+> "GET"  -| apiGetNodes ctn
-      <+> "POST" -| apiPostNode ctn req
+      <+> "GET"  -| PA.getNodes ctn
+      <+> "POST" -| PA.postNode ctn req
     )
-  <+> "node-types"    -| only "GET" (apiGetNodeTypes ctn)
-  <+> "node-statuses" -| only "GET" (apiGetNodeStatuses ctn)
-  <+> "projects"      -| only "GET" (apiGetProjects ctn)
+  <+> "node-types"    -| only "GET" (PA.getNodeTypes ctn)
+  <+> "node-statuses" -| only "GET" (PA.getNodeStatuses ctn)
+  <+> "projects"      -| only "GET" (PA.getProjects ctn)
 
 systemApiTree :: SystemApiContainer -> Request -> RouteTree
 systemApiTree ctn _ = emptyT

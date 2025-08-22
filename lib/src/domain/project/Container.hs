@@ -1,11 +1,11 @@
 module Domain.Project.Container where
 
 import Database.Persist.Sql (ConnectionPool)
-import qualified Domain.Project.Container.Api as Api
+import qualified Domain.Project.Responder.Api.Container as Api
 import qualified Domain.Project.Responder.Ui.Container as Ui
 
 data ProjectContainer = ProjectContainer
-  { projectApiContainer' :: Api.ProjectApiContainer
+  { projectApiContainer' :: Api.Container
   , projectUiContainer'  :: Ui.Container
   }
 
