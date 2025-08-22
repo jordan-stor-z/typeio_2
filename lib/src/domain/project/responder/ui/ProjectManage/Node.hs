@@ -66,26 +66,26 @@ templateNodePanel nid pid = do
               <> " on htmx:beforeCleanupElement remove .node-highlight from #node-"
               <> intToText nid
        ] $ do
-   button_ [ class_    "edit-button pill-button"
+   button_ [ class_    "pill-button"
            , hxGet_     $ editLink nid pid 
            , hxPushUrl_ False 
            , hxSwap_    "innerHTML"
            , hxTarget_  "#node-detail"
            , hxTrigger_ "click"
-           , h_ "on htmx:afterOnLoad toggle .removed on .edit-button"
+           , h_ "on htmx:afterOnLoad toggle .removed on <button/>"
            ] $ i_  [class_ "material-icons"] "mode_edit"
-   button_ [ class_    "edit-button pill-button removed selected"
+   button_ [ class_    "pill-button removed"
            , hxGet_     $ nodeDetailLink nid pid 
            , hxPushUrl_ False 
            , hxSwap_    "innerHTML"
            , hxTarget_  "#node-detail"
            , hxTrigger_ "click"
            , h_ $ "on htmx:afterOnLoad" 
-                  <> " toggle .removed on .edit-button"
+                  <> " toggle .removed on <button/>"
                   <> " then trigger nodePanel:onEditClosed(nodeId:"
                   <> intToText nid
                   <> ")"
-           ] $ i_  [class_ "material-icons"] "mode_edit"
+           ] $ i_  [class_ "material-icons"] "check"
    button_ [ class_      "pill-button"
            , hxGet_      "/ui/central/empty"
            , hxPushUrl'_ $ projectLink pid
