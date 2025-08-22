@@ -19,6 +19,9 @@ import Domain.Central.Container               (CentralContainer(..))
 import Domain.Central.Responder.Api.Container (CentralApiContainer(..))
 import Domain.Project.Container.Api           (ProjectApiContainer(..))
 import Domain.Project.Container.Ui            (ProjectUiContainer(..))
+import qualified Domain.Project.Responder.Api.Container as PA
+import qualified Domain.Project.Responder.Ui.Container  as PU
+import qualified Domain.Project.Container               as PC
 import Domain.System.Container.Api            (SystemApiContainer(..))
 import Control.Applicative                    ((<|>))
 import Network.HTTP.Types                     (status404, Method)
@@ -74,8 +77,8 @@ apiTree ctn req = emptyT
   <+> "project" -< projectApiTree prjCtn req 
   <+> "system"  -< systemApiTree  sysCtn req 
   where
-    ctrCtn = centralApiContainer . central $ ctn
-    prjCtn = projectApiContainer ctn
+    ctrCtn = centralApiContainer     . central $ ctn
+    prjCtn = PC.projectApiContainer' . project $ ctn
     sysCtn = systemApiContainer  ctn
 
 centralApiTree :: CentralApiContainer -> RouteTree
@@ -98,42 +101,42 @@ systemApiTree ctn _ = emptyT
   <+> "config" -| only "GET" (apiGetConfig ctn)
 
 uiTree :: RootContainer -> Request -> RouteTree
-uiTree ctn req = emptyT
+uiTree ctn req = routes 
   <+> "central"        -< centralUiTree       ctlCtn
-  <+> "create-project" -< addProjectUiTree    prjCtn req
-  <+> "project"        -< manageProjectUiTree prjCtn req 
-  <+> "projects"       -< projectIndexUiTree  prjCtn req
+  <+> "create-project" -< addProjectUiTree    puiCtn req
+  <+> "project"        -< manageProjectUiTree puiCtn req 
+  <+> "projects"       -< projectIndexUiTree  puiCtn req
   where
-    prjCtn = projectUiContainer ctn
+    puiCtn = PC.projectUiContainer' . project $ ctn
     ctlCtn = centralUiContainer . central $ ctn
 
 centralUiTree :: CU.Container -> RouteTree
 centralUiTree ct = routes
   <+> "empty" -| only "GET" (CU.emptyView ct)
 
-projectIndexUiTree :: ProjectUiContainer -> Request -> RouteTree
+projectIndexUiTree :: PU.Container -> Request -> RouteTree
 projectIndexUiTree ctn _ = emptyT
-  <+> "vw"   -| only "GET" (projectIndexVw ctn)
-  <+> "list" -| only "GET" (projectList ctn)
+  <+> "vw"   -| only "GET" (PU.projectIndexVw ctn)
+  <+> "list" -| only "GET" (PU.projectList ctn)
 
-addProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
+addProjectUiTree :: PU.Container  -> Request -> RouteTree
 addProjectUiTree ctn req = emptyT
-  <+> "vw"     -| only "GET"  (createProjectVw ctn)
-  <+> "submit" -| only "POST" (submitProject ctn req)
+  <+> "vw"     -| only "GET"  (PU.createProjectVw ctn)
+  <+> "submit" -| only "POST" (PU.submitProject ctn req)
 
-manageProjectUiTree :: ProjectUiContainer -> Request -> RouteTree
+manageProjectUiTree :: PU.Container -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
-  <+> "vw"    -| only "GET"  (manageProjectVw ctn req)
-  <+> "graph" -| only "GET"  (getProjectGraph ctn req)
+  <+> "vw"    -| only "GET"  (PU.manageProjectVw ctn req)
+  <+> "graph" -| only "GET"  (PU.getProjectGraph ctn req)
   <+> "node"  -<
     ( routes
-      <+> "panel"       -| only "GET"  (getNodePanel ctn req)
-      <+> "edit"        -| only "GET"  (getNodeEdit ctn req)
-      <+> "detail"      -| only "GET"  (getNodeDetail ctn req)
-      <+> "description" -| only "PUT"  (putNodeDescription ctn req)
-      <+> "refresh"     -| only "GET"  (getNodeRefresh ctn req)
-      <+> "status"      -| only "PUT"  (putNodeStatus ctn req)
-      <+> "title"       -| only "PUT"  (putNodeTitle ctn req)
+      <+> "panel"       -| only "GET"  (PU.getNodePanel ctn req)
+      <+> "edit"        -| only "GET"  (PU.getNodeEdit ctn req)
+      <+> "detail"      -| only "GET"  (PU.getNodeDetail ctn req)
+      <+> "description" -| only "PUT"  (PU.putNodeDescription ctn req)
+      <+> "refresh"     -| only "GET"  (PU.getNodeRefresh ctn req)
+      <+> "status"      -| only "PUT"  (PU.putNodeStatus ctn req)
+      <+> "title"       -| only "PUT"  (PU.putNodeTitle ctn req)
     )
 
 index :: RootContainer 
