@@ -1,27 +1,19 @@
 module Container.Build where
 
-import Config.App      (AppConfig(..))
 import Container.Root  (RootContainer(..))
 import Environment.Env (Env(..))
-import qualified Domain.Central.Container     as CA
-import qualified Domain.Project.Container     as PC
-import qualified Domain.Project.Container.Api as PA                 
-import qualified Domain.Project.Container.Ui  as PU
-import qualified Domain.System.Container.Api  as SA
-import qualified Domain.System.Container.Middleware as SM 
+import qualified Domain.Central.Container     as CentralContainer
+import qualified Domain.Project.Container     as ProjectContainer
+import qualified Domain.System.Container      as SystemContainer
 
 withRootContainer :: Env -> (RootContainer -> IO a) -> IO a
 withRootContainer ev k = k RootContainer
   { appConfig                 = appConf ev
-  , central                   = CA.defaultContainer  pl 
-  , project                   = PC.defaultContainer  pl
-  , projectApiContainer       = PA.defaultContainer  pl
-  , projectUiContainer        = PU.defaultContainer  pl
-  , systemApiContainer        = SA.defaultContainer (appConf ev) 
-  , systemMiddlewareContainer = SM.defaultContainer (webConf cf) lg 
+  , central                   = CentralContainer.defaultContainer  pl 
+  , project                   = ProjectContainer.defaultContainer  pl
+  , system                    = SystemContainer.defaultContainer (appConf ev) lg
   }
   where 
-    cf = appConf ev
     lg = logger ev
     pl = pool ev
 

@@ -4,34 +4,22 @@
 
 module Platform.Web.Router where
 
+import Data.HashTree
+import Network.Wai                            
 import Config.App                             (webDefaultPath)
-import Data.HashTree                          ( (-<)
-                                              , (<+>)
-                                              , (-|)
-                                              , HashTree(..)
-                                              , emptyT
-                                              , findPath
-                                              )
 import Container.Root                         (RootContainer(..))
 import Data.Maybe                             (fromMaybe)
 import Data.Text                              (pack, Text)
-import Domain.Central.Container               (CentralContainer(..))
 import Domain.Central.Responder.Api.Container (CentralApiContainer(..))
-import qualified Domain.Project.Responder.Api.Container as PA
-import qualified Domain.Project.Responder.Ui.Container  as PU
-import qualified Domain.Project.Container               as PC
-import Domain.System.Container.Api            (SystemApiContainer(..))
 import Control.Applicative                    ((<|>))
 import Network.HTTP.Types                     (status404, Method)
-import Network.Wai                            ( Application
-                                              , pathInfo
-                                              , Request
-                                              , requestMethod
-                                              , Response
-                                              , ResponseReceived
-                                              , responseLBS
-                                              )
-import qualified Domain.Central.Responder.Ui.Container as CU
+import qualified Domain.Central.Container               as CentralContainer
+import qualified Domain.Project.Responder.Api.Container as ProjectApi
+import qualified Domain.Project.Responder.Ui.Container  as ProjectUi
+import qualified Domain.Project.Container               as ProjectContainer
+import qualified Domain.System.Container                as SystemContainer
+import qualified Domain.System.Responder.Container      as SystemResponder 
+import qualified Domain.Central.Responder.Ui.Container  as CentralUi 
 
 type RouteTree = HashTree Text MethodTree 
 
@@ -75,28 +63,28 @@ apiTree ctn req = emptyT
   <+> "project" -< projectApiTree prjCtn req 
   <+> "system"  -< systemApiTree  sysCtn req 
   where
-    ctrCtn = centralApiContainer     . central $ ctn
-    prjCtn = PC.projectApiContainer' . project $ ctn
-    sysCtn = systemApiContainer  ctn
+    ctrCtn = CentralContainer.centralApiContainer  . central $ ctn
+    prjCtn = ProjectContainer.projectApiContainer' . project $ ctn
+    sysCtn = SystemContainer.responder . system  $ ctn
 
 centralApiTree :: CentralApiContainer -> RouteTree
 centralApiTree ctn = emptyT
   <+> "seed-database" -| only "POST" (apiSeedDatabase ctn)
 
-projectApiTree :: PA.Container -> Request -> RouteTree
+projectApiTree :: ProjectApi.Container -> Request -> RouteTree
 projectApiTree ctn req = emptyT 
   <+> "nodes"    -| 
     ( methods 
-      <+> "GET"  -| PA.getNodes ctn
-      <+> "POST" -| PA.postNode ctn req
+      <+> "GET"  -| ProjectApi.getNodes ctn
+      <+> "POST" -| ProjectApi.postNode ctn req
     )
-  <+> "node-types"    -| only "GET" (PA.getNodeTypes ctn)
-  <+> "node-statuses" -| only "GET" (PA.getNodeStatuses ctn)
-  <+> "projects"      -| only "GET" (PA.getProjects ctn)
+  <+> "node-types"    -| only "GET" (ProjectApi.getNodeTypes ctn)
+  <+> "node-statuses" -| only "GET" (ProjectApi.getNodeStatuses ctn)
+  <+> "projects"      -| only "GET" (ProjectApi.getProjects ctn)
 
-systemApiTree :: SystemApiContainer -> Request -> RouteTree
+systemApiTree :: SystemResponder.Container -> Request -> RouteTree
 systemApiTree ctn _ = emptyT
-  <+> "config" -| only "GET" (apiGetConfig ctn)
+  <+> "config" -| only "GET" (SystemResponder.getConfig ctn)
 
 uiTree :: RootContainer -> Request -> RouteTree
 uiTree ctn req = routes 
@@ -105,40 +93,40 @@ uiTree ctn req = routes
   <+> "project"        -< manageProjectUiTree puiCtn req 
   <+> "projects"       -< projectIndexUiTree  puiCtn req
   where
-    puiCtn = PC.projectUiContainer' . project $ ctn
-    ctlCtn = centralUiContainer . central $ ctn
+    puiCtn = ProjectContainer.projectUiContainer' . project $ ctn
+    ctlCtn = CentralContainer.centralUiContainer . central $ ctn
 
-centralUiTree :: CU.Container -> RouteTree
+centralUiTree :: CentralUi.Container -> RouteTree
 centralUiTree ct = routes
-  <+> "empty" -| only "GET" (CU.emptyView ct)
+  <+> "empty" -| only "GET" (CentralUi.emptyView ct)
 
-projectIndexUiTree :: PU.Container -> Request -> RouteTree
+projectIndexUiTree :: ProjectUi.Container -> Request -> RouteTree
 projectIndexUiTree ctn _ = emptyT
-  <+> "vw"   -| only "GET" (PU.projectIndexVw ctn)
-  <+> "list" -| only "GET" (PU.projectList ctn)
+  <+> "vw"   -| only "GET" (ProjectUi.projectIndexVw ctn)
+  <+> "list" -| only "GET" (ProjectUi.projectList ctn)
 
-addProjectUiTree :: PU.Container  -> Request -> RouteTree
+addProjectUiTree :: ProjectUi.Container  -> Request -> RouteTree
 addProjectUiTree ctn req = emptyT
-  <+> "vw"     -| only "GET"  (PU.createProjectVw ctn)
-  <+> "submit" -| only "POST" (PU.submitProject ctn req)
+  <+> "vw"     -| only "GET"  (ProjectUi.createProjectVw ctn)
+  <+> "submit" -| only "POST" (ProjectUi.submitProject ctn req)
 
-manageProjectUiTree :: PU.Container -> Request -> RouteTree
+manageProjectUiTree :: ProjectUi.Container -> Request -> RouteTree
 manageProjectUiTree ctn req = emptyT
-  <+> "vw"    -| only "GET"  (PU.manageProjectVw ctn req)
-  <+> "graph" -| only "GET"  (PU.getProjectGraph ctn req)
+  <+> "vw"    -| only "GET"  (ProjectUi.manageProjectVw ctn req)
+  <+> "graph" -| only "GET"  (ProjectUi.getProjectGraph ctn req)
   <+> "node"  -<
     ( routes
-      <+> "panel"       -| only "GET"  (PU.getNodePanel ctn req)
-      <+> "edit"        -| only "GET"  (PU.getNodeEdit ctn req)
-      <+> "detail"      -| only "GET"  (PU.getNodeDetail ctn req)
-      <+> "description" -| only "PUT"  (PU.putNodeDescription ctn req)
-      <+> "refresh"     -| only "GET"  (PU.getNodeRefresh ctn req)
-      <+> "status"      -| only "PUT"  (PU.putNodeStatus ctn req)
-      <+> "title"       -| only "PUT"  (PU.putNodeTitle ctn req)
+      <+> "panel"       -| only "GET" (ProjectUi.getNodePanel ctn req)
+      <+> "edit"        -| only "GET" (ProjectUi.getNodeEdit ctn req)
+      <+> "detail"      -| only "GET" (ProjectUi.getNodeDetail ctn req)
+      <+> "description" -| only "PUT" (ProjectUi.putNodeDescription ctn req)
+      <+> "refresh"     -| only "GET" (ProjectUi.getNodeRefresh ctn req)
+      <+> "status"      -| only "PUT" (ProjectUi.putNodeStatus ctn req)
+      <+> "title"       -| only "PUT" (ProjectUi.putNodeTitle ctn req)
     )
 
 index :: RootContainer 
   -> Text 
   -> Application 
-index = CU.indexView . centralUiContainer . central
+index = CentralUi.indexView . CentralContainer.centralUiContainer . central
 

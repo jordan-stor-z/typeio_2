@@ -80,6 +80,9 @@ library src
       , Domain.Project.Container.Api
       , Domain.Project.Container.Ui
       , Domain.Project.Model
+      , Domain.System.Container
+      , Domain.System.Middleware.Container
+      , Domain.System.Responder.Container
       , Domain.System.Responder.Config
       , Domain.System.Container.Api
       , Domain.System.Container.Middleware
