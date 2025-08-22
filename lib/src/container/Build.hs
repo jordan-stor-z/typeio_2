@@ -8,10 +8,10 @@ import qualified Domain.System.Container      as SystemContainer
 
 withRootContainer :: Env -> (RootContainer -> IO a) -> IO a
 withRootContainer ev k = k RootContainer
-  { appConfig                 = appConf ev
-  , central                   = CentralContainer.defaultContainer  pl 
-  , project                   = ProjectContainer.defaultContainer  pl
-  , system                    = SystemContainer.defaultContainer (appConf ev) lg
+  { appConfig = appConf ev
+  , central   = CentralContainer.defaultContainer  pl 
+  , project   = ProjectContainer.defaultContainer  pl
+  , system    = SystemContainer.defaultContainer (appConf ev) lg
   }
   where 
     lg = logger ev
