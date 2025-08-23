@@ -203,16 +203,21 @@ svg {
   }
 }
 
+@font-face {
+  font-family: 'Cascadia Code';
+  src: url('../../fonts/CascadiaCode.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .loading::before {
+  animation: brailleSpin 700ms steps(10) infinite; /* 1s cycle, 10 steps for the 10 patterns, loops forever */
+  font-family: 'Cascadia Code', monospace; /* Use a monospaced font for braille */
   content: '⠋'; /* Starting braille dot pattern */
   display: inline-block;
   width: 1em; /* Fixed width to prevent jumping */
   text-align: center;
-}
-
-/* Loading class triggers the animation */
-.loading::before {
-  animation: brailleSpin 1s steps(10) infinite; /* 1s cycle, 10 steps for the 10 patterns, loops forever */
+  color: var(--text-primary);
 }
 
 /* Keyframes for the braille spinner cycle: ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ */

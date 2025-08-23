@@ -34,6 +34,7 @@ import Network.HTTP.Types              (status200)
 import Network.Wai                     (queryString, responseLBS, Request, Response, ResponseReceived)
 import Network.HTTP.Types.URI          (QueryText, queryToQueryText)
 import qualified Domain.Project.Model as M
+import Data.Text.Lazy (fromStrict, toStrict)
 
 data NodeEditErr = 
   InvalidParams [ValidationErr]
@@ -131,8 +132,7 @@ templateNodeEdit nsts (Entity k nde) = do
     section_ [class_ "column-textarea form-section"] $ do
       label_ [class_ "indicator-label property-label", for_ "title"] $ do
         p_ "Title:"
-        div_ [id_ "title-indicator", class_ "indicator-box"] $
-          span_ [class_ "loading"] "xx" 
+        div_ [id_ "title-indicator", class_ "indicator-box"] empty
       input_ [ type_        "text"
              , class_       "property-value"
              , id_          "node-title"
@@ -150,7 +150,9 @@ templateNodeEdit nsts (Entity k nde) = do
              , h_ $ "init set my.icount to 0 "
                    <> "on input increment my.icount "
                    <> "if my.icount mod 8 === 0 "
-                   <> "then set #title-indicator's innerHTML to 'xx' "
+                   <> "then set #title-indicator's innerHTML to '"
+                   <> (toStrict . renderText $ ld)
+                    <> "'"
              ]
     section_ [class_ "column-textarea form-section"] $ do
       label_ [class_ "indicator-label property-label", for_ "description"] $ do
@@ -191,6 +193,9 @@ templateNodeEdit nsts (Entity k nde) = do
         div_ [id_ "status-indicator", class_ "indicator-box"] empty 
     where
       empty = mempty :: Html ()
+      ld :: Html ()
+      ld = span_ [class_ "loading"] empty
+
 
 validateForm :: Monad m 
   => GetNodeEditForm 

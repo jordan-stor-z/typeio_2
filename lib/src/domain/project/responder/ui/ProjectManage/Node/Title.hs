@@ -59,7 +59,7 @@ handlePutTitle pl req rspnd = do
   case rslt of
     Left (InvalidParams e) -> rspnd 
                 . responseLBS 
-                  status500
+                  status200 
                   [("Content-Type", "text/html")]
                 . renderBS
                 . templatePostFail 
@@ -86,7 +86,10 @@ reqForm ps = PutNodeTitleForm
 
 templatePostSuccess :: Html ()
 templatePostSuccess = do
+  span_ [class_ "loading hidden"] empty 
   i_  [class_ "material-icons"] "done"
+  where 
+    empty = mempty :: Html ()
 
 templateNodeNotFound :: Html ()
 templateNodeNotFound = do
