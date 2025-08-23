@@ -51,6 +51,7 @@ import qualified Domain.Project.Model as M ( Dependency(..)
                                            , Project(..)
                                            , unNodeTypeKey
                                            )
+import Data.Text.Util (intToText)
 
 data GetGraphError = 
   InvalidParams [ValidationErr]
@@ -192,16 +193,16 @@ templateGraph g = do
             , fill_ "#999"
             ] empty
     g_ [class_ "zoom-group"] $ do 
-      g_ [class_ "links"] $ do
+      g_ [id_ "graph-links"] $ do
         forM_ (links g) $ \_ -> 
           line_ [ class_         "link"
                 , stroke_        "#999"
                 , strokeOpacity_ "0.6"
                 , strokeWidth_   "2"
                 , markerEnd_     "url(#arrow)"] empty
-      g_ [class_ "nodes"] $ do
+      g_ [id_ "graph-nodes"] $ do
         forM_ (nodes g) $ \n -> do 
-          g_ [ id_ $       "node-" <> (pack . show . graphNodeId $ n)
+          g_ [ id_ $       "node-" <> (intToText . graphNodeId $ n)
              , class_      "node"
              , hxGet_      $ nodePanelLink
                               (graphNodeId n) 
@@ -213,35 +214,46 @@ templateGraph g = do
                               (projectId n) 
              , hxSwap_     "innerHTML"
              ] $ do
-            circle_ [ class_ $ classNodeType n 
-                    , stroke_      "white"
-                    , strokeWidth_ "1.5"
-                    ] empty
-            text_ [ id_       $ "node-text-" 
-                                <> (pack . show . graphNodeId $ n)
-                  , fontSize_   "10"
-                  , textAnchor_ "middle"
-                  , dy_         "0.35em"
-                  , fill_       "white"
-                  ] (toHtml . label $ n)
-      g_ [ id_ "updaters" ] $ do
-        forM_ (nodes g) $ \n -> do 
-            g_ [ class_ "hidden"
-               , h_ $ "on nodePanel:onEditClosed(nodeId)[nodeId=="
-                    <> (pack . show . graphNodeId $ n)
-                    <> "] from #node-panel trigger click on me"
-               , hxGet_ $ nodeRefreshLink 
-                          (graphNodeId n) 
-                          (projectId n) 
-                          (label n) 
-               , hxTrigger_   "click"
-               , hxTarget_ $  "#node-text-" 
-                              <> (pack . show . graphNodeId $ n)
-               , hxSwap_      "innerHTML"
-               , hxPushUrl_   False
-                ] empty
+              circle_ [ class_ $ classNodeType n 
+                      , stroke_      "white"
+                      , strokeWidth_ "1.5"
+                      ] empty
+              text_ [ id_ $ "node-text-" 
+                          <> (intToText . graphNodeId $ n)
+                    , fontSize_   "10"
+                    , textAnchor_ "middle"
+                    , dy_         "0.35em"
+                    , fill_       "white"
+                  ] $ nodeContents n
   where
     empty = mempty :: Html ()
+
+toGraphNode :: Entity M.Node -> GraphNode
+toGraphNode (Entity k e) = GraphNode 
+      { graphNodeId = fromSqlKey k 
+      , projectId   = fromSqlKey . M.nodeProjectId $ e
+      , label       = pack . M.nodeTitle $ e
+      , nodeType    = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
+      }
+
+nodeContents :: GraphNode -> Html ()
+nodeContents n = do
+    toHtml . label $ n
+    g_ [ class_ "hidden"
+       , hxGet_ $ nodeRefreshLink 
+                  (graphNodeId n) 
+                  (projectId n) 
+                  (label n) 
+       , hxTrigger_ $ "nodePanel:onEditClosed[event.detail.nodeId==" 
+                      <> (intToText . graphNodeId $ n) 
+                      <> "] from:#node-panel"
+       , hxTarget_ $  "#node-text-" 
+                      <> (intToText . graphNodeId $ n)
+       , hxSwap_      "innerHTML"
+       , hxPushUrl_   False
+        ] empty
+    where
+      empty = mempty :: Html ()
 
 toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph 
 toGraph ns ds = Graph (map toLink ds) (map toGNode ns)

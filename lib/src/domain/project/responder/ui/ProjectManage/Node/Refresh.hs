@@ -8,6 +8,7 @@ import Lucid
 import Common.Web.Attributes
 import Common.Web.Elements
 import Common.Validation
+import Domain.Project.Responder.Ui.ProjectManage.Graph (nodeContents, toGraphNode)
 import Domain.Project.Responder.Ui.ProjectManage.Node.Query
 import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 
@@ -106,14 +107,15 @@ queryTextToForm qt = GetNodeRefreshForm
 
 templateRefresh :: Entity M.Node -> Html ()
 templateRefresh (Entity k e) = do
+  nodeContents . toGraphNode . Entity k $ e
   g_ [ class_ "hidden" 
      , h_ $ "on load add .flash to "
             <> nsel 
             <> " then wait 500ms"
             <> " then remove .flash from "
             <> nsel 
+            <> " then remove me"
      ] empty
-  toHtml . pack . M.nodeTitle $ e
   where
     empty = mempty :: Html ()
     nsel = (<>) "#node-" . intToText . fromSqlKey $ k

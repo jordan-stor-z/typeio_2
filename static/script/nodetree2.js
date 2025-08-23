@@ -25,15 +25,12 @@
     .force("center", d3.forceCenter(450, 325))
     .alphaDecay(0.09)
     .velocityDecay(0.5);
-  // Select and bind data to existing links (assumes HTML has exactly links.length <line> elements in matching order)
-  const link = svg.select(".links")
+  const link = svg.select("#graph-links")
     .selectAll("line")
     .data(links);
-  // Select and bind data to existing nodes (assumes HTML has exactly nodes.length <g.node> elements in matching order)
-  const node = svg.select(".nodes")
+  const node = svg.select("#graph-nodes")
     .selectAll("g")
     .data(nodes);
-  // No need to select/bind updaters, as they are static and not updated in the simulation
   simulation.on("tick", () => {
     link
       .attr("x1", d => d.source.x)

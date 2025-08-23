@@ -26,3 +26,6 @@ marker_ = term "marker"
 text_ :: Term arg result => arg -> result
 text_ = term "text"
 
+tspan_ :: Term arg result => arg -> result
+tspan_ = term "tspan"
+
