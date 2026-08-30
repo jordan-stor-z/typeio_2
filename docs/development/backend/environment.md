@@ -32,9 +32,10 @@ Three resources, acquired once, for the lifetime of the process:
   `TimedFastLogger` writing structured JSON to stdout. See
   [logging.md](logging.md).
 - `pool :: ConnectionPool` — from `Environment.Db.withPool`, a
-  `persistent` connection pool, itself wrapped so every query the pool
-  runs goes through the same structured logger (see logging.md's
-  database-logging section).
+  `persistent` connection pool, itself wrapped so every query it runs is
+  logged as structured JSON — via a *second*, independent logger from
+  the one above, not the same `EntryLog` (see [logging.md](logging.md),
+  which covers both pipelines and why they're separate).
 
 `withEnv` composes these with `ContT`, which is why `withLogger` and
 `withPool` are themselves `ContT r IO EntryLog` / `ContT r IO
