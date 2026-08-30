@@ -166,11 +166,23 @@ doc yet, read it first — that's the point of it existing.
 
 ## Known Gotchas
 
-- **Case-sensitive git paths on a case-insensitive filesystem:** a few
-  tracked paths differ in case from their on-disk directory (e.g.
-  `lib/src/domain/project/responder/api/node/Get.hs` is tracked lowercase
-  even though the sibling directories are capitalized). `git checkout --
-  <path>` and similar must use the case `git status`/`git ls-files`
-  report, not what `ls`/`find` show, or it fails with "pathspec did not
-  match any file(s) known to git."
 - **`make test-migrations` is broken** — see Setup section above.
+
+## Resolved gotchas (kept for context — don't reintroduce)
+
+- **Every `lib/src` directory used to be lowercase while every module
+  name is PascalCase** (`lib/src/platform/Web.hs` for module
+  `Platform.Web`, etc.) — invisible on macOS's case-insensitive
+  filesystem, which is why local development and manual verification
+  never caught it. It surfaced the moment CI (#41) ran on a Linux
+  runner: GHC couldn't find any module at all
+  (`Cabal-7554: can't find source for Platform/Web in lib/src`). Fixed
+  by renaming every directory to match its module path's exact casing —
+  `lib/src` now mirrors the module tree byte-for-byte. Two of the
+  mismatches were at the **git index** level specifically (tracked case
+  differed from the on-disk case shown by `ls`/`find`, which a plain
+  filesystem walk can't detect on a case-preserving filesystem) — if a
+  future rename ever needs to fix a case mismatch again, use a two-step
+  `git mv old old_tmp && git mv old_tmp New`; a direct `git mv old New`
+  fails outright on macOS with "Invalid argument" for a case-only
+  rename.

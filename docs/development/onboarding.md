@@ -99,12 +99,5 @@ Roughly, from `cabal run server` down to a response:
 
 ## A couple of things that will trip you up
 
-- **Case-sensitive git paths on this (probably case-insensitive)
-  filesystem**: at least one tracked path's case doesn't match its
-  on-disk directory (`lib/src/domain/project/responder/api/node/Get.hs`
-  is tracked lowercase; its sibling directories are capitalized). If
-  `git checkout -- <path>` says "pathspec did not match," check
-  `git status`/`git ls-files` for the actual tracked case rather than
-  what `ls`/`find` shows you.
 - **Routes match on a path prefix, not an exact path** — see
   [`backend/routing.md`](backend/routing.md) for why.
