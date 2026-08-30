@@ -36,10 +36,13 @@ Other `make migrate-*` targets (`migrate-down`, `migrate-down-all`,
 `migrate-new NAME=...`, `migrate-version`, `migrate-force VERSION=...`)
 cover the rest of the migration lifecycle — see the `Makefile`.
 
-**Verifying a change:** there's no `cabal test` suite yet — `cabal build
-all` (with `-Wall` on) is the standard check. `make test-migrations` is
-currently broken (it calls a script, `scripts/test-migrations.sh`, that
-doesn't exist in the repo) — don't rely on it.
+**Verifying a change:** `cabal build all` (with `-Wall` on) is the
+standard check. A unit suite also exists (`cabal test` / `make test`)
+and runs in CI on every PR (see [`ci.md`](ci.md)) — running it locally
+first is optional but catches a failure faster than waiting on CI.
+`make test-migrations` is currently broken (it calls a script,
+`scripts/test-migrations.sh`, that doesn't exist in the repo) — don't
+rely on it.
 
 ## How a request flows through the app
 
@@ -89,6 +92,8 @@ Roughly, from `cabal run server` down to a response:
   [`backend/containers.md`](backend/containers.md),
   [`backend/logging.md`](backend/logging.md) — the bespoke backend stack,
   one concern per file.
+- [`ci.md`](ci.md) — what CI runs on a PR, and how to reproduce it
+  locally before pushing.
 - [`../solution-proposals/`](../solution-proposals/) — spikes and
   decisions, e.g. the plan to adopt Fourmolu for auto-formatting.
 

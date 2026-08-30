@@ -53,6 +53,7 @@ cases:
 | `#container`/`#view`, Lucid rendering, CSS conventions | `docs/development/ui/` |
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
+| CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | An open design question / pending decision | `docs/solution-proposals/` |
 
 If you're about to touch code in one of these areas and haven't read its
@@ -68,9 +69,12 @@ doc yet, read it first — that's the point of it existing.
   `make migrate-down-all` / `make migrate-new NAME=<name>` /
   `make migrate-version` / `make migrate-force VERSION=<v>`
 - **Seed the database:** `make seed-db`
-- **Verifying a change:** there is currently no `cabal test` suite —
-  `cabal build all` (compiles clean, `-Wall` is on) is the standard
-  verification step. Run relevant `make migrate-*` commands for
+- **Verifying a change:** `cabal build all` (compiles clean, `-Wall` is
+  on). A unit test suite exists (`cabal test` / `make test`) and CI runs
+  it on every PR into `main` (GitHub Actions, `.github/workflows/test.yml`
+  — see [`docs/development/ci.md`](docs/development/ci.md)), so running
+  it locally before pushing is no longer required — the PR is the
+  enforcement point. Run relevant `make migrate-*` commands for
   migration changes.
 - ⚠️ **`make test-migrations` is currently broken** — it calls
   `./scripts/test-migrations.sh`, which does not exist anywhere in the
@@ -98,6 +102,13 @@ doc yet, read it first — that's the point of it existing.
   numbering.
 - Never hardcode DB credentials or web ports — pull config from `.env`
   via `Config.App`/`Config.Db`/`Config.Web`.
+- **Tests are expected alongside the code they cover** — currently pure,
+  dependency-free modules (`Common.Validation`, `Data.*`, `Config.*`;
+  see `docs/solution-proposals/unit-testing.md` for what's in/out of
+  scope and why). CI running the suite on a PR (see Setup section) is a
+  check that tests exist and pass, not a substitute for writing them —
+  don't skip adding/updating a test for a change because CI will "catch
+  it anyway."
 - **Formatting is currently manual**: this codebase hand-aligns `=` in
   `let`/`where` bindings and record literals (see the style in e.g.
   `IndexRender.hs`). Match existing alignment in any file you touch, but
@@ -120,8 +131,11 @@ doc yet, read it first — that's the point of it existing.
   2. Confirm a clean workspace (`git status`), then
      `git checkout main && git pull`.
   3. `git checkout -b feature/issue-$N-<short-description>`.
-  4. Implement the change.
+  4. Implement the change, adding/updating tests for it (see Code &
+     Style Conventions).
   5. Verify with `cabal build all` (and migration commands if relevant).
+     Running `cabal test`/`make test` locally is optional — CI runs it
+     on the PR — but it's the fastest way to find a failure early.
   6. Commit referencing the issue, push, and open a PR with
      `gh pr create` — include `Closes #$N` in the body when the PR fully
      resolves the ticket.
