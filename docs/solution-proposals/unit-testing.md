@@ -230,9 +230,16 @@ just not as part of adopting testing right now.
 
 ## 6. CI
 
-There's no CI in this repo yet (same gap #17 already flagged). Whichever
-lands first between this and #17, worth noting: a unit suite (tiers 1 and
-3 per the decision below, no database needed) is cheap and fast enough
+**Update, #41:** this is done — a GitHub Actions workflow
+(`.github/workflows/test.yml`, documented in
+[`docs/development/ci.md`](../development/ci.md)) runs `cabal build all`
++ `cabal test` on every PR into `main`, no database needed, exactly as
+recommended below. E2E (#17) and DB-backed integration tests (#42) still
+have no CI coverage — that's separate, follow-on work, not part of what
+#41 covered.
+
+The original recommendation, for context: a unit suite (tiers 1 and 3
+per the decision below, no database needed) is cheap and fast enough
 that it should be the first thing wired into GitHub Actions, well before
 the heavier lift of browser-driven E2E tests or DB-backed integration
 tests — it's the highest signal-per-minute-of-CI-time option available.

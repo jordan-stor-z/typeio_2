@@ -20,7 +20,7 @@ data AppConfig = AppConfig
   { envName :: EnvironmentName
   , dbConf  :: DbConfig
   , webConf :: WebConfig
-  } deriving (Read, Show)
+  } deriving (Eq, Read, Show)
 
 instance ToJSON AppConfig where
   toJSON cfg =

@@ -1,0 +1,80 @@
+name: Test
+
+# Runs on every PR into main -- not on push to main. Anything landing on
+# main only got there via a PR that already passed this same check, so
+# re-running it there is redundant. See docs/development/ci.md.
+#
+# Deliberately NOT path-filtered at the workflow level (see the
+# "changes" step below for why): branch protection requires this check
+# to pass before merging, and a required check that a path filter
+# prevents from ever running can never be satisfied -- GitHub has no
+# concept of "this check doesn't apply here," only "passed" or
+# "missing," and "missing" blocks the merge forever. Every PR, including
+# docs-only ones, needs this workflow to at least run and report a
+# result.
+on:
+  pull_request:
+    branches: [main]
+
+# Without this, pushing a second commit to the same PR starts a second,
+# fully concurrent run rather than replacing the first -- doubling CI
+# minutes for no benefit, since only the latest commit's result matters.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Pinned to a specific Ubuntu release, not the floating `ubuntu-latest`
+    # label -- GitHub-hosted runners can't be pinned to an exact image
+    # digest (that needs a container-based job instead), so a fixed OS
+    # version is the closest available equivalent. The GHC/cabal versions
+    # below are what actually matters for build reproducibility, and
+    # those are already pinned explicitly.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the base branch's history to diff against below
+
+      # The job itself always runs (so the required check always exists
+      # and can report success quickly for e.g. docs-only PRs), but the
+      # expensive steps below are skipped unless something that could
+      # actually affect the build/test result changed. Keep this pattern
+      # in sync with anything the later steps depend on.
+      - name: Check for Haskell-relevant changes
+        id: changes
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+              | grep -qE '\.hs$|\.cabal$|^cabal\.project$|^\.github/workflows/test\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: setup
+        if: steps.changes.outputs.relevant == 'true'
+        uses: haskell-actions/setup@v2
+        with:
+          # Matches the versions used locally -- see typeio.cabal's
+          # `base ^>=4.18.3.0` bound and README/docs/development/onboarding.md.
+          ghc-version: '9.6.7'
+          cabal-version: '3.12.1.0'
+
+      - uses: actions/cache@v6
+        if: steps.changes.outputs.relevant == 'true'
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-cabal-${{ hashFiles('typeio.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: cabal build all
+        if: steps.changes.outputs.relevant == 'true'
+        run: cabal build all
+
+      - name: cabal test
+        if: steps.changes.outputs.relevant == 'true'
+        run: cabal test --test-show-details=streaming
