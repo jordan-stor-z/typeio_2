@@ -159,3 +159,13 @@ removing that class of work for both humans and agents.
   target, and the `PostToolUse` hook.
 - Re-evaluate Floskell/Brittany if either sees renewed maintenance
   activity — at the time of this spike both are effectively frozen.
+
+## 7. Decision
+
+**Option A — adopt Fourmolu, retire manual alignment.** Confirmed
+2026-08-30. The manual `=`/import-column alignment convention is retired
+in favor of full automation via Fourmolu, accepting the one-time
+repo-wide reformat diff and the loss of that visual style, in exchange for
+removing this class of ticket permanently and making formatting
+consistent for both human editors and AI agents. Follow-up implementation
+ticket: #6.
