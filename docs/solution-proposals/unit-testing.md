@@ -145,6 +145,78 @@ real options, not a false choice:
    handlers get a smaller number of integration tests that accept the
    cost of a real database.
 
+### Sketch: what option 1 would actually look like
+
+Today (`Domain.Project.Responder.Api.Node.Get`):
+
+```haskell
+handleGetNodes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleGetNodes pl respond = do
+  ns <- encode . map toSchema <$> runSqlPool query pl
+  respond $ responseLBS status200 [("Content-Type", "application/json")] ns
+  where
+    query = select $ from $ table @M.Node
+```
+
+With a repository record in front of the pool:
+
+```haskell
+-- new: Node/Repo.hs
+newtype NodeRepo = NodeRepo
+  { repoGetNodes :: IO [Entity M.Node]
+  }
+
+defaultNodeRepo :: ConnectionPool -> NodeRepo
+defaultNodeRepo pl = NodeRepo
+  { repoGetNodes = runSqlPool (select $ from $ table @M.Node) pl
+  }
+
+-- Node/Get.hs: depends on NodeRepo instead of ConnectionPool directly
+handleGetNodes :: NodeRepo -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleGetNodes repo respond = do
+  ns <- encode . map toSchema <$> repoGetNodes repo
+  respond $ responseLBS status200 [("Content-Type", "application/json")] ns
+```
+
+Wired in exactly the way every other dependency already is (see
+[containers.md](../development/backend/containers.md)) — the container
+now builds a `NodeRepo` from the pool instead of handing the pool
+straight to the handler:
+
+```haskell
+-- Domain.Project.Responder.Api.Container
+defaultContainer :: ConnectionPool -> Container
+defaultContainer cpl = Container
+  { getNodes = handleGetNodes (defaultNodeRepo cpl)
+  , ...
+  }
+```
+
+And the test constructs a fake `NodeRepo` by hand — no mocking library,
+same trick as everywhere else in §5:
+
+```haskell
+spec :: Spec
+spec = describe "handleGetNodes" $ do
+  it "returns 200 with the repo's nodes JSON-encoded" $ do
+    let fakeRepo = NodeRepo { repoGetNodes = pure [sampleNodeEntity] }
+        app _req respond = handleGetNodes fakeRepo respond  -- lift to Application shape
+    resp <- runSession (srequest $ SRequest defaultRequest "") app
+    assertStatus 200 resp
+    assertBodyContains "\"title\":\"Sample Node\"" resp
+```
+
+**One real gotcha this surfaced:** `ResponseReceived` (from `Network.Wai`)
+has no public constructor — you can't just write a fake `respond`
+callback that returns one yourself, which rules out the obvious naive
+approach to testing these handlers directly. `runSession`/`srequest`
+(from `Network.Wai.Test`, part of `wai-extra` — **already a dependency**,
+no new package needed) exist specifically to solve this, by running the
+handler as a real `Application` inside a fake, in-process HTTP session
+and handing back an inspectable `SResponse`. Any handler-level test —
+with or without a repository layer — needs to go through
+`Network.Wai.Test`, not a hand-rolled fake `respond`.
+
 **Recommendation: option 2 for now.** Standing up an ephemeral test
 Postgres is exactly the same infrastructure #17's E2E spike will need for
 its own seeded test database — solve it once, likely as part of whichever
