@@ -1,0 +1,60 @@
+name: Test
+
+# Runs on PRs into main only -- not on push to main. Anything landing on
+# main only got there via a PR that already passed this same check, so
+# re-running it there is redundant. See docs/development/ci.md.
+#
+# `paths` limits this to PRs that could actually affect the build/test
+# result -- a docs-only or other non-Haskell PR shouldn't wait on this.
+# Keep this list in sync with anything the build/test steps below
+# actually depend on.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.hs'
+      - '*.cabal'
+      - 'cabal.project'
+      - '.github/workflows/test.yml'
+
+# Without this, pushing a second commit to the same PR starts a second,
+# fully concurrent run rather than replacing the first -- doubling CI
+# minutes for no benefit, since only the latest commit's result matters.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Pinned to a specific Ubuntu release, not the floating `ubuntu-latest`
+    # label -- GitHub-hosted runners can't be pinned to an exact image
+    # digest (that needs a container-based job instead), so a fixed OS
+    # version is the closest available equivalent. The GHC/cabal versions
+    # below are what actually matters for build reproducibility, and
+    # those are already pinned explicitly.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          # Matches the versions used locally -- see typeio.cabal's
+          # `base ^>=4.18.3.0` bound and README/docs/development/onboarding.md.
+          ghc-version: '9.6.7'
+          cabal-version: '3.12.1.0'
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-cabal-${{ hashFiles('typeio.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: cabal build all
+        run: cabal build all
+
+      - name: cabal test
+        run: cabal test --test-show-details=streaming

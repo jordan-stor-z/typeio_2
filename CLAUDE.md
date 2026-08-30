@@ -53,6 +53,7 @@ cases:
 | `#container`/`#view`, Lucid rendering, CSS conventions | `docs/development/ui/` |
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
+| CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | An open design question / pending decision | `docs/solution-proposals/` |
 
 If you're about to touch code in one of these areas and haven't read its
@@ -68,9 +69,12 @@ doc yet, read it first — that's the point of it existing.
   `make migrate-down-all` / `make migrate-new NAME=<name>` /
   `make migrate-version` / `make migrate-force VERSION=<v>`
 - **Seed the database:** `make seed-db`
-- **Verifying a change:** there is currently no `cabal test` suite —
-  `cabal build all` (compiles clean, `-Wall` is on) is the standard
-  verification step. Run relevant `make migrate-*` commands for
+- **Verifying a change:** `cabal build all` (compiles clean, `-Wall` is
+  on). A unit test suite exists (`cabal test` / `make test`) and CI runs
+  it on every PR into `main` (GitHub Actions, `.github/workflows/test.yml`
+  — see [`docs/development/ci.md`](docs/development/ci.md)), so running
+  it locally before pushing is no longer required — the PR is the
+  enforcement point. Run relevant `make migrate-*` commands for
   migration changes.
 - ⚠️ **`make test-migrations` is currently broken** — it calls
   `./scripts/test-migrations.sh`, which does not exist anywhere in the
@@ -98,6 +102,13 @@ doc yet, read it first — that's the point of it existing.
   numbering.
 - Never hardcode DB credentials or web ports — pull config from `.env`
   via `Config.App`/`Config.Db`/`Config.Web`.
+- **Tests are expected alongside the code they cover** — currently pure,
+  dependency-free modules (`Common.Validation`, `Data.*`, `Config.*`;
+  see `docs/solution-proposals/unit-testing.md` for what's in/out of
+  scope and why). CI running the suite on a PR (see Setup section) is a
+  check that tests exist and pass, not a substitute for writing them —
+  don't skip adding/updating a test for a change because CI will "catch
+  it anyway."
 - **Formatting is currently manual**: this codebase hand-aligns `=` in
   `let`/`where` bindings and record literals (see the style in e.g.
   `IndexRender.hs`). Match existing alignment in any file you touch, but
@@ -120,8 +131,11 @@ doc yet, read it first — that's the point of it existing.
   2. Confirm a clean workspace (`git status`), then
      `git checkout main && git pull`.
   3. `git checkout -b feature/issue-$N-<short-description>`.
-  4. Implement the change.
+  4. Implement the change, adding/updating tests for it (see Code &
+     Style Conventions).
   5. Verify with `cabal build all` (and migration commands if relevant).
+     Running `cabal test`/`make test` locally is optional — CI runs it
+     on the PR — but it's the fastest way to find a failure early.
   6. Commit referencing the issue, push, and open a PR with
      `gh pr create` — include `Closes #$N` in the body when the PR fully
      resolves the ticket.
@@ -152,11 +166,23 @@ doc yet, read it first — that's the point of it existing.
 
 ## Known Gotchas
 
-- **Case-sensitive git paths on a case-insensitive filesystem:** a few
-  tracked paths differ in case from their on-disk directory (e.g.
-  `lib/src/domain/project/responder/api/node/Get.hs` is tracked lowercase
-  even though the sibling directories are capitalized). `git checkout --
-  <path>` and similar must use the case `git status`/`git ls-files`
-  report, not what `ls`/`find` show, or it fails with "pathspec did not
-  match any file(s) known to git."
 - **`make test-migrations` is broken** — see Setup section above.
+
+## Resolved gotchas (kept for context — don't reintroduce)
+
+- **Every `lib/src` directory used to be lowercase while every module
+  name is PascalCase** (`lib/src/platform/Web.hs` for module
+  `Platform.Web`, etc.) — invisible on macOS's case-insensitive
+  filesystem, which is why local development and manual verification
+  never caught it. It surfaced the moment CI (#41) ran on a Linux
+  runner: GHC couldn't find any module at all
+  (`Cabal-7554: can't find source for Platform/Web in lib/src`). Fixed
+  by renaming every directory to match its module path's exact casing —
+  `lib/src` now mirrors the module tree byte-for-byte. Two of the
+  mismatches were at the **git index** level specifically (tracked case
+  differed from the on-disk case shown by `ls`/`find`, which a plain
+  filesystem walk can't detect on a case-preserving filesystem) — if a
+  future rename ever needs to fix a case mismatch again, use a two-step
+  `git mv old old_tmp && git mv old_tmp New`; a direct `git mv old New`
+  fails outright on macOS with "Invalid argument" for a case-only
+  rename.
