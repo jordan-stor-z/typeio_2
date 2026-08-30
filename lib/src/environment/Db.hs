@@ -45,9 +45,9 @@ hooks cf = PostgresConfHooks
 withPool :: DbConfig -> ContT r IO (Pool SqlBackend)
 withPool cf = ContT with'
   where
-    c = config cf
-    h = hooks cf
-    with' k = 
+    c      = config cf
+    h      = hooks cf
+    with' k =
       runDatabaseLoggingT $ 
         withPostgresqlPoolWithConf c h 
         $ liftIO . k

@@ -31,7 +31,7 @@ handleGetNodeStatuses pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
   where
-    query = select $ from $ table @M.NodeStatus
+    query                 = select $ from $ table @M.NodeStatus
     toSchema (Entity k _) = NodeStatus
       { nodeStatusId = M.unNodeStatusKey k
       }

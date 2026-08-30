@@ -52,7 +52,7 @@ handleProjectManageView req respond = do
 
 queryTextToForm :: QueryText -> ManageProjectForm
 queryTextToForm qt = ManageProjectForm
-  { formNodeId = lookupVal "nodeId" qt
+  { formNodeId    = lookupVal "nodeId" qt
   , formProjectId = lookupVal "projectId" qt
   }
 

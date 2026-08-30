@@ -35,10 +35,10 @@ instance ToJSON RequestLog where
 
 fromRequest :: HeaderName -> Request -> RequestLog
 fromRequest hn req = RequestLog
-  { method  = show $ requestMethod req
-  , path    = show $ pathInfo req
-  , headers = hashMapHeaders . requestHeaders $ req 
-  , requestId = lookup hn (requestHeaders req) 
+  { method    = show $ requestMethod req
+  , path      = show $ pathInfo req
+  , headers   = hashMapHeaders . requestHeaders $ req
+  , requestId = lookup hn (requestHeaders req)
   }
 
 requestLogMiddleware :: WebConfig -> EntryLog -> Middleware

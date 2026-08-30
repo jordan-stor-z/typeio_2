@@ -30,6 +30,6 @@ renderIndexMiddleware ct app req respond =
         app req respond
   where
     hs  = requestHeaders req
-    isView ("ui" : ps) = "vw" `elem` ps 
+    isView ("ui" : ps) = "vw" `elem` ps
     isView _           = False
-    toPathText = T.pack . ('/' :) . intercalate "/" . map T.unpack
+    toPathText         = T.pack . ('/' :) . intercalate "/" . map T.unpack
