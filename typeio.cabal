@@ -33,19 +33,19 @@ library src
     exposed-modules:
       Platform.Web
       , Common.Validation
+      , Config.App
+      , Config.Db
+      , Config.Web
+      , Data.Either
       , Data.HashTree
+      , Data.Text.Util
     other-modules:
       Common.Web.Attributes
       , Common.Web.Elements
       , Common.Web.Query
       , Common.Web.Template.MainHeader
-      , Config.App
-      , Config.Db
-      , Config.Web
       , Container.Build
       , Container.Root
-      , Data.Either
-      , Data.Text.Util
       , Domain.Central.Container
       , Domain.Central.Responder.Ui.Empty
       , Domain.Central.Responder.Ui.IndexView
@@ -141,13 +141,21 @@ test-suite spec
     hs-source-dirs:     test
     other-modules:
       Common.ValidationSpec
+      , Config.AppSpec
+      , Config.DbSpec
+      , Config.WebSpec
+      , Data.EitherSpec
       , Data.HashTreeSpec
+      , Data.Text.UtilSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
       , src
+      , bytestring
+      , case-insensitive
       , hashable
       , hspec
       , mtl
       , QuickCheck
+      , text
     default-language:   Haskell2010

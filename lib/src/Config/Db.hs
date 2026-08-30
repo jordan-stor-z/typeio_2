@@ -43,7 +43,7 @@ data DbConfig = DbConfig
   , poolCount :: Int
   , schema    :: String
   , user      :: String
-  } deriving (Read, Show)
+  } deriving (Eq, Read, Show)
 
 data LookupDbConfig = LookupDbConfig 
   { database'  :: Maybe String
