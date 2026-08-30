@@ -103,24 +103,28 @@ settled independently of #50's outcome.
 
 ## 6. Seeding
 
-The existing seed mechanism (`Domain.Central.Responder.Api.Seed`) only
-seeds the `NodeStatus`/`NodeType` **lookup tables** — it does not create
-any `Project`/`Node` fixture data at all. That's worth knowing before
-assuming it can just be reused wholesale: it's necessary but not
-sufficient for a test like the `handlePostNode` pilot, which also needs
-a real `Project` and a root `Node` to exist first.
+The existing seed mechanism (`Domain.Central.Responder.Api.Seed`) exists
+to put required, valid reference data into the database on application
+startup — `NodeStatus`/`NodeType` are lookup tables the app depends on to
+function at all, and nothing in `migrations/` inserts rows (migrations
+here are schema-only), so seeding is how those tables end up populated.
+It is **not** demo or mock data, and doesn't create any `Project`/`Node`
+rows at all. That's worth knowing before assuming it can just be reused
+wholesale for tests: it's necessary but not sufficient for a test like
+the `handlePostNode` pilot, which also needs a real `Project` and a root
+`Node` to exist first — data this mechanism was never meant to provide.
 
 **Recommendation:**
 - Reuse `Seed.nodeStatuses`/`Seed.nodeTypes` directly (they're just plain
   data lists — trivially importable) for the lookup tables every test
-  needs.
+  needs — this part genuinely is the same required reference data both
+  the running app and a test need.
 - Build minimal, test-specific fixtures (a `Project`, a root `Node`) with
   direct `insert` calls in each test's arrange step, rather than
-  inventing a separate general-purpose fixture-seeding subsystem. Keep
-  fixtures deliberately small and specific to what each test asserts on,
-  not a copy of the demo/local-dev seed data (whose purpose — a
-  populated demo — is different from a test's purpose: known, minimal,
-  assertable state).
+  extending the seed mechanism to also cover this. Its job is
+  "reference data the app needs to run," not "fixture data a test needs
+  to assert on" — keep those two purposes separate rather than
+  overloading one mechanism for both.
 
 ## 7. Where these tests live
 
@@ -141,6 +145,21 @@ approach would — `testcontainers` manages its own container from inside
 the test process. Still, this is a distinct CI job/step from #41's, with
 its own runtime cost, and should be scoped as a follow-up to #41 rather
 than folded into it.
+
+**Can this only run when relevant files change?** Yes, but with a real
+constraint learned the hard way while implementing #41: if this
+integration-test check is ever made a **required** check for merging,
+it must not be skipped via a top-level workflow `paths:` filter — a
+required check that a path filter prevents from ever running stays
+permanently "missing" rather than "passed," which blocks merging
+entirely, with no admin bypass if `enforce_admins` is set (see
+`docs/development/ci.md`'s "Why it always runs" section for the
+incident this came from). The safe version of "only run when relevant"
+is the pattern already adopted there: the job always runs, but a
+`git diff`-based step decides whether to actually skip the expensive
+steps via `if:`. If this check is never made required (e.g. kept
+informational, or only run on-demand), a plain top-level `paths:` filter
+is fine and simpler — the constraint only bites for a *required* check.
 
 ## 9. Cross-reference: #17's E2E spike
 
