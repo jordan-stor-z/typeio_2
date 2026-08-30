@@ -9,6 +9,11 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck ((===))
 
+-- | Stands in for the app's own Read-deriving enums (e.g.
+-- Config.App.EnvironmentName), to prove valRead works for more than
+-- just numeric types.
+data Color = Red | Green | Blue deriving (Show, Eq, Read)
+
 spec :: Spec
 spec = do
   describe ".$" $ do
@@ -43,6 +48,28 @@ spec = do
     it "passes Nothing through with NO error" $
       (runWriter (valRead "bad int" Nothing) :: (Maybe Int, [ValidationErr]))
         `shouldBe` (Nothing, [])
+
+    -- valRead is generic (Read b => ...) -- prove it beyond Int, since
+    -- Read's parsing rules aren't the same for every type.
+    it "parses a Bool" $
+      (runWriter (valRead "bad bool" (Just "True")) :: (Maybe Bool, [ValidationErr]))
+        `shouldBe` (Just True, [])
+    it "rejects a lowercase bool literal -- Read is case-sensitive on constructor names" $
+      (runWriter (valRead "bad bool" (Just "true")) :: (Maybe Bool, [ValidationErr]))
+        `shouldBe` (Nothing, ["bad bool"])
+    it "parses a custom Read-deriving enum, the same shape as Config.App's EnvironmentName" $
+      (runWriter (valRead "bad color" (Just "Red")) :: (Maybe Color, [ValidationErr]))
+        `shouldBe` (Just Red, [])
+    it "rejects a name that isn't one of the enum's constructors" $
+      (runWriter (valRead "bad color" (Just "Purple")) :: (Maybe Color, [ValidationErr]))
+        `shouldBe` (Nothing, ["bad color"])
+    it "does NOT parse a plain unquoted word as a String -- Read requires a quoted literal, \
+       \not just any input" $
+      (runWriter (valRead "bad string" (Just "hello")) :: (Maybe String, [ValidationErr]))
+        `shouldBe` (Nothing, ["bad string"])
+    it "does parse a properly-quoted string literal as a String" $
+      (runWriter (valRead "bad string" (Just "\"hello\"")) :: (Maybe String, [ValidationErr]))
+        `shouldBe` (Just "hello", [])
 
   describe "isBetween" $ do
     it "passes an in-range value through with no error" $
