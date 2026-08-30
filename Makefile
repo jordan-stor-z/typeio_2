@@ -8,7 +8,7 @@ MIGRATE=migrate
 MIGRATIONS_DIR=migrations
 
 # --- Commands ---
-.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version
+.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test
 
 ## Run migratin tests
 test-migrations:
@@ -49,3 +49,7 @@ migrate-new:
 ## run program to seed database
 seed-db:
 	curl --location --request POST 'localhost:$(or $(WEB_PORT),3000)/api/central/seed-database'
+
+## Run the Haskell unit test suite
+test:
+	cabal test
