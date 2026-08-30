@@ -1,11 +1,13 @@
 # Solution Proposal: Lazy, Request-Scoped Transactions Shared Across Domains
 
-- **Status:** Decided (see §7) — formalizing a design already agreed in
-  discussion, with code sketches, and resolving the sub-decisions that
-  were still open.
+- **Status: Decided against.** See §7 — kept here as a record of the
+  analysis and why it was rejected, not as guidance to build any of this.
 - **Date:** 2026-08-30
-- **Related:** #50 (this spike), #42 / `integration-testing.md` (the
-  testing limitation that surfaced this), `docs/development/backend/{routing,containers,environment}.md`
+- **Related:** [#50](https://github.com/jordan-stor-z/typeio_2/issues/50)
+  (this spike),
+  [#42](https://github.com/jordan-stor-z/typeio_2/issues/42) /
+  `integration-testing.md` (the testing limitation that prompted this),
+  `docs/development/backend/{routing,containers,environment}.md`
 
 ## 1. Problem statement
 
@@ -20,10 +22,13 @@ Today it can't. Every responder calls `runSqlPool` directly (e.g.
 `handlePostNode`'s `flip runSqlPool pl . runEitherT $ ...`), and
 `runSqlPool` opens *and commits* its own transaction around whatever
 it's given — so the transaction boundary is, incidentally, always
-exactly one responder. This is what #42's integration-testing spike ran
-into ("wrap a test in a transaction and roll it back" doesn't work,
-because there's no outer transaction to roll back). That's a symptom;
-this document is about the actual cause.
+exactly one responder. This is what
+[#42](https://github.com/jordan-stor-z/typeio_2/issues/42)'s
+integration-testing spike ran into ("wrap a test in a transaction and
+roll it back" doesn't work, because there's no outer transaction to roll
+back). That's a symptom; this document is about the actual cause — see
+§7 for why the conclusion below turned out not to require fixing that
+cause after all.
 
 Two requirements, both need to hold:
 
@@ -203,11 +208,14 @@ handleGetNodes pool lc respond = do
 handler and every intermediate tree function across all of `Platform.Web.Router`
 and every domain's `Container` is a real, repo-wide mechanical change —
 comparable in shape (though not in intent) to the directory-rename fix
-from #41, just across Haskell function signatures instead of file paths.
-This spike is not proposing to do that everywhere in one pass; a
-follow-up implementation ticket should scope it (likely: the shared
+from [#41](https://github.com/jordan-stor-z/typeio_2/issues/41), just
+across Haskell function signatures instead of file paths. This spike is
+not proposing to do that everywhere in one pass; a follow-up
+implementation ticket would need to scope it (likely: the shared
 transaction plumbing first, then migrate handlers domain-by-domain, the
-same narrow-first pattern used for #28 → #29–#34).
+same narrow-first pattern used for
+[#28](https://github.com/jordan-stor-z/typeio_2/issues/28) →
+[#29](https://github.com/jordan-stor-z/typeio_2/issues/29)–[#34](https://github.com/jordan-stor-z/typeio_2/issues/34)).
 
 ## 5. Commit / rollback policy — refined from the original discussion
 
@@ -281,29 +289,50 @@ concern to dismiss.
 
 ## 7. Decision
 
-Confirmed 2026-08-30, in discussion preceding this doc:
+**Decided against, 2026-08-30**, after further thought past what's
+written above — reconsidering what "cross-domain" actually means for
+this app rather than the mechanism for achieving it.
 
-- Build the lazy `IORef`-based mechanism from §3, not `unsafeInterleaveIO`.
-- Thread it as an explicit parameter through `Platform.Web.Router` and
-  the `Container` hierarchy (§4), not via `vault` — revisit `vault` only
-  if/when database-touching middleware is actually built and needs to
-  share the same transaction.
-- Rollback is signaled via an explicit exception (`TransactionAbort`,
-  §5), thrown by anything that needs to guarantee the whole request's
-  transaction rolls back — not inferred from a generic policy.
-- Implementation is **not** part of this spike, and should not attempt
-  to migrate every handler in one pass — scope a follow-up ticket for
-  the shared plumbing first, then migrate handlers incrementally.
+The premise of this whole document was that cross-domain atomicity
+requires *lifting the transaction boundary out of the responder* —
+because a shared transaction would need to span multiple responders, or
+middleware, coordinating with each other. But that's not actually how
+cross-domain composition happens here, or is expected to happen going
+forward. `Domain.Central` already exists specifically as the place where
+multiple domains combine to serve a UI view. As the app grows — a `User`
+domain, UI modules migrating into `Central` as they currently sit under
+`Domain.Project` — the natural shape is that **one responder in
+`Central` calls directly into other domains' query/write functions**,
+all within its own single call stack. That responder can open its own
+`runSqlPool` transaction exactly the way every responder already does
+today, and every domain function it calls participates in that same
+transaction for free, because it's all one Haskell function running one
+`ReaderT SqlBackend IO` action — no architecture change needed at all.
+
+**Only one responder ever handles a request** was the original
+assumption behind the current design, and it still holds even once a
+single request's work spans multiple domains — it just means that one
+responder's code directly composes calls into more than one domain,
+rather than the framework needing to coordinate multiple responders or
+middleware sharing a lifted-out transaction. `Container`s already fit
+this: they can simply expose query/write functions from various domains
+for a `Central` responder to call directly, alongside the domain's own
+containers doing the same for their own responders. That's a much
+smaller, more Locality-of-Behavior-aligned answer than everything in
+§§2–6 above — the whole lazy-open/vault/rollback-signaling design was
+solving a coordination problem that doesn't actually exist once
+cross-domain composition is understood as "one responder, several domain
+function calls" rather than "several responders, one shared transaction."
+
+Sections 1–6 are kept as-is above as the record of that analysis and why
+it doesn't hold up, not as a design to build from. Nothing in this
+document should be implemented.
 
 ## 8. Open questions
 
-- Exact naming (`LazyConn`, `TransactionAbort`, module home
-  `Environment.Transaction`) is a starting proposal, not final.
-- Isolation level: `connBegin`'s `Maybe IsolationLevel` was sketched as
-  `Nothing` (backend default) above — worth an explicit decision once
-  real cross-domain write patterns exist, not guessed at here.
-- `docs/solution-proposals/integration-testing.md`'s "truncate between
-  tests" recommendation should be revisited once this lands — a
-  request-scoped transaction a test can hold open and roll back itself
-  might make per-test rollback viable after all (see the note added to
-  that doc).
+None — moot, given §7. The naming/isolation-level/test-isolation
+questions that would have followed from actually building this no
+longer apply. (The note added to
+`docs/solution-proposals/integration-testing.md` pointing at this
+document as a dependency has been corrected back — its original
+"truncate between tests" recommendation stands unmodified.)
