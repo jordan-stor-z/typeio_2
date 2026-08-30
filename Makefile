@@ -48,4 +48,4 @@ migrate-new:
 
 ## run program to seed database
 seed-db:
-	curl --location --request POST 'localhost:3000/api/central/seed-database'
+	curl --location --request POST 'localhost:$(or $(WEB_PORT),3000)/api/central/seed-database'
