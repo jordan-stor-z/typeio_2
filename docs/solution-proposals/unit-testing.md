@@ -86,8 +86,10 @@ actually is:
 `validate*`/`showNodeType`/`classNodeType`/`toGraph`/`formatUpdated`/
 link-building (`pushUrl`, `nodePanelLink`, etc.) functions scattered
 through `responder/ui/ProjectManage/*` and friends. These are pure given
-their inputs even though they live in otherwise IO-heavy modules — worth
-testing directly rather than only indirectly through a handler.
+their inputs even though they live in otherwise IO-heavy modules —
+**not prioritized per the decision below**: small enough, and close
+enough to the handler code that exercises them, that unit-testing them
+in isolation wasn't judged worth it for now.
 
 **Tier 3 — config validation:** `Config.App`/`Config.Db`/`Config.Web`'s
 `validateConfig` functions are pure given a constructed `LookupDbConfig`/
@@ -217,31 +219,54 @@ and handing back an inspectable `SResponse`. Any handler-level test —
 with or without a repository layer — needs to go through
 `Network.Wai.Test`, not a hand-rolled fake `respond`.
 
-**Recommendation: option 2 for now.** Standing up an ephemeral test
-Postgres is exactly the same infrastructure #17's E2E spike will need for
-its own seeded test database — solve it once, likely as part of whichever
-of the two spikes gets implemented first, and have the other reuse it
-rather than inventing a second answer to "how do we get a disposable test
-database."
+**Superseded by the decision below:** this section originally leaned
+toward option 2 (integration tests) as the near-term answer. The actual
+decision goes further — option 1 (repository injection) is rejected
+outright, not just deferred, in favor of keeping Locality of Behavior;
+see [§8](#8-decision). Integration tests against an ephemeral test
+Postgres are still the eventual answer for these handlers, and would
+still share infrastructure with #17's E2E spike when that work happens —
+just not as part of adopting testing right now.
 
 ## 6. CI
 
 There's no CI in this repo yet (same gap #17 already flagged). Whichever
-lands first between this and #17, worth noting: a unit suite (tier 1–3,
-no database needed) is cheap and fast enough that it should be the first
-thing wired into GitHub Actions, well before the heavier lift of
-browser-driven E2E tests or DB-backed integration tests — it's the
-highest signal-per-minute-of-CI-time option available.
+lands first between this and #17, worth noting: a unit suite (tiers 1 and
+3 per the decision below, no database needed) is cheap and fast enough
+that it should be the first thing wired into GitHub Actions, well before
+the heavier lift of browser-driven E2E tests or DB-backed integration
+tests — it's the highest signal-per-minute-of-CI-time option available.
 
 ## 7. Open questions
 
-- Does the team want a repository-layer refactor (§5, option 1) on the
-  roadmap at all, or is "integration tests for DB-touching handlers"
-  an acceptable permanent boundary? This doc recommends *not* deciding
-  that as part of adopting testing — but it's a real architectural
-  question worth having explicitly rather than by default.
+- ~~Does the team want a repository-layer refactor (§5, option 1) on the
+  roadmap at all, or is "integration tests for DB-touching handlers" an
+  acceptable permanent boundary?~~ Resolved — see [§8](#8-decision).
 - Whichever of this ticket or #17 lands first should own building the
-  ephemeral-test-Postgres setup; the other should consume it.
+  ephemeral-test-Postgres setup; the other should consume it. Since
+  responder integration tests are now explicitly deferred (§8), #17 is
+  more likely to be the one that ends up building this first.
 - Revisit `Tasty`/golden testing if the Lucid template functions start
   seeing enough regressions that eyeballing diffs in review isn't
   sufficient.
+
+## 8. Decision
+
+Confirmed 2026-08-30, via PR review:
+
+- **Framework: Hspec**, as recommended in §2 — no changes.
+- **Tier 2 (pure helpers scattered through responder modules) is
+  dropped from scope.** Small enough, and close enough to the code that
+  exercises them, that testing them in isolation wasn't judged worth it.
+- **Responders get no unit tests.** Option 1 from §5 (injecting a
+  repository layer so handler logic can run against a fake) is
+  **rejected outright**, not deferred — the cost is explicitly
+  [Locality of Behavior](https://htmx.org/essays/locality-of-behaviour/):
+  keeping what a handler does (including its query) visible in one place
+  is valued over making that handler unit-testable in isolation.
+  Integration tests against a real database are the intended eventual
+  answer for this layer, but that's future work, not part of adopting
+  testing now — see the updated note in §5.
+- **Net scope for the first test suite: Tier 1 + Tier 3 only**
+  (`Common.Validation`, `Data.Either`, `Data.HashTree`, `Data.Text.Util`,
+  and `Config.App`/`Db`/`Web`'s validation logic).
