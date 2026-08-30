@@ -24,24 +24,39 @@ graph-based layout for visualizing and managing those dependencies.
     consumers — DB query logging (`Logging.Database`) and HTTP
     request/response logging (`Domain.System.Middleware.Logging.*`),
     correlated by a per-request UUID.
-  - See `docs/development/backend/` for deeper write-ups as they land
-    (routing, environment, containers, logging are tracked in issues
-    #8–#11); until then, the modules above are the source of truth.
+  - Full write-up: [`docs/development/backend/`](docs/development/backend/)
+    (one file each for routing, environment, containers, logging).
 - **HTML rendering:** Lucid — UI is built as Haskell combinators
   (`Html ()` values, e.g. `div_`, `header_`) evaluated server-side to
   HTML. There are no template files; a `View.hs`/template module per
-  feature is the pattern (see `responder/ui/*/View.hs`).
+  feature is the pattern (see `responder/ui/*/View.hs`). Full write-up:
+  [`docs/development/ui/`](docs/development/ui/).
 - **Client-side:** htmx (partial-page swaps between a persistent
   `#container` shell and per-page `#view` fragments), hyperscript.org
   (the `h_ "..."` attribute, for small declarative effects like
-  flash-on-update), and D3.js (the dependency-graph visualization). See
-  `docs/development/frontend/` once issue #12 lands.
+  flash-on-update), and D3.js (the dependency-graph visualization). Full
+  write-up: [`docs/development/frontend/`](docs/development/frontend/).
 - **Database:** PostgreSQL 15 (Docker), accessed via esqueleto/persistent.
 - **Migrations:** SQL files in `migrations/`, managed via the `migrate`
   CLI, paired `.up.sql`/`.down.sql`.
-- **Docs:** `docs/` holds architecture notes, developer docs, and
-  solution proposals — check `docs/README.md`'s index before assuming
-  something isn't documented.
+
+## Docs Map
+
+The bullets above are a fast-orientation summary, not the full picture —
+`docs/` has the actual depth (rationale, gotchas, code examples). Start
+at [`docs/README.md`](docs/README.md) for the full index; the common
+cases:
+
+| Need to know about... | Read |
+|---|---|
+| Getting set up / how a request flows end-to-end | `docs/development/onboarding.md` |
+| `#container`/`#view`, Lucid rendering, CSS conventions | `docs/development/ui/` |
+| htmx or hyperscript attribute patterns | `docs/development/frontend/` |
+| The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
+| An open design question / pending decision | `docs/solution-proposals/` |
+
+If you're about to touch code in one of these areas and haven't read its
+doc yet, read it first — that's the point of it existing.
 
 ## Setup & Local Development
 
