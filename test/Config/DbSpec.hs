@@ -56,25 +56,21 @@ spec = do
       result `shouldBe` Nothing
       errs `shouldBe` ["DB_POOL_COUNT must be a valid integer"]
 
-    it "flags a pool count above the *actually enforced* range with a specific message, but \
-       \(per isBetween's own logs-but-passes-through design, see Common.ValidationSpec) still \
+    it "flags a pool count above the allowed range with a specific message, but (per \
+       \isBetween's own logs-but-passes-through design, see Common.ValidationSpec) still \
        \returns the out-of-range value rather than Nothing" $ do
-      -- Unlike Config.Web's WEB_PORT check (see #38), this one passes
-      -- its own message to isBetween instead of reusing the generic
-      -- "missing" one. But the message ("between 1 and 10") and the
-      -- code (`isBetween 1 11`) disagree by one -- 11 is actually
-      -- accepted, not rejected (see the boundary test below). Testing
-      -- the real, current behavior here (flags at 12), not what the
-      -- message claims.
-      let (result, errs) = runWriter (validateConfig validLookup { poolCount' = Just "12" })
-      result `shouldBe` Just validConfig { poolCount = 12 }
+      -- #48: this used to disagree with its own message (code allowed up
+      -- to 11, message said 10) -- fixed to isBetween 1 10, matching the
+      -- message and the .env value actually in use (DB_POOL_COUNT=10).
+      let (result, errs) = runWriter (validateConfig validLookup { poolCount' = Just "11" })
+      result `shouldBe` Just validConfig { poolCount = 11 }
       errs `shouldBe` ["DB_POOL_COUNT must be between 1 and 10"]
 
-    it "accepts a pool count at each edge of the *actually enforced* range (1 to 11, not 1 to 10)" $ do
+    it "accepts a pool count at each edge of the allowed range (1 to 10)" $ do
       runWriter (validateConfig validLookup { poolCount' = Just "1" })
         `shouldBe` (Just validConfig { poolCount = 1 }, [])
-      runWriter (validateConfig validLookup { poolCount' = Just "11" })
-        `shouldBe` (Just validConfig { poolCount = 11 }, [])
+      runWriter (validateConfig validLookup { poolCount' = Just "10" })
+        `shouldBe` (Just validConfig { poolCount = 10 }, [])
 
     it "treats an empty string as present-but-invalid, NOT the same as missing -- isNotEmpty logs \
        \an error but still returns the (blank) value unchanged, so the field ends up Just \"\" \
