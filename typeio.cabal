@@ -88,7 +88,6 @@ library src
       , Domain.System.Middleware.Logging.Response
       , Logging.Core
       , Logging.Database
-      , Environment.Acquire
       , Environment.Db
       , Environment.Env
       , Environment.Logging
