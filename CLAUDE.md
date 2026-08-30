@@ -123,6 +123,17 @@ doc yet, read it first — that's the point of it existing.
      resolves the ticket.
   7. If the ticket auto-closed from an earlier merge, add a closing
      comment linking the PR instead of re-closing it.
+- **PR comments come from two separate GitHub APIs — check both, every
+  time, or you will miss feedback.** `gh pr view <n> --json comments`
+  only returns top-level conversation comments. Inline/file-anchored
+  review comments (left on a specific line in the GitHub UI's "Files
+  changed" tab) do **not** show up there — they need
+  `gh api repos/<owner>/<repo>/pulls/<n>/comments`. When asked to check
+  a PR for feedback, run both before concluding there's nothing to
+  address. To reply to an inline comment specifically (not just leave a
+  new top-level comment), use
+  `gh api repos/<owner>/<repo>/pulls/<n>/comments -f body="..." -F in_reply_to=<comment_id>`,
+  with the `id` from the inline-comments listing above.
 
 ## Git Safety & Branch Boundaries (STRICT)
 
