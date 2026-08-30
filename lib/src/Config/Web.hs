@@ -75,7 +75,7 @@ validateConfig c = do
             >>= isThere           (er webPort)
             >>= isNotEmpty        (er webPort)
             >>= valRead           "WEB_PORT must be a valid integer"
-            >>= isBetween 1 65535 (er webPort)
+            >>= isBetween 1 65535 "WEB_PORT must be between 1 and 65535"
   reqid <- loadRequestIdHeader c
             .$ id
             >>= isThere (er webRequestIdHeader)
