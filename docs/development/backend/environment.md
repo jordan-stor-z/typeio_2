@@ -51,19 +51,16 @@ this `Env`.
 `AppConfig` (`Config.App`) bundles `EnvironmentName` (`Local` /
 `Development` / `Production`), `DbConfig` (`Config.Db`), and `WebConfig`
 (`Config.Web`) — each loaded from its own set of environment variables
-(`DB_HOST`, `DB_PORT`, `WEB_PORT`, `WEB_REQUEST_ID_HEADER`, etc. — see
-`.env` for the full list) via `lookupEnv`, never hardcoded.
+(`DB_HOST`, `DB_PORT`, `WEB_REQUEST_ID_HEADER`, etc. — see `.env` for the
+full list) via `lookupEnv`, never hardcoded. `WEB_PORT` is the one
+exception with a default (`3000`, see `Config.Web.defaultWebPort`) rather
+than being required.
 
 Validation is accumulating, not fail-fast: each field is checked
 independently (present, non-empty, parses, in range) and any failure is
 recorded, so `loadConfig` either returns a fully valid `AppConfig` or
 raises with **every** missing/invalid variable listed at once — not just
 the first one it happened to check.
-
-**Known wart:** `Config.Web.lookupWebConfig` has a leftover debug
-`print "PORT ::::" / print port'` that fires on every config load. Not
-harmful, but worth knowing about so a stray stdout line at startup
-doesn't look like something new is wrong.
 
 ## What used to be here: `Environment.Acquire`
 

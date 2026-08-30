@@ -12,6 +12,7 @@ import Common.Validation    ( (.$)
 import Control.Monad.Writer (Writer)
 import Data.Aeson           ((.=), ToJSON, toJSON, object)
 import Data.CaseInsensitive (mk, original)
+import Data.Maybe           (fromMaybe)
 import Data.Text            (pack)
 import Network.HTTP.Types   (HeaderName)
 import System.Environment   (lookupEnv)
@@ -25,6 +26,11 @@ webPort = "WEB_PORT"
 
 webRequestIdHeader :: String
 webRequestIdHeader = "WEB_REQUEST_ID_HEADER"
+
+-- | Used when WEB_PORT isn't set at all. Matches the port already
+-- hardcoded in `make seed-db`/`local/script/seed-database.sh`.
+defaultWebPort :: String
+defaultWebPort = "3000"
 
 data LookupWebConfig = LookupWebConfig 
   { loadIndexRedirect   :: Maybe String 
@@ -52,12 +58,10 @@ lookupWebConfig :: IO LookupWebConfig
 lookupWebConfig = do
   redir <- lookupEnv webIndexRedirect
   port' <- lookupEnv webPort
-  print "PORT ::::"
-  print port'
   reqid <- lookupEnv webRequestIdHeader
-  return $ LookupWebConfig 
+  return $ LookupWebConfig
     { loadIndexRedirect   = redir
-    , loadPort            = port'
+    , loadPort            = Just (fromMaybe defaultWebPort port')
     , loadRequestIdHeader = reqid
     }
 

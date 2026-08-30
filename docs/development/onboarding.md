@@ -10,12 +10,14 @@ hang off of.
 - Docker, for PostgreSQL.
 - A `.env` file at the repo root (see the keys `Config.App`/`Config.Db`/
   `Config.Web` look up — `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USER`,
-  `DB_PASS`, `DB_POOL_COUNT`, `DB_SCHEMA`, `ENV`, `WEB_PORT`,
+  `DB_PASS`, `DB_POOL_COUNT`, `DB_SCHEMA`, `ENV`,
   `WEB_INDEX_REDIRECT`, `WEB_REQUEST_ID_HEADER`). Loading is silently
   best-effort (`Platform.Web.loadDotEnv` swallows a missing file), but
   the app will fail fast at startup with every missing/invalid variable
   listed at once if any of these aren't actually set — see
-  [`backend/environment.md`](backend/environment.md).
+  [`backend/environment.md`](backend/environment.md). `WEB_PORT` is the
+  one exception: it's optional and defaults to `3000` if unset (see
+  `Config.Web.defaultWebPort`).
 
 ## Getting it running
 
@@ -26,6 +28,9 @@ make seed-db           # seed sample data
 cabal build all        # build everything
 cabal run server        # start the app, reads .env
 ```
+
+Once it's running, visit `http://localhost:3000` (or whatever `WEB_PORT`
+is set to) in a browser.
 
 Other `make migrate-*` targets (`migrate-down`, `migrate-down-all`,
 `migrate-new NAME=...`, `migrate-version`, `migrate-force VERSION=...`)
