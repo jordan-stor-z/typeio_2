@@ -8,9 +8,17 @@ proposals for this project.
 - `solution-proposals/` — spike/investigation write-ups that compare options
   for a problem and recommend a path forward, before implementation work is
   ticketed. One document per proposal, named for its topic.
-- Additional subdirectories (`architecture/`, `developer/`, etc.) should be
-  added here as their first document is written, following the same pattern.
+- `development/` — reference docs on how the app actually works, grouped by
+  area (`ui/`, `frontend/`, `backend/`), plus onboarding. Each area has an
+  `index.md` linking its own files.
 
 ## Index
 
+- [`development/onboarding.md`](development/onboarding.md) — **start here.** Setup steps and a request-lifecycle walkthrough linking everything else below.
+- [`development/ui/index.md`](development/ui/index.md) — the `#container`/`#view` component pattern, Lucid-as-templating, and global vs. scoped CSS.
+- [`development/frontend/index.md`](development/frontend/index.md) — HTMX and hyperscript usage.
+- [`development/backend/routing.md`](development/backend/routing.md) — the `Data.HashTree`-based router.
+- [`development/backend/environment.md`](development/backend/environment.md) — the `Env` record (config, logger, DB pool) acquired once at startup.
+- [`development/backend/containers.md`](development/backend/containers.md) — the Container dependency-injection pattern.
+- [`development/backend/logging.md`](development/backend/logging.md) — the two structured-JSON logging pipelines (request/response, database).
 - [`solution-proposals/haskell-auto-formatting.md`](solution-proposals/haskell-auto-formatting.md) — options for an auto-formatting setup for `.hs` files that works for both human editors (format-on-save) and AI agents.
