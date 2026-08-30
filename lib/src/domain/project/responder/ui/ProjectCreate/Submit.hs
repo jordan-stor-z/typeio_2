@@ -124,7 +124,7 @@ handleProjectSubmit pl req respond = do
 redirectHeader :: (HeaderName, ByteString)
 redirectHeader = 
   let hd = encode $ LocationResponseHeader
-        { path = "/ui/projects/vw"
+        { path   = "/ui/projects/vw"
         , target = "#container"
         }
   in ("Hx-Location", toStrict hd)

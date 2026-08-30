@@ -36,6 +36,6 @@ maskField _ fld        = fld
 preprocessConfig :: EnvironmentName -> AppConfig -> AppConfig
 preprocessConfig env cfg = cfg { dbConf = db' }
   where
-    d = dbConf cfg
-    db' = d { password = maskField env (password d) } 
+    d   = dbConf cfg
+    db' = d { password = maskField env (password d) }
 

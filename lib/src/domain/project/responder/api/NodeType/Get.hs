@@ -31,7 +31,7 @@ handleGetNodeTypes pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
   where
-    query = select $ from $ table @M.NodeType
+    query                 = select $ from $ table @M.NodeType
     toSchema (Entity k _) = NodeType
       { nodeTypeId = M.unNodeTypeKey k
       }

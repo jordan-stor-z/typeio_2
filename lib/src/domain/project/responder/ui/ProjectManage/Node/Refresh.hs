@@ -100,8 +100,8 @@ handleGetNodeRefresh pl req rspnd = do
 
 queryTextToForm :: QueryText -> GetNodeRefreshForm 
 queryTextToForm qt = GetNodeRefreshForm 
-  { formProjectId = lookupVal "projectId" qt
-  , formNodeId    = lookupVal "nodeId" qt
+  { formProjectId       = lookupVal "projectId" qt
+  , formNodeId          = lookupVal "nodeId" qt
   , formClientNodeTitle = lookupVal "clientTitle" qt
   }
 
@@ -118,7 +118,7 @@ templateRefresh (Entity k e) = do
      ] empty
   where
     empty = mempty :: Html ()
-    nsel = (<>) "#node-" . intToText . fromSqlKey $ k
+    nsel  = (<>) "#node-" . intToText . fromSqlKey $ k
 
 validatePayload :: Monad m 
   => GetNodeRefreshForm  

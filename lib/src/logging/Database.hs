@@ -64,10 +64,10 @@ databaseLog :: (ToLogStr a)
   -> DatabaseLog 
 databaseLog src lvl msg t = 
   DatabaseLog 
-    { message = queryMessage msg
-    , level = lvl
-    , source = src
-    , timestamp = t 
+    { message   = queryMessage msg
+    , level     = lvl
+    , source    = src
+    , timestamp = t
     }
 
 queryMessage :: ToLogStr a => a -> QueryMessage 

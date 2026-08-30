@@ -63,7 +63,7 @@ handleGetNodes pl respond = do
   ns <- encode . map toSchema <$> runSqlPool query pl 
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
   where
-    query = select $ from $ table @M.Node
+    query                 = select $ from $ table @M.Node
     toSchema (Entity k v) = Node
       { created      = M.nodeCreated v
       , deleted      = M.nodeDeleted v

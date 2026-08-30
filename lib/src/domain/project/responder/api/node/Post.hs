@@ -99,8 +99,8 @@ handlePostNode pl req respond = do
     rt  <- lift (queryRoot (projectId pyl) rtp)
             >>= hoistMaybe ProjectRootNotFound 
     _ <- lift $ insert $ M.Dependency 
-            { M.dependencyNodeId = ky
-            , M.dependencyToNodeId = entityKey rt 
+            { M.dependencyNodeId   = ky
+            , M.dependencyToNodeId = entityKey rt
             }
     pure $ Entity ky nd
   case rslt of
