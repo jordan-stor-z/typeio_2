@@ -112,7 +112,11 @@ doc yet, read it first — that's the point of it existing.
   `gh issue view <n>`, not a local file.
 - Branch naming: `feature/issue-$N-<short-description>` for issue `$N`.
 - Workflow:
-  1. `gh issue view <n>` to read the ticket.
+  1. `gh issue view <n> --comments` to read the ticket — **`--comments`
+     matters**: plain `gh issue view <n>` only shows a comment *count*,
+     not their content, so a heads-up left on a ticket (e.g. a snag
+     found implementing a related issue) is silently invisible without
+     the flag.
   2. Confirm a clean workspace (`git status`), then
      `git checkout main && git pull`.
   3. `git checkout -b feature/issue-$N-<short-description>`.
