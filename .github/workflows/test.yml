@@ -17,6 +17,13 @@ on:
       - 'cabal.project'
       - '.github/workflows/test.yml'
 
+# Without this, pushing a second commit to the same PR starts a second,
+# fully concurrent run rather than replacing the first -- doubling CI
+# minutes for no benefit, since only the latest commit's result matters.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   test:
     # Pinned to a specific Ubuntu release, not the floating `ubuntu-latest`
