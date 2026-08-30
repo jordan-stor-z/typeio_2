@@ -89,17 +89,20 @@ container start/stop cost, not per-test truncation, will dominate
 runtime). Re-migrating per test run (not per test) is still worth doing
 once, at suite startup, against the fresh container.
 
-**Depends on #50**: the reasoning above ("`runSqlPool` always commits,
-so there's no outer transaction to roll back") is describing a real
-limitation of the current architecture, not just a testing
-inconvenience — #50 is a spike specifically about redesigning the
-transaction boundary itself (lazy, request-scoped, shared across
-domains within one request). If/when that lands, this section's
-"truncate between tests" recommendation should be revisited — a
-request-scoped transaction that a test can hold open and roll back
-itself might make per-test rollback viable after all, which would be
-both simpler and faster than truncation. Don't treat this section as
-settled independently of #50's outcome.
+**Settled, not pending**: this section previously noted a dependency on
+[#50](https://github.com/jordan-stor-z/typeio_2/issues/50), which
+explored lifting the transaction boundary out of the responder
+specifically to get cross-domain atomicity. #50 was **decided against**
+— not because the "`runSqlPool` always commits" reasoning above was
+wrong, but because cross-domain atomicity doesn't actually require
+lifting the transaction at all: `Domain.Central` already exists as
+where multiple domains compose to serve one view, and the standing
+model is one responder calling directly into other domains' functions
+within its own existing transaction — "only one responder ever handles
+a request" holds regardless of how many domains that responder touches.
+So the per-responder transaction boundary isn't going away, which means
+truncate-between-tests isn't a placeholder — it's the answer, and this
+section doesn't need revisiting when some other ticket lands.
 
 ## 6. Seeding
 
