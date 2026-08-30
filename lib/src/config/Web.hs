@@ -57,11 +57,11 @@ loadWebConfig = validateConfig <$> lookupWebConfig
 lookupWebConfig :: IO LookupWebConfig
 lookupWebConfig = do
   redir <- lookupEnv webIndexRedirect
-  port' <- lookupEnv webPort
+  port' <- fromMaybe defaultWebPort <$> lookupEnv webPort
   reqid <- lookupEnv webRequestIdHeader
   return $ LookupWebConfig
     { loadIndexRedirect   = redir
-    , loadPort            = Just (fromMaybe defaultWebPort port')
+    , loadPort            = Just port'
     , loadRequestIdHeader = reqid
     }
 
