@@ -47,6 +47,7 @@ library src
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.Ui.ProjectCreate.Submit
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Environment.Db
     other-modules:
       Common.Web.Attributes
@@ -71,7 +72,6 @@ library src
       , Domain.Project.Responder.Ui.ProjectManage.Graph
       , Domain.Project.Responder.Ui.ProjectManage.Link
       , Domain.Project.Responder.Ui.ProjectManage.Node
-      , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Domain.Project.Responder.Ui.ProjectManage.Node.Detail
       , Domain.Project.Responder.Ui.ProjectManage.Node.Edit
       , Domain.Project.Responder.Ui.ProjectManage.Node.Query
@@ -176,6 +176,7 @@ test-suite integration
       Integration.Support
       , Domain.Project.Responder.Api.Node.PostSpec
       , Domain.Project.Responder.Ui.ProjectCreate.SubmitSpec
+      , Domain.Project.Responder.Ui.ProjectManage.Node.DescriptionSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
