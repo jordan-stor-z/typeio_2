@@ -1,0 +1,102 @@
+name: Security Scan
+
+# Google's OSV-Scanner, filling the one real gap GitHub's native security
+# features leave: Dependabot doesn't support the Hackage ecosystem
+# (dependabot/dependabot-core#2745, tracked upstream, not shipped as of
+# this writing). Native Dependabot (npm) and secret scanning already
+# cover the rest -- see docs/solution-proposals/security-scanning.md
+# (#62) for the full investigation and decision (§3-§9).
+#
+# Deliberately a SEPARATE workflow from test.yml, not a new job in it --
+# different trigger shape (needs `schedule` too, below) and different
+# blocking semantics (informational, below). See docs/development/ci.md.
+#
+# Triggers on every PR into main (same shape as test.yml -- no `paths:`
+# filter; see the proposal's §6) plus a weekly schedule. These catch
+# different problems: per-PR catches a newly *introduced* vulnerable
+# dependency; the schedule catches a dependency that didn't change but
+# became known-vulnerable since it was last touched, which no PR would
+# ever trigger a check for.
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, matching Dependabot's own default cadence for version
+    # updates. The exact time isn't load-bearing -- just a low-traffic
+    # UTC slot (see the proposal's §10 open questions).
+    - cron: '0 5 * * 1'
+
+# Same reasoning as test.yml: a second push to the same PR should
+# replace the first run, not queue a second one alongside it. Scheduled
+# runs have no PR number, so fall back to the ref.
+concurrency:
+  group: security-scan-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-scan:
+    # Same pinned-OS reasoning as test.yml/integration-test.yml.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          # Same pinned versions as test.yml/integration-test.yml -- see
+          # typeio.cabal's `base ^>=4.18.3.0` bound and
+          # docs/development/onboarding.md.
+          ghc-version: '9.6.7'
+          cabal-version: '3.12.1.0'
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-cabal-${{ hashFiles('typeio.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      # No committed cabal.project.freeze exists, deliberately -- see
+      # the proposal's §5. Generate one at scan time so OSV-Scanner has
+      # the exact resolved versions to check against, not just the
+      # version *bounds* typeio.cabal declares.
+      - name: cabal freeze
+        run: cabal freeze
+
+      # Scans cabal.project.freeze (just generated) and, if/when real JS
+      # deps exist again (#100), package-lock.json -- one tool, one job,
+      # both ecosystems (§4).
+      #
+      # continue-on-error: this check is informational only (§7), not a
+      # required status check, so a finding -- or the scan step itself
+      # failing -- shouldn't fail the job, only be reflected in the
+      # summary below.
+      - name: Run OSV-Scanner
+        id: osv-scan
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
+        with:
+          scan-args: |-
+            --output=osv-results.md
+            --format=markdown
+            --recursive
+            ./
+
+      # Findings surface via the job summary -- no new dashboard or
+      # third-party service (§7). Deliberately the raw scanner action
+      # with markdown output appended to $GITHUB_STEP_SUMMARY here,
+      # rather than this project's own reusable workflow: that uploads
+      # SARIF to Security > Code Scanning and fails the job on any
+      # finding by default, neither of which fits an informational-only
+      # check.
+      - name: Publish findings to job summary
+        if: always()
+        run: |
+          echo "## OSV-Scanner results" >> "$GITHUB_STEP_SUMMARY"
+          if [ -s osv-results.md ]; then
+            cat osv-results.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No OSV-Scanner report was produced (no findings, or the scan step failed -- see the \"Run OSV-Scanner\" step above)." >> "$GITHUB_STEP_SUMMARY"
+          fi
