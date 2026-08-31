@@ -15,6 +15,8 @@ page.
   plain Haskell values (Lucid), with no templating language.
 - [**Styles**](styles.md) — what belongs in the global stylesheets versus
   a per-view one.
+- [**Design system**](design-system.md) — the actual color/theme tokens,
+  and the indicator/loading-state patterns built on top of them.
 
 See also [`docs/development/frontend/`](../frontend/) for how htmx and
 hyperscript — the client-side libraries doing the swapping and the small
