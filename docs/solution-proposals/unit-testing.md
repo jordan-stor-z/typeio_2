@@ -1,6 +1,6 @@
 # Solution Proposal: Unit Testing
 
-- **Status:** Proposed
+- **Status:** Decided — see §8. Implemented (#28–#34).
 - **Date:** 2026-08-30
 - **Related:** #26 (this spike), #17 (E2E testing spike — cross-referenced
   below on the "ephemeral test Postgres" question so the two don't solve

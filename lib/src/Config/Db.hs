@@ -96,7 +96,7 @@ validateConfig c = do
   plct  <- poolCount' c .$ id >>= isPresent keyPoolCount
                               >>= valRead 
                                 (errcat keyPoolCount " must be a valid integer")
-                              >>= isBetween 1 11 
+                              >>= isBetween 1 10
                                 (errcat keyPoolCount " must be between 1 and 10")
   schma <- schema'    c .$ id >>= isPresent keySchema
   usr   <- user'      c .$ id >>= isPresent keyUser
