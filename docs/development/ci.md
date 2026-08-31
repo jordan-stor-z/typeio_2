@@ -1,12 +1,15 @@
 # CI
 
-There are two GitHub Actions workflows:
+There are three GitHub Actions workflows:
 
 - `.github/workflows/test.yml` — builds the app and runs the unit test
   suite. **Required** to merge into `main`.
 - `.github/workflows/integration-test.yml` — runs the Docker-backed
   integration test suite. Informational only, not required — see
   [Integration test workflow](#integration-test-workflow) below.
+- `.github/workflows/security-scan.yml` — scans dependencies for known
+  vulnerabilities with OSV-Scanner. Informational only, not required —
+  see [Security scan workflow](#security-scan-workflow) below.
 
 ## What it does
 
@@ -74,6 +77,61 @@ A few ways this deliberately differs from the `test` workflow above:
   `docker-entrypoint-initdb.d` approach) — nothing extra to install on
   the runner beyond the same GHC/cabal setup `test.yml` already uses.
 
+## Security scan workflow
+
+`.github/workflows/security-scan.yml` runs
+[OSV-Scanner](https://github.com/google/osv-scanner) against the repo's
+dependencies. It exists to fill one specific gap: Dependabot (native,
+free, no workflow needed — see
+`docs/solution-proposals/security-scanning.md` §3) doesn't support the
+Hackage ecosystem, so nothing else in the repo checks Haskell
+dependencies against known CVEs. See the proposal (#62) for the full
+investigation and decision; this section just documents the shape that
+landed.
+
+Steps:
+
+1. Install GHC/cabal via `haskell-actions/setup`, same versions and
+   caching as `test.yml`.
+2. `cabal freeze`, generating `cabal.project.freeze` at scan time — the
+   repo doesn't commit one (deliberately; see the proposal's §5), so
+   this is what gives OSV-Scanner exact resolved versions to check
+   instead of just the version *bounds* `typeio.cabal` declares.
+3. Run `google/osv-scanner-action` recursively from the repo root. This
+   picks up the freeze file just generated, and — if/when
+   `package-lock.json` is real again (#100) — npm dependencies too. One
+   tool, one job, both ecosystems.
+4. Append the scan's markdown output to the job summary
+   (`$GITHUB_STEP_SUMMARY`). This is deliberately the raw scanner action
+   with `continue-on-error: true` on the scan step, not this project's
+   own reusable workflow (`osv-scanner-reusable.yml`) — that uploads
+   SARIF to Security > Code Scanning and fails the job on any finding by
+   default, and this check is informational only (below), not a new
+   dashboard.
+
+A few ways this deliberately differs from `test.yml` and
+`integration-test.yml`:
+
+- **Two triggers, not one**: every PR into `main` (no `paths:` filter —
+  same shape as `test.yml`, see the proposal's §6) *and* a weekly
+  `schedule`. These catch different problems: a PR catches a newly
+  *introduced* vulnerable dependency; the schedule catches a dependency
+  that didn't change but became known-vulnerable since it was last
+  touched, which no PR would ever trigger a check for. The scheduled run
+  is also the one exception to [Why pull requests
+  only](#why-pull-requests-only-not-main) below — `main` is exactly the
+  right target for it, since it's checking for drift in the *outside
+  world* (newly disclosed CVEs), not re-checking something a PR already
+  covered.
+- **Not a required check**, and not planned to become one without a
+  separate, deliberate decision — see the proposal's §7 for why a
+  vulnerability finding shouldn't block the specific PR that happened to
+  trigger the scan.
+- **A separate workflow file**, not a job in `test.yml` — different
+  trigger shape (needs `schedule`) and different blocking semantics
+  (informational vs. required) than `test.yml`'s `test` job; see the
+  proposal's §8.
+
 ## Why it always runs, and skips internally instead of using `paths`
 
 The first version of this workflow used a top-level `on.pull_request.paths`
@@ -107,6 +165,9 @@ required from the workflow.
 
 `integration-test.yml` triggers on `pull_request` only too, for the
 same reason — it's just not part of what branch protection enforces.
+`security-scan.yml` triggers on `pull_request` for the same reason, but
+also adds a weekly `schedule` — see [Security scan
+workflow](#security-scan-workflow) above for why that one's different.
 
 ## Running the same checks locally
 
