@@ -1,0 +1,13 @@
+{
+  "name": "typeio-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Playwright end-to-end test suite for typeio, driven against a real running server + seeded Postgres. See README.md for how to run it locally.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^20.19.0"
+  }
+}
