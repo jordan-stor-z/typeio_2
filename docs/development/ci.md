@@ -23,11 +23,11 @@ Its steps:
    [`onboarding.md`](onboarding.md)/`typeio.cabal`'s `base ^>=4.18.3.0`
    bound) — cache the cabal store and `dist-newstyle` (keyed on
    `typeio.cabal`), then `cabal build all` and `cabal test`
-   (`docs/solution-proposals/unit-testing.md`).
+   (see [`unit-testing.md`](unit-testing.md)).
 
 No database or service container is involved — the current test suite
-is entirely pure (Tier 1 + Tier 3 modules, see the unit-testing decision
-doc). That changes once integration tests
+is entirely pure (see [`unit-testing.md`](unit-testing.md) for what's
+covered and why). That changes once integration tests
 (`docs/solution-proposals/integration-testing.md`) exist; this workflow
 doesn't cover those yet.
 

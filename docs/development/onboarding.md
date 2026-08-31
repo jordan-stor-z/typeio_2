@@ -94,6 +94,8 @@ Roughly, from `cabal run server` down to a response:
   one concern per file.
 - [`ci.md`](ci.md) — what CI runs on a PR, and how to reproduce it
   locally before pushing.
+- [`unit-testing.md`](unit-testing.md) — where tests live, how to run
+  them, and what's in/out of scope.
 - [`../solution-proposals/`](../solution-proposals/) — spikes and
   decisions, e.g. the plan to adopt Fourmolu for auto-formatting.
 
