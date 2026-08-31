@@ -8,7 +8,7 @@ MIGRATE=migrate
 MIGRATIONS_DIR=migrations
 
 # --- Commands ---
-.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test
+.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test test-integration
 
 ## Run migratin tests
 test-migrations:
@@ -52,4 +52,11 @@ seed-db:
 
 ## Run the Haskell unit test suite
 test:
-	cabal test
+	cabal test spec
+
+## Run the Haskell integration test suite (needs Docker -- starts and
+## tears down its own disposable, already-migrated Postgres via
+## testcontainers, no manually-started database or `migrate` CLI
+## required)
+test-integration:
+	cabal test integration
