@@ -30,6 +30,7 @@ proposals for this project.
 - [`development/backend/logging.md`](development/backend/logging.md) — the two independent structured-JSON logging pipelines (request/response, and database queries) and why they're separate.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
 - [`development/unit-testing.md`](development/unit-testing.md) — where tests live, how to run them, what's actually covered (and what's deliberately not, and why).
+- [`development/integration-testing.md`](development/integration-testing.md) — the responder-testing suite unit tests deliberately skip: a disposable `testcontainers` Postgres, truncate-based isolation, the reference-data-vs-fixture seeding split, and what's covered so far (the `handlePostNode` pilot).
 - [`development/labels.md`](development/labels.md) — the `type:*`/`area:*` GitHub issue label taxonomy, and when to use each.
 - [`development/release-management.md`](development/release-management.md) — how to cut a release (bump `typeio.cabal`'s `version:`), what happens automatically once it merges (tag + GitHub Release), and what deliberately doesn't exist yet (`CHANGELOG.md`, Milestones, release branches).
 - [`development/infrastructure.md`](development/infrastructure.md) — repo-level config (GitHub branch protection) managed as Terraform + Terragrunt, the HCP Terraform state backend decision, and how to import/plan/apply it.
