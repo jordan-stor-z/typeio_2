@@ -1,6 +1,6 @@
 # Solution Proposal: Security Scanning for CI/CD
 
-- **Status:** Proposed
+- **Status:** Decided — see §11. Implementation tracked in #99–#101.
 - **Date:** 2026-08-31
 - **Related:** #62 (this spike), `docs/development/ci.md` (required-check
   path-filter gotcha this proposal designs around), #46/#47 (pending
@@ -261,3 +261,36 @@ out of scope for this proposal.
   redundant with a free native feature — not a reason to wait on this
   proposal now, since there's no committed timeline for that upstream
   work.
+
+## 11. Decision
+
+Confirmed 2026-08-31. Every recommendation in §9 is adopted as written:
+
+- **Native features, no workflow: Dependabot alerts, Dependabot
+  security updates, and secret scanning**, plus a `.github/dependabot.yml`
+  with an `npm` entry and no Hackage entry (§3) — tracked in #99.
+- **Gap-filler: OSV-Scanner, one job, both ecosystems** — reads a
+  scan-time-generated `cabal.project.freeze` (not committed) and
+  `package-lock.json` (§4/§5) — tracked in #101.
+- **Trigger model: both per-PR and weekly-scheduled**, since they
+  catch different problems (newly introduced vs. newly disclosed CVEs)
+  (§6) — tracked in #101.
+- **Blocking: informational, not a required check** (§7) — tracked in
+  #101.
+- **A separate workflow file**, `security-scan.yml`, not a job in
+  `test.yml` (§8) — tracked in #101.
+- **Cleanup: remove `package.json`/`package-lock.json`** — orphaned,
+  not part of the shipped app (§2.2/§9) — tracked in #100.
+
+**Implementation tracked in #99–#101**, not yet landed as of this
+Decision — unlike `release-management.md`'s decision, recorded here
+*before* the code exists rather than after, so the doc doesn't drift
+into "Proposed" limbo while the tickets sit open.
+
+**Left open, on purpose — not indecision:** §10's three open questions
+(the exact weekly cron time, an `.osv-scanner.toml` ignore list for
+accepted-risk findings, and revisiting OSV-Scanner's Haskell coverage
+if GitHub ever ships native Hackage support) are explicitly deferred —
+the first is genuinely inconsequential, and the other two depend on
+information (real scan output, an upstream ship date) that doesn't
+exist yet.
