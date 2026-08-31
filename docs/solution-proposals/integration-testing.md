@@ -138,7 +138,7 @@ unit suite fast and DB-free, and makes the (slower, Docker-dependent)
 integration suite an explicit, separate target: `cabal test integration`
 vs. `cabal test spec`.
 
-## 8. CI implications (flagged, not solved here)
+## 8. CI implications — resolved in #72
 
 #41 (unit tests in GitHub Actions) deliberately runs no database
 service, because the unit suite doesn't need one. An integration suite
@@ -146,9 +146,9 @@ using `testcontainers` needs Docker available in the CI runner (GitHub
 Actions' standard runners have it) but does **not** need a separately
 configured Postgres *service container* the way a bare `docker run`
 approach would — `testcontainers` manages its own container from inside
-the test process. Still, this is a distinct CI job/step from #41's, with
-its own runtime cost, and should be scoped as a follow-up to #41 rather
-than folded into it.
+the test process. This is a distinct CI job/step from #41's, with its
+own runtime cost, scoped as a follow-up to #41 rather than folded into
+it.
 
 **Can this only run when relevant files change?** Yes, but with a real
 constraint learned the hard way while implementing #41: if this
@@ -165,6 +165,16 @@ steps via `if:`. If this check is never made required (e.g. kept
 informational, or only run on-demand), a plain top-level `paths:` filter
 is fine and simpler — the constraint only bites for a *required* check.
 
+**Resolved (#72):** a separate workflow,
+`.github/workflows/integration-test.yml`, runs `cabal test integration`
+on every PR touching Haskell-relevant files, kept **informational, not
+required** for now (so the required-check/`paths:`-filter trap above
+doesn't apply — a plain top-level `paths:` filter is used, deliberately,
+per the "not required" branch above). Promoting it to required is left
+as a separate, later, deliberate branch-protection decision once the
+suite has proven reliable. See `docs/development/ci.md` for the current
+detail.
+
 ## 9. Cross-reference: #17's E2E spike
 
 #17 will also need a seeded, disposable Postgres for its own tests (full
@@ -178,9 +188,11 @@ the more probable order.
 
 ## 10. Open questions
 
-- Should the integration suite run on every PR once it exists, or only
+- ~~Should the integration suite run on every PR once it exists, or only
   on-demand/nightly, given it's slower than the unit suite? Not decided
-  here — a call for whoever implements #41's follow-up.
+  here — a call for whoever implements #41's follow-up.~~ Resolved —
+  every PR (touching relevant files), informational rather than
+  required; see [§8](#8-ci-implications--resolved-in-72) and #72.
 - If `testcontainers` setup proves to have too much friction (Docker-in-
   Docker issues in some CI environments, slow cold starts), revisit
   `ephemeral-pg` before assuming the whole approach needs to change.
@@ -199,8 +211,12 @@ with nothing changed on reconsideration:
   foreign-key-driven write flow this doc argued for; the rest of the
   write/mutate handlers follow in their own tickets once this pilot
   proves out the approach.
-- **Database: `testcontainers` + `testcontainers-postgresql`** (§4) —
-  over `ephemeral-pg` or reusing the dev Postgres container.
+- **Database: `testcontainers`** (§4) — over `ephemeral-pg` or reusing
+  the dev Postgres container. Landed against the base `testcontainers`
+  API directly rather than the `testcontainers-postgresql` wrapper
+  originally tried in #65 — that wrapper didn't expose volume-mount
+  support, which #65's own review turned out to need (see the next
+  bullet).
 - **Isolation: truncate the relevant tables between tests** (§5), not
   per-test transaction rollback — settled as the actual answer, not a
   placeholder, per the reasoning already recorded there once #50 was
@@ -214,18 +230,19 @@ with nothing changed on reconsideration:
   stays fast and DB-free.
 
 **Left open, on purpose — not indecision:** §10's three open questions
-(CI trigger cadence and required-vs-informational status; falling back
-to `ephemeral-pg` if `testcontainers` proves too much friction; revisiting
-the truncation strategy once more than the pilot flow is covered) are
-explicitly deferred to whoever implements this, per §8/§10's own
-reasoning — nothing here is being pre-decided in the absence of the
-information (actual CI runtime, actual friction) those questions depend
-on.
+were explicitly deferred to whoever implements this, per §8/§10's own
+reasoning — nothing here was pre-decided in the absence of the
+information (actual CI runtime, actual friction) those questions
+depended on. The CI trigger cadence and required-vs-informational
+question is now resolved (#72, see §8); falling back to `ephemeral-pg`
+if `testcontainers` proves too much friction, and revisiting the
+truncation strategy once more than the pilot flow is covered, remain
+open.
 
-**Implementation tracked in #65–#69.** #65 covers the infrastructure and
-the `handlePostNode` pilot; #66–#69 cover the remaining mutating
-responders (`Node.Description`, `Node.Status`, `Node.Title`,
-`ProjectCreate.Submit`) as follow-ups once the pilot proves out the
-approach. Until #65 lands and the suite actually exists, #53
-(documenting this approach in `docs/development/`) remains correctly
-blocked.
+**Implementation tracked in #65–#69, plus #72 for CI.** #65 (merged)
+covered the infrastructure and the `handlePostNode` pilot; #66–#69
+cover the remaining mutating responders (`Node.Description`,
+`Node.Status`, `Node.Title`, `ProjectCreate.Submit`) as follow-ups now
+that the pilot has proven out the approach; #72 wired the suite into CI
+(§8). Now that #65 has landed and the suite actually exists, #53
+(documenting this approach in `docs/development/`) is unblocked.
