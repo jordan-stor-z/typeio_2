@@ -1,6 +1,7 @@
 # Solution Proposal: Integration Testing
 
-- **Status:** Decided — see §11. No implementation ticket exists yet.
+- **Status:** Decided — see §11. Implementation tracked in #65 (pilot)
+  and #66–#69 (remaining responders).
 - **Date:** 2026-08-30
 - **Related:** #42 (this spike), the deferred responder-testing question
   from `docs/solution-proposals/unit-testing.md` §8 Decision, #17
@@ -221,7 +222,10 @@ reasoning — nothing here is being pre-decided in the absence of the
 information (actual CI runtime, actual friction) those questions depend
 on.
 
-**No implementation ticket exists yet.** This decision unblocks opening
-one — it doesn't create it. Until that lands and the suite actually
-exists, #53 (documenting this approach in `docs/development/`) remains
-correctly blocked.
+**Implementation tracked in #65–#69.** #65 covers the infrastructure and
+the `handlePostNode` pilot; #66–#69 cover the remaining mutating
+responders (`Node.Description`, `Node.Status`, `Node.Title`,
+`ProjectCreate.Submit`) as follow-ups once the pilot proves out the
+approach. Until #65 lands and the suite actually exists, #53
+(documenting this approach in `docs/development/`) remains correctly
+blocked.
