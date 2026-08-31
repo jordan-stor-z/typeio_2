@@ -15,8 +15,16 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall
 
-executable server 
+executable server
     import:           warnings
+    -- Warp needs the threaded RTS for its per-connection timeout-manager
+    -- machinery (GHC.Event.Thread.getSystemTimerManager) -- without
+    -- -threaded, the compiled binary links against the non-threaded RTS,
+    -- starts and accepts connections, but crashes handling every single
+    -- request. See #110 for how this went unnoticed: nothing in CI or
+    -- the unit/integration suites actually starts this executable and
+    -- sends it a real HTTP request over a socket.
+    ghc-options:      -threaded -rtsopts "-with-rtsopts=-N"
     main-is:          Main.hs
     -- other-modules:
     -- other-extensions:
