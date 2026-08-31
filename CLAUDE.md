@@ -54,6 +54,7 @@ cases:
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
+| Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
@@ -118,8 +119,8 @@ Known Gotchas below.)
   via `Config.App`/`Config.Db`/`Config.Web`.
 - **Tests are expected alongside the code they cover** — currently pure,
   dependency-free modules (`Common.Validation`, `Data.*`, `Config.*`;
-  see `docs/solution-proposals/unit-testing.md` for what's in/out of
-  scope and why). CI running the suite on a PR (see Setup section) is a
+  see `docs/development/unit-testing.md` for what's in/out of scope and
+  why). CI running the suite on a PR (see Setup section) is a
   check that tests exist and pass, not a substitute for writing them —
   don't skip adding/updating a test for a change because CI will "catch
   it anyway."
