@@ -1,6 +1,6 @@
 # Solution Proposal: Integration Testing
 
-- **Status:** Proposed
+- **Status:** Decided — see §11. No implementation ticket exists yet.
 - **Date:** 2026-08-30
 - **Related:** #42 (this spike), the deferred responder-testing question
   from `docs/solution-proposals/unit-testing.md` §8 Decision, #17
@@ -188,3 +188,40 @@ the more probable order.
   (e.g. one shared container per test-suite run, truncate only tables
   the just-finished test actually touched) is worth the added
   complexity.
+
+## 11. Decision
+
+Confirmed 2026-08-31. Every recommendation above is adopted as written,
+with nothing changed on reconsideration:
+
+- **Pilot target: `handlePostNode`** (§3) — the multi-table,
+  foreign-key-driven write flow this doc argued for; the rest of the
+  write/mutate handlers follow in their own tickets once this pilot
+  proves out the approach.
+- **Database: `testcontainers` + `testcontainers-postgresql`** (§4) —
+  over `ephemeral-pg` or reusing the dev Postgres container.
+- **Isolation: truncate the relevant tables between tests** (§5), not
+  per-test transaction rollback — settled as the actual answer, not a
+  placeholder, per the reasoning already recorded there once #50 was
+  decided against. Re-migrate once per suite run, at container startup.
+- **Seeding: reuse `Seed.nodeStatuses`/`Seed.nodeTypes` directly** for
+  required lookup data; build minimal, test-specific fixtures (a
+  `Project`, a root `Node`) by hand in each test's arrange step, rather
+  than extending the seed mechanism to cover both purposes (§6).
+- **Location: a separate `test-suite integration` cabal component**
+  (§7), distinct from the pure `spec` suite, so the fast unit suite
+  stays fast and DB-free.
+
+**Left open, on purpose — not indecision:** §10's three open questions
+(CI trigger cadence and required-vs-informational status; falling back
+to `ephemeral-pg` if `testcontainers` proves too much friction; revisiting
+the truncation strategy once more than the pilot flow is covered) are
+explicitly deferred to whoever implements this, per §8/§10's own
+reasoning — nothing here is being pre-decided in the absence of the
+information (actual CI runtime, actual friction) those questions depend
+on.
+
+**No implementation ticket exists yet.** This decision unblocks opening
+one — it doesn't create it. Until that lands and the suite actually
+exists, #53 (documenting this approach in `docs/development/`) remains
+correctly blocked.
