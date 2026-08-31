@@ -1,6 +1,6 @@
 # Solution Proposal: Release Management
 
-- **Status:** Proposed
+- **Status:** Decided — see §11. Implemented (#91, #92).
 - **Date:** 2026-08-31
 - **Related:** #58 (this spike), `docs/development/ci.md` (where the
   recommended release workflow fits alongside `test.yml`), #46/#47
@@ -182,3 +182,37 @@ not designed here.
   for `--generate-notes` to pick up more richly — worth revisiting once
   a few real releases exist and it's clear whether GitHub's default
   notes are actually good enough on their own.
+
+## 11. Decision
+
+Confirmed 2026-08-31. Every recommendation in §9 is adopted as written:
+
+- **Versioning: semver in `typeio.cabal`'s `version:`, bumped manually
+  via a normal PR** (§3) — no automation tied to commit-message
+  conventions.
+- **Tagging/releases: automated on the version bump landing on `main`**
+  (§4) — `vX.Y.Z` tag + `gh release create --generate-notes`, no
+  hand-maintained changelog.
+- **`CHANGELOG.md`: the dangling `extra-doc-files` reference removed,
+  no changelog file created** (§5) — GitHub's auto-generated notes
+  cover it.
+- **Milestones: not adopted** (§6).
+- **Branching: none beyond what exists** — tags directly off `main`,
+  no release branches (§7).
+
+**Already implemented, not just decided**: #91 (tag + GitHub Release
+automation) and #92 (`CHANGELOG.md` reference removal) both merged
+before this Decision section was recorded — this section formalizes
+what had already shipped, rather than preceding it. Recording it now
+rather than leaving the gap matters for the same reason `CLAUDE.md`'s
+Known Gotchas records the #50 incident: a proposal stuck at "Proposed"
+looks unsettled to the next reader even after the code it recommended
+has already landed.
+
+**Left open, on purpose — not indecision:** §10's three open questions
+(a `.github/release.yml` label-grouping config, what v1.0.0 should
+mean, and whether version-bump PRs should carry a richer
+changelog-equivalent summary) are genuinely premature — none has the
+real-world evidence (actual release notes read by someone, an actual
+v1.0 candidate) they depend on yet. No implementation ticket needed for
+this decision; §9's recommendations are already fully shipped.
