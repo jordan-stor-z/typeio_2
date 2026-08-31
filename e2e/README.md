@@ -30,20 +30,40 @@ make seed-db           # seed reference data (NodeStatus/NodeType)
 cabal run server        # start the app, reads .env
 ```
 
-Then, in a separate terminal, from this directory (`e2e/`):
+Then, in a separate terminal, from the repo root:
 
 ```
-npm install
-npx playwright install --with-deps chromium   # first time only
-npm test
+make e2e-install   # first time only (npm install + Playwright's Chromium)
+make test-e2e      # cd e2e && npm test
 ```
 
-`npm test` runs `playwright test` against every spec in `tests/`. To
-point at a different host/port (e.g. a non-default `WEB_PORT`):
+(Or, from this directory directly: `npm install`,
+`npx playwright install --with-deps chromium`, `npm test` — same thing,
+what the `make` targets wrap.)
+
+`npm test`/`make test-e2e` runs `playwright test` headless against every
+spec in `tests/`. To point at a different host/port (e.g. a non-default
+`WEB_PORT`):
 
 ```
 E2E_BASE_URL=http://localhost:4000 npm test
 ```
+
+### Watching it run
+
+`make test-e2e`/`npm test` runs headless (no visible browser window) —
+that's the default for a reason (faster, no display needed), but to
+actually *watch* it drive a browser, run Playwright directly from this
+directory instead:
+
+```
+npx playwright test --headed              # opens a real browser window
+npx playwright test --headed --slow-mo=500 # ...and pauses 500ms between actions, so you can actually follow along
+npx playwright test --ui                   # Playwright's UI mode: a scrubbable timeline, live browser view, and DOM snapshot per step
+```
+
+`--ui` mode is the best way to actually see what a spec did after the
+fact, action by action, not just pass/fail.
 
 ## What's covered
 

@@ -8,7 +8,7 @@ MIGRATE=migrate
 MIGRATIONS_DIR=migrations
 
 # --- Commands ---
-.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test test-integration
+.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test test-integration test-e2e e2e-install
 
 ## Run migratin tests
 test-migrations:
@@ -60,3 +60,17 @@ test:
 ## required)
 test-integration:
 	cabal test integration
+
+## Install the E2E suite's dependencies (Playwright + Chromium). One-time
+## setup, or re-run after e2e/package.json changes.
+e2e-install:
+	cd e2e && npm install && npx playwright install --with-deps chromium
+
+## Run the E2E test suite. Unlike test/test-integration, this doesn't
+## start its own database or server -- needs a real app already running
+## against a real, migrated + seeded Postgres (run-postgres, migrate-up,
+## seed-db, then `cabal run server` in another terminal). See
+## e2e/README.md for the full sequence and how to run it headed/in UI
+## mode to watch it drive a browser.
+test-e2e:
+	cd e2e && npm test
