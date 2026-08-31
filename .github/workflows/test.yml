@@ -75,6 +75,13 @@ jobs:
         if: steps.changes.outputs.relevant == 'true'
         run: cabal build all
 
+      # Scoped to `spec` specifically, not a bare `cabal test` -- the
+      # `integration` test-suite (docs/solution-proposals/integration-testing.md)
+      # needs Docker and the `migrate` CLI on the runner, neither of
+      # which this job sets up (wiring it into CI is deliberately out of
+      # scope for now). A bare `cabal test` builds and runs every
+      # test-suite in the package, so it would silently start trying to
+      # run `integration` here too the moment that component exists.
       - name: cabal test
         if: steps.changes.outputs.relevant == 'true'
-        run: cabal test --test-show-details=streaming
+        run: cabal test spec --test-show-details=streaming
