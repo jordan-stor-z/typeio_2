@@ -49,13 +49,16 @@ spec = do
       runWriter (validateConfig validLookup { loadPort = Just "65535" })
         `shouldBe` (Just validConfig { port = 65535 }, [])
 
-    it "flags an out-of-range port, but (per isBetween's logs-but-passes-through design, see \
-       \Common.ValidationSpec) still returns the out-of-range value rather than Nothing -- and \
-       \the message is the generic \"missing\" one, not one describing the real problem: known \
-       \bug, #38. Documenting current behavior; update this once #38 lands." $ do
+    it "flags an out-of-range port with a specific message, but (per isBetween's \
+       \logs-but-passes-through design, see Common.ValidationSpec) still returns the \
+       \out-of-range value rather than Nothing" $ do
+      -- #38: this used to reuse the generic "missing from environment
+      -- config" message here, actively misleading anyone debugging an
+      -- out-of-range (not missing) port. Fixed to a message specific to
+      -- this check.
       let (result, errs) = runWriter (validateConfig validLookup { loadPort = Just "99999" })
       result `shouldBe` Just validConfig { port = 99999 }
-      errs `shouldBe` ["WEB_PORT is missing from environment config" :: ValidationErr]
+      errs `shouldBe` ["WEB_PORT must be between 1 and 65535" :: ValidationErr]
 
   describe "lookupWebConfig / defaultWebPort integration" $ do
     it "defaultWebPort is \"3000\", matching what make seed-db assumes" $
