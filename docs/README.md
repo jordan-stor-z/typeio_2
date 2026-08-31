@@ -29,6 +29,7 @@ proposals for this project.
 - [`development/backend/containers.md`](development/backend/containers.md) — the Container dependency-injection pattern: Root → per-domain → API/UI sub-containers.
 - [`development/backend/logging.md`](development/backend/logging.md) — the two independent structured-JSON logging pipelines (request/response, and database queries) and why they're separate.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
+- [`development/labels.md`](development/labels.md) — the `type:*`/`area:*` GitHub issue label taxonomy, and when to use each.
 - [`solution-proposals/haskell-auto-formatting.md`](solution-proposals/haskell-auto-formatting.md) — options for an auto-formatting setup for `.hs` files that works for both human editors (format-on-save) and AI agents.
 - [`solution-proposals/unit-testing.md`](solution-proposals/unit-testing.md) — which test framework to use, which modules are worth testing, and a mocking strategy for the Container-based responder modules.
 - [`solution-proposals/integration-testing.md`](solution-proposals/integration-testing.md) — the deferred responder-testing question from the unit-testing decision: a disposable Postgres via `testcontainers`, truncate-based test isolation, and a recommended pilot flow.

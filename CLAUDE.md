@@ -54,6 +54,7 @@ cases:
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
+| Which GitHub issue labels to use | `docs/development/labels.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
 If you're about to touch code in one of these areas and haven't read its
@@ -134,6 +135,10 @@ Known Gotchas below.)
 
 - Tickets are tracked as **GitHub Issues** — use `gh issue list` /
   `gh issue view <n>`, not a local file.
+- **When creating an issue**, apply one `type:*` and one `area:*` label
+  per [`docs/development/labels.md`](docs/development/labels.md) —
+  `gh issue create` takes `--label` directly. Not optional/an
+  afterthought; do it at creation time.
 - Branch naming: `feature/issue-$N-<short-description>` for issue `$N`.
 - Workflow:
   1. `gh issue view <n> --comments` to read the ticket — **`--comments`
