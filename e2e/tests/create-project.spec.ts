@@ -1,20 +1,18 @@
 import { test, expect } from '@playwright/test';
 
 // Pilot spec for typeio's E2E suite. Create-project is the first
-// workflow covered (of the four candidates in
-// docs/solution-proposals/e2e-testing.md §7) because it needs no
-// pre-existing fixture data beyond the reference NodeStatus/NodeType
-// rows `make seed-db` already provides, and every other candidate
-// workflow depends on a project existing -- see #94's ticket body for
-// the full reasoning. Follow-up workflows (add/edit a node, change
-// status, the dependency graph) are tracked separately in #95-#97.
+// workflow covered because it needs no pre-existing fixture data beyond
+// the reference NodeStatus/NodeType rows `make seed-db` already
+// provides, and every other candidate workflow depends on a project
+// existing -- see #94's ticket body for the full reasoning. Follow-up
+// workflows (add/edit a node, change status, the dependency graph) are
+// tracked separately in #95-#97.
 //
-// Test-writing convention (proposal §5, applies to every spec in this
-// suite): locators and web-first (auto-retrying) assertions for every
-// htmx-swapped region, never a fixed sleep, and assert only on the
-// settled end state -- never mid-transition (relevant for hyperscript
-// flash effects elsewhere in the app, though this particular workflow
-// doesn't use one).
+// Convention for every spec in this suite: locators and web-first
+// (auto-retrying) assertions for every htmx-swapped region, never a
+// fixed sleep, and assert only on the settled end state -- never
+// mid-transition (relevant for hyperscript flash effects elsewhere in
+// the app, though this particular workflow doesn't use one).
 test('creating a project shows it on the project index', async ({ page }) => {
   // Unique per run so this is safe to re-run locally against a
   // long-lived dev database without colliding with a previous run's
@@ -49,9 +47,7 @@ test('creating a project shows it on the project index', async ({ page }) => {
   // and swaps into #container; that view then itself htmx-`load`s the
   // project list fragment. Asserting on the settled result here (the
   // new project's rendered card) rather than any intermediate state
-  // covers both hops without needing to know about either explicitly --
-  // exactly the locator-based, auto-retrying model §2/§5 of the
-  // proposal call for over a network-idle or fixed-sleep wait.
+  // covers both hops without needing to know about either explicitly.
   const card = page.locator('#project-index').filter({ hasText: title });
   await expect(card.getByRole('heading', { name: title, level: 3 })).toBeVisible();
   await expect(card.getByText(description)).toBeVisible();

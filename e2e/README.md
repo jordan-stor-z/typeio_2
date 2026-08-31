@@ -4,9 +4,8 @@ A [Playwright](https://playwright.dev/) suite that drives the app
 through a real browser against a real running server and real seeded
 Postgres — not a Docker-managed disposable database like
 `test-integration/`, and not CI-wired yet. See
-`docs/solution-proposals/e2e-testing.md` (#17, decided in §8) for why
-Playwright and what tradeoffs were considered; this file only covers
-how to run what's here today.
+`docs/solution-proposals/e2e-testing.md` (#17) for the design
+rationale; this file only covers how to run what's here today.
 
 ## Prerequisites
 
@@ -73,12 +72,11 @@ the add-project form end to end (navigate → open the form → fill it in
 See that file's comments for why create-project was chosen as the pilot
 and the specific htmx-swap timing it's asserting around.
 
-The other three candidate workflows from the proposal's §7 (add/edit a
-node, change a node's status, view and interact with the dependency
-graph) aren't covered yet — tracked as follow-ups in #95–#97, each
-adding its own spec under `tests/` following this same pattern. CI
-wiring is tracked separately in #98, once real workflow coverage exists
-to wire in.
+The other three candidate workflows (add/edit a node, change a node's
+status, view and interact with the dependency graph) aren't covered
+yet — tracked as follow-ups in #95–#97, each adding its own spec under
+`tests/` following this same pattern. CI wiring is tracked separately
+in #98, once real workflow coverage exists to wire in.
 
 ## Notes
 
@@ -90,11 +88,10 @@ to wire in.
   so re-running it locally doesn't collide with a previous run's row,
   but the database will accumulate projects across runs until you reset
   it yourself (e.g. `make migrate-down-all && make migrate-up`).
-- **Single browser (Chromium) for now** — per the proposal's §7, start
-  narrow and broaden only if a real cross-browser bug surfaces.
-- **Locators and web-first assertions only, never fixed sleeps** — see
-  the proposal's §5 for why (htmx's async partial swaps race a
-  network-idle or sleep-based wait; a locator-based, auto-retrying
-  assertion model doesn't need to know anything about the swap's
-  timing). Every spec added to this suite should follow the same
-  convention.
+- **Single browser (Chromium) for now** — broaden only if a real
+  cross-browser bug surfaces.
+- **Locators and web-first assertions only, never fixed sleeps.**
+  htmx's async partial swaps race a network-idle or sleep-based wait; a
+  locator-based, auto-retrying assertion model doesn't need to know
+  anything about the swap's timing. Every spec added to this suite
+  should follow the same convention.
