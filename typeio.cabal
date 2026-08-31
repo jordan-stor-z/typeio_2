@@ -46,6 +46,7 @@ library src
       , Domain.Central.Responder.Api.Seed
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Status
       , Environment.Db
     other-modules:
       Common.Web.Attributes
@@ -75,7 +76,6 @@ library src
       , Domain.Project.Responder.Ui.ProjectManage.Node.Edit
       , Domain.Project.Responder.Ui.ProjectManage.Node.Query
       , Domain.Project.Responder.Ui.ProjectManage.Node.Refresh
-      , Domain.Project.Responder.Ui.ProjectManage.Node.Status
       , Domain.Project.Responder.Ui.ProjectManage.Node.Title
       , Domain.Project.Responder.Ui.ProjectManage.Node.Validation
       , Domain.Project.Responder.Ui.ProjectManage.View
@@ -175,6 +175,7 @@ test-suite integration
     other-modules:
       Integration.Support
       , Domain.Project.Responder.Api.Node.PostSpec
+      , Domain.Project.Responder.Ui.ProjectManage.Node.StatusSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
