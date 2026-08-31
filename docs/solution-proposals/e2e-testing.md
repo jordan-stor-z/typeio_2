@@ -1,6 +1,6 @@
 # Solution Proposal: End-to-End Testing
 
-- **Status:** Proposed
+- **Status:** Decided — see §8. Implementation not yet ticketed.
 - **Date:** 2026-08-31
 - **Related:** #17 (this spike), `docs/solution-proposals/integration-testing.md`
   (§9 cross-reference: shares the "ephemeral seeded Postgres" question —
@@ -168,3 +168,38 @@ be guessing at numbers this proposal doesn't have.
 - Trace/video capture on failure (Playwright supports both natively) —
   worth turning on once the suite exists and CI runtime/artifact-storage
   cost is a known quantity, not decided sight-unseen.
+
+## 8. Decision
+
+Confirmed 2026-08-31 (PR #76 review comment: "These recommendations
+make sense to me"). Every recommendation above is adopted as written,
+with nothing changed on reconsideration:
+
+- **Tool: Playwright** (§3/§4) — over Cypress, Puppeteer, and
+  Selenium/`hspec-webdriver` (the one Haskell-native option, ruled out
+  on its own merits: unmaintained since June 2023).
+- **Test-writing convention: locators and web-first assertions, never
+  fixed sleeps, for htmx-swapped regions; assert on settled state, not
+  mid-transition** (§2/§5) — applies directly to the hyperscript
+  flash-on-update effect.
+- **CI shape** (§6): a headless-browser install step, a Postgres started
+  via the same `docker-entrypoint-initdb.d`/`psql` migration approach
+  `test-integration/` already established (not the `migrate` CLI), the
+  app's own `POST /api/central/seed-database` endpoint for reference
+  data, and the actual compiled `server` process running and reachable
+  for Playwright to drive a browser against.
+- **Trigger/blocking model: on-demand or scheduled, not a required PR
+  check** (§6) — revisit once real runtime/flakiness data exists.
+
+**Left open, on purpose — not indecision:** §7's four open questions
+(single-browser-first vs. multi-browser, specs living in this repo,
+which user paths the first suite covers, and trace/video capture) are
+explicitly deferred to whoever implements this, per that section's own
+reasoning — nothing here is being pre-decided in the absence of the
+information (actual flows that break, actual CI cost) those questions
+depend on.
+
+**Implementation not yet ticketed.** No follow-up issue exists yet for
+building the E2E suite itself (parallel to how #65–#69 tracked
+`integration-testing.md`'s implementation) — filing one is a separate
+step from recording this decision.
