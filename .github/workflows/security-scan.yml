@@ -79,7 +79,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
         with:
           scan-args: |-
-            --output=osv-results.md
+            --output-file=osv-results.md
             --format=markdown
             --recursive
             ./
