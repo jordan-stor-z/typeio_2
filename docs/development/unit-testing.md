@@ -80,11 +80,14 @@ rationale in the proposal's §4/§8):
   fresh discussion (open a new decision, don't just add mocking as a
   drive-by change).
 
-  The intended eventual answer for testing responders is integration
-  tests against a real, ephemeral test database (see
-  [`../solution-proposals/integration-testing.md`](../solution-proposals/integration-testing.md)) —
-  not built yet (tracked separately; see #53), and out of scope for this
-  doc.
+  The answer for testing responders is integration tests against a real,
+  ephemeral test database — see
+  [`integration-testing.md`](integration-testing.md) for how to run them
+  and what's covered so far (the `handlePostNode` pilot; the rest of the
+  write/mutate handlers are tracked in #66–#69), and
+  [`../solution-proposals/integration-testing.md`](../solution-proposals/integration-testing.md)
+  for the rationale behind each design choice. Out of scope for this
+  doc either way — unit tests still don't cover responders.
 
 ## Mocking (or: why there isn't a mocking library)
 

@@ -55,6 +55,7 @@ cases:
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
+| Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
@@ -93,8 +94,10 @@ Known Gotchas below.)
   enforcement point. A separate integration test suite also exists
   (`cabal test integration` / `make test-integration`, needs Docker,
   not part of CI yet — see
-  `docs/solution-proposals/integration-testing.md`; a
-  `docs/development/` write-up lands with #53).
+  [`docs/development/integration-testing.md`](docs/development/integration-testing.md)
+  for how to run it and what it covers, and
+  `docs/solution-proposals/integration-testing.md` for the rationale
+  behind each design choice).
   **Use the scoped `cabal test spec`/`cabal test integration` (or their
   `make` targets), not a bare `cabal test`** — the latter runs every
   test-suite in the package, including the Docker-dependent one. Run

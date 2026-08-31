@@ -30,6 +30,7 @@ proposals for this project.
 - [`development/backend/logging.md`](development/backend/logging.md) — the two independent structured-JSON logging pipelines (request/response, and database queries) and why they're separate.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
 - [`development/unit-testing.md`](development/unit-testing.md) — where tests live, how to run them, what's actually covered (and what's deliberately not, and why).
+- [`development/integration-testing.md`](development/integration-testing.md) — the responder-testing suite unit tests deliberately skip: a disposable `testcontainers` Postgres, truncate-based isolation, the reference-data-vs-fixture seeding split, and what's covered so far (the `handlePostNode` pilot).
 - [`development/labels.md`](development/labels.md) — the `type:*`/`area:*` GitHub issue label taxonomy, and when to use each.
 - [`solution-proposals/haskell-auto-formatting.md`](solution-proposals/haskell-auto-formatting.md) — options for an auto-formatting setup for `.hs` files that works for both human editors (format-on-save) and AI agents.
 - [`solution-proposals/unit-testing.md`](solution-proposals/unit-testing.md) — which test framework to use, which modules are worth testing, and a mocking strategy for the Container-based responder modules.
