@@ -56,6 +56,7 @@ cases:
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
+| How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
 If you're about to touch code in one of these areas and haven't read its
