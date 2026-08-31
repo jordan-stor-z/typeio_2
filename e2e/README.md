@@ -66,17 +66,25 @@ fact, action by action, not just pass/fail.
 
 ## What's covered
 
-Just the pilot workflow so far: `tests/create-project.spec.ts` drives
-the add-project form end to end (navigate → open the form → fill it in
-→ submit → assert the new project appears back on the project index).
-See that file's comments for why create-project was chosen as the pilot
-and the specific htmx-swap timing it's asserting around.
+- `tests/create-project.spec.ts` — the pilot: drives the add-project
+  form end to end (navigate → open the form → fill it in → submit →
+  assert the new project appears back on the project index). See that
+  file's comments for why create-project was chosen as the pilot and
+  the specific htmx-swap timing it's asserting around.
+- `tests/edit-node.spec.ts` — adds a node (via a direct API call, not a
+  UI interaction — the app has no UI affordance to create a node yet,
+  see the spec's comments), then edits its title and description
+  through the node-detail panel, asserting on each field's settled
+  save-success indicator and on the re-fetched detail view afterward.
+- `tests/helpers.ts` — shared setup (`createProject()`) both specs
+  above use, so creating a project isn't duplicated across specs that
+  need one but aren't testing project creation itself.
 
-The other three candidate workflows (add/edit a node, change a node's
-status, view and interact with the dependency graph) aren't covered
-yet — tracked as follow-ups in #95–#97, each adding its own spec under
-`tests/` following this same pattern. CI wiring is tracked separately
-in #98, once real workflow coverage exists to wire in.
+The other two candidate workflows (change a node's status, view and
+interact with the dependency graph) aren't covered yet — tracked as
+follow-ups in #96–#97, each adding its own spec under `tests/`
+following this same pattern. CI wiring is tracked separately in #98,
+once real workflow coverage exists to wire in.
 
 ## Notes
 
@@ -84,10 +92,10 @@ in #98, once real workflow coverage exists to wire in.
   (which truncates mutable tables before every test via
   `Integration.Support.resetBetweenTests`), nothing here resets the
   database — this suite drives the actual dev Postgres you started by
-  hand. `create-project.spec.ts` gives its project a timestamped title
-  so re-running it locally doesn't collide with a previous run's row,
-  but the database will accumulate projects across runs until you reset
-  it yourself (e.g. `make migrate-down-all && make migrate-up`).
+  hand. Specs give their fixture data timestamped titles so re-running
+  locally doesn't collide with a previous run's rows, but the database
+  will accumulate projects/nodes across runs until you reset it
+  yourself (e.g. `make migrate-down-all && make migrate-up`).
 - **Single browser (Chromium) for now** — broaden only if a real
   cross-browser bug surfaces.
 - **Locators and web-first assertions only, never fixed sleeps.**
@@ -95,3 +103,12 @@ in #98, once real workflow coverage exists to wire in.
   locator-based, auto-retrying assertion model doesn't need to know
   anything about the swap's timing. Every spec added to this suite
   should follow the same convention.
+- **`locator.fill()` doesn't reliably trigger htmx's `changed` trigger
+  modifier.** Confirmed directly: a field wired to `hx-trigger="input
+  changed delay:500ms"` (e.g. the node-edit panel's title/description
+  fields) never fires its request after `.fill()`, no matter how long
+  you wait — not a timing issue. Use `locator.selectText()` then
+  `locator.pressSequentially()` instead for any field with a `changed`
+  trigger; see `edit-node.spec.ts`'s comments for the full story
+  (including why `fill('')` as a "clear first" step doesn't work
+  either).
