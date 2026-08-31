@@ -1,0 +1,68 @@
+name: Release
+
+# Watches for a version bump landing on main and, when one does, creates
+# a matching git tag + GitHub Release with auto-generated notes.
+# docs/solution-proposals/release-management.md (#58) decided:
+# - versioning is manual: a normal PR bumps typeio.cabal's `version:`
+#   field -- that's the one real judgment call (major/minor/patch), not
+#   automated.
+# - tagging/release creation is automatic once that bump lands on main:
+#   a mechanical step with one correct answer, removing the "forgot to
+#   tag" failure mode.
+#
+# Triggers on push to main, not pull_request -- this isn't re-checking
+# anything (main only gets updates via already-checked PRs, see
+# docs/development/ci.md's "why pull requests only"), it's reacting to a
+# version bump that already landed. Not a required check, so -- like
+# integration-test.yml -- a plain top-level `paths:` filter is safe
+# here. That's only a cheap pre-filter though: `typeio.cabal` can change
+# for reasons that have nothing to do with the version, so the real
+# check (did the `version:` line itself change) happens in the "Check
+# version bump" step below.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'typeio.cabal'
+
+# A second push to main landing while this is still running should
+# replace the first run, not queue alongside it -- same reasoning as
+# test.yml/integration-test.yml, though pushes to main are rare enough
+# that this mostly guards against a rapid double-push.
+concurrency:
+  group: release-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    # Needed to push the new tag and create the GitHub Release.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need history to diff the pre-push version against
+
+      - name: Check version bump
+        id: version
+        run: |
+          old=$(git show "${{ github.event.before }}:typeio.cabal" 2>/dev/null \
+                | grep -E '^version:' | sed -E 's/^version:[[:space:]]*//')
+          new=$(grep -E '^version:' typeio.cabal | sed -E 's/^version:[[:space:]]*//')
+          if [ "$old" != "$new" ]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "version=$new" >> "$GITHUB_OUTPUT"
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag and release
+        if: steps.version.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          git tag "$tag"
+          git push origin "$tag"
+          gh release create "$tag" --generate-notes

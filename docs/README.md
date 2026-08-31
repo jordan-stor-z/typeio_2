@@ -31,6 +31,7 @@ proposals for this project.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
 - [`development/unit-testing.md`](development/unit-testing.md) — where tests live, how to run them, what's actually covered (and what's deliberately not, and why).
 - [`development/labels.md`](development/labels.md) — the `type:*`/`area:*` GitHub issue label taxonomy, and when to use each.
+- [`development/infrastructure.md`](development/infrastructure.md) — repo-level config (GitHub branch protection) managed as Terraform + Terragrunt, the HCP Terraform state backend decision, and how to import/plan/apply it.
 - [`solution-proposals/haskell-auto-formatting.md`](solution-proposals/haskell-auto-formatting.md) — options for an auto-formatting setup for `.hs` files that works for both human editors (format-on-save) and AI agents.
 - [`solution-proposals/unit-testing.md`](solution-proposals/unit-testing.md) — which test framework to use, which modules are worth testing, and a mocking strategy for the Container-based responder modules.
 - [`solution-proposals/integration-testing.md`](solution-proposals/integration-testing.md) — **decided**: the deferred responder-testing question from the unit-testing decision, resolved as a disposable Postgres via `testcontainers`, truncate-based test isolation, and a pilot flow — implementation tracked in #65–#69.
