@@ -55,7 +55,9 @@ cases:
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
+| Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
+| How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
 If you're about to touch code in one of these areas and haven't read its
@@ -85,12 +87,24 @@ Known Gotchas below.)
   `make migrate-version` / `make migrate-force VERSION=<v>`
 - **Seed the database:** `make seed-db`
 - **Verifying a change:** `cabal build all` (compiles clean, `-Wall` is
-  on). A unit test suite exists (`cabal test` / `make test`) and CI runs
-  it on every PR into `main` (GitHub Actions, `.github/workflows/test.yml`
-  — see [`docs/development/ci.md`](docs/development/ci.md)), so running
-  it locally before pushing is no longer required — the PR is the
-  enforcement point. Run relevant `make migrate-*` commands for
-  migration changes.
+  on). A unit test suite exists (`cabal test spec` / `make test`) and CI
+  runs it on every PR into `main` (GitHub Actions,
+  `.github/workflows/test.yml` — see
+  [`docs/development/ci.md`](docs/development/ci.md)), so running it
+  locally before pushing is no longer required — the PR is the
+  enforcement point. A separate integration test suite also exists
+  (`cabal test integration` / `make test-integration`, needs Docker
+  locally) and runs on every PR via a second workflow,
+  `.github/workflows/integration-test.yml` — informational only, not
+  yet a required check (see `docs/development/ci.md`). See
+  [`docs/development/integration-testing.md`](docs/development/integration-testing.md)
+  for how to run it and what it covers, and
+  `docs/solution-proposals/integration-testing.md` for the rationale
+  behind each design choice.
+  **Use the scoped `cabal test spec`/`cabal test integration` (or their
+  `make` targets), not a bare `cabal test`** — the latter runs every
+  test-suite in the package, including the Docker-dependent one. Run
+  relevant `make migrate-*` commands for migration changes.
 - ⚠️ **`make test-migrations` is currently broken** — it calls
   `./scripts/test-migrations.sh`, which does not exist anywhere in the
   repo. Don't rely on it; use `cabal build all` instead until it's fixed.
@@ -153,8 +167,8 @@ Known Gotchas below.)
   4. Implement the change, adding/updating tests for it (see Code &
      Style Conventions).
   5. Verify with `cabal build all` (and migration commands if relevant).
-     Running `cabal test`/`make test` locally is optional — CI runs it
-     on the PR — but it's the fastest way to find a failure early.
+     Running `cabal test spec`/`make test` locally is optional — CI runs
+     it on the PR — but it's the fastest way to find a failure early.
   6. Commit referencing the issue, push, and open a PR with
      `gh pr create` — include `Closes #$N` in the body when the PR fully
      resolves the ticket.
