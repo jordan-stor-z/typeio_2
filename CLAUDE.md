@@ -55,10 +55,23 @@ cases:
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
-| An open design question / pending decision | `docs/solution-proposals/` |
+| Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
 If you're about to touch code in one of these areas and haven't read its
 doc yet, read it first — that's the point of it existing.
+
+**`docs/development/` vs. `docs/solution-proposals/`:** for "how do I
+build X" or "how does X work," check `docs/development/` first — it
+describes how the app *actually, currently* works, and is the primary
+reference for development decisions. If something isn't reflected there,
+it either isn't built yet or isn't true. `docs/solution-proposals/` is
+for "why was X decided this way" — a point-in-time investigation and
+decision record, not a live source of truth. A proposal's existence,
+even one with a confident "Decision" section, does **not** mean it was
+implemented. Always check the doc's own `Status` line, and cross-check
+against `docs/development/` for whether it actually happened, before
+treating a proposal as current guidance. (See the #50 incident under
+Known Gotchas below.)
 
 ## Setup & Local Development
 
@@ -172,6 +185,17 @@ doc yet, read it first — that's the point of it existing.
 ## Known Gotchas
 
 - **`make test-migrations` is broken** — see Setup section above.
+- **A solution-proposal's "Decision" section isn't proof it was built**
+  (#50): `docs/solution-proposals/lazy-request-transactions.md` was
+  written with a full write-up and a "Decided" status, and a PR was
+  started against it. Days later, the premise was reconsidered — the
+  problem it solved was already handled by `Domain.Central` composing
+  domains within the responder's existing transaction — and the proposal
+  was rewritten to "Decided against" instead. Nothing broke, but treating
+  the earlier "Decided" section as settled guidance without checking
+  whether it had actually landed in `docs/development/` would have been
+  the wrong move. Always check a proposal's `Status` line, not just its
+  existence.
 
 ## Resolved gotchas (kept for context — don't reintroduce)
 

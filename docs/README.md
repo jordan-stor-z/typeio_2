@@ -7,10 +7,17 @@ proposals for this project.
 
 - `solution-proposals/` — spike/investigation write-ups that compare options
   for a problem and recommend a path forward, before implementation work is
-  ticketed. One document per proposal, named for its topic.
-- `development/` — reference docs on how the app actually works, grouped by
-  area (`ui/`, `frontend/`, `backend/`), plus onboarding. Each area has an
-  `index.md` linking its own files.
+  ticketed. One document per proposal, named for its topic. These are a
+  point-in-time decision record, not a live source of truth: a proposal's
+  own confident "Decision" section is not proof the decision was actually
+  implemented, or still holds. Always check the doc's `Status` line, and
+  cross-check `development/` for whether it actually happened, before
+  treating a proposal as current guidance.
+- `development/` — reference docs on how the app *actually, currently*
+  works, grouped by area (`ui/`, `frontend/`, `backend/`), plus onboarding.
+  Each area has an `index.md` linking its own files. This is the primary
+  reference for development decisions — if something isn't reflected here,
+  it either isn't built yet or isn't true.
 
 ## Index
 

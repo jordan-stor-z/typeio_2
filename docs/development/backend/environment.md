@@ -64,9 +64,7 @@ the first one it happened to check.
 
 ## What used to be here: `Environment.Acquire`
 
-`Environment.Acquire` (`Acquire`, `Acquire2`) looks like an earlier,
-more elaborate attempt at the same acquire/release problem `withEnv`
-solves with plain `ContT` — but it has no callers anywhere in the
-codebase. It's confirmed dead and tracked for removal in #15. If you're
-reading this after that lands and still see the module referenced
-somewhere, treat this doc as stale rather than the removal as wrong.
+There used to be an `Environment.Acquire` module (`Acquire`, `Acquire2`)
+— an earlier, more elaborate attempt at the same acquire/release problem
+`withEnv` solves with plain `ContT`. It had no callers anywhere in the
+codebase and was removed in #15.
