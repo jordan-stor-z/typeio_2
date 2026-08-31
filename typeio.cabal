@@ -10,7 +10,6 @@ maintainer:         jm.storz@gmail.com
 -- copyright:
 category:           Web
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md
 -- extra-source-files:
 
 common warnings
@@ -46,6 +45,10 @@ library src
       , Domain.Central.Responder.Api.Seed
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
+      , Domain.Project.Responder.Ui.ProjectCreate.Submit
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Description
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Status
+      , Domain.Project.Responder.Ui.ProjectManage.Node.Title
       , Environment.Db
     other-modules:
       Common.Web.Attributes
@@ -70,16 +73,12 @@ library src
       , Domain.Project.Responder.Ui.ProjectManage.Graph
       , Domain.Project.Responder.Ui.ProjectManage.Link
       , Domain.Project.Responder.Ui.ProjectManage.Node
-      , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Domain.Project.Responder.Ui.ProjectManage.Node.Detail
       , Domain.Project.Responder.Ui.ProjectManage.Node.Edit
       , Domain.Project.Responder.Ui.ProjectManage.Node.Query
       , Domain.Project.Responder.Ui.ProjectManage.Node.Refresh
-      , Domain.Project.Responder.Ui.ProjectManage.Node.Status
-      , Domain.Project.Responder.Ui.ProjectManage.Node.Title
       , Domain.Project.Responder.Ui.ProjectManage.Node.Validation
       , Domain.Project.Responder.Ui.ProjectManage.View
-      , Domain.Project.Responder.Ui.ProjectCreate.Submit
       , Domain.Project.Responder.Ui.ProjectCreate.View
       , Domain.Project.Responder.Ui.ProjectIndex.List
       , Domain.Project.Responder.Ui.ProjectIndex.View
@@ -175,6 +174,10 @@ test-suite integration
     other-modules:
       Integration.Support
       , Domain.Project.Responder.Api.Node.PostSpec
+      , Domain.Project.Responder.Ui.ProjectCreate.SubmitSpec
+      , Domain.Project.Responder.Ui.ProjectManage.Node.DescriptionSpec
+      , Domain.Project.Responder.Ui.ProjectManage.Node.StatusSpec
+      , Domain.Project.Responder.Ui.ProjectManage.Node.TitleSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
