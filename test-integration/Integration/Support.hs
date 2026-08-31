@@ -19,18 +19,18 @@ import Config.Db                        (DbConfig(..))
 import Control.Exception                (ErrorCall(..), throwIO)
 import Control.Monad.Cont               (runContT)
 import Control.Monad.IO.Class           (liftIO)
+import Data.Function                    ((&))
 import Data.Text                        (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.Time                        (getCurrentTime)
-import Data.Word                        (Word16)
 import Database.Persist                 ((==.), Entity(..), Key, insert, insertUnique, selectList)
 import Database.Persist.Sql             (ConnectionPool, rawExecute, runSqlPool)
 import qualified Domain.Central.Responder.Api.Seed as Seed
 import qualified Domain.Project.Model   as M
 import Environment.Db                   (withPool)
-import System.Exit                      (ExitCode(..))
-import System.Process                   (readProcessWithExitCode)
-import qualified TestcontainersPostgresql as TCPG
+import qualified TestContainers.Hspec as TC
+import System.Directory                 (makeAbsolute)
 
 -- | Credentials for the disposable container. The official Postgres
 -- image creates a database named after @POSTGRES_USER@ when
@@ -43,28 +43,59 @@ testDbPassword :: Text
 testDbPassword = "typeio_test"
 
 -- | Starts a @postgres:15@ container (same version
--- @local/script/start-postgres.sh@ uses), applies @migrations/@ against
--- it with the same @migrate@ CLI the rest of the project uses, seeds
--- the required @NodeStatus@\/@NodeType@ reference data (the same lists
--- @Domain.Central.Responder.Api.Seed@ inserts on app startup -- reused
--- directly, not duplicated), and hands the action a ready
+-- @local/script/start-postgres.sh@ uses), migrated and seeded before
+-- the action ever sees it, and hands the action a ready
 -- 'ConnectionPool'. The container is torn down once the action
 -- returns.
+--
+-- Migrations run *inside* the container itself, not from this Haskell
+-- process: 'pgRequest' bind-mounts the real @migrations/@ directory
+-- plus @test-integration\/docker\/apply-migrations.sh@ into
+-- @\/docker-entrypoint-initdb.d@, the official Postgres image's own
+-- "run this once, automatically, on first startup" convention. That
+-- script applies @migrations\/*.up.sql@ with @psql@ (already in the
+-- image). Deliberately not the @migrate@ CLI here -- this way,
+-- running @cabal test integration@ only needs Docker, not a
+-- separately-installed migration tool on top of it.
 withTestDatabase :: (ConnectionPool -> IO ()) -> IO ()
-withTestDatabase action =
-  TCPG.run pgConfig $ \(dbHost, dbPort') -> do
-    runMigrations dbHost dbPort'
+withTestDatabase action = do
+  req <- pgRequest
+  TC.withContainers (TC.run req) $ \container -> do
+    let (dbHost, dbPort') = TC.containerAddress container 5432
     runContT (withPool $ testDbConfig dbHost dbPort') $ \pool -> do
       seedReferenceData pool
       action pool
-  where
-    pgConfig = TCPG.Config
-      { TCPG.tagName     = "postgres:15"
-      , TCPG.auth        = TCPG.CredentialsAuth testDbUser testDbPassword
-      , TCPG.forwardLogs = False
-      }
 
-testDbConfig :: Text -> Word16 -> DbConfig
+pgRequest :: IO TC.ContainerRequest
+pgRequest = do
+  migrationsDir  <- makeAbsolute "migrations"
+  migrateScript  <- makeAbsolute "test-integration/docker/apply-migrations.sh"
+  pure $
+    TC.containerRequest (TC.fromTag "postgres:15")
+      & TC.setExpose [5432]
+      & TC.setEnv
+          [ ("POSTGRES_USER", testDbUser)
+          , ("POSTGRES_PASSWORD", testDbPassword)
+          ]
+      & TC.setVolumeMounts
+          [ (T.pack migrationsDir, "/docker-entrypoint-initdb.d/migrations:ro")
+          , (T.pack migrateScript, "/docker-entrypoint-initdb.d/apply-migrations.sh:ro")
+          ]
+      & TC.setWaitingFor waitUntilReady
+  where
+    -- Both conditions matter: on a first-time start with initdb.d
+    -- scripts, Postgres logs "ready to accept connections" once for an
+    -- internal-only setup instance *before* running init scripts, then
+    -- restarts into the real server afterward. The log-line check alone
+    -- could match that first, too-early instance -- but the mapped TCP
+    -- port isn't actually listening until the final restart, so ANDing
+    -- it with waitUntilMappedPortReachable rules that out.
+    waitUntilReady = mconcat
+      [ TC.waitForLogLine TC.Stderr (TL.isInfixOf "database system is ready to accept connections")
+      , TC.waitUntilMappedPortReachable 5432
+      ]
+
+testDbConfig :: Text -> Int -> DbConfig
 testDbConfig dbHost dbPort' = DbConfig
   { database  = T.unpack testDbUser
   , host      = T.unpack dbHost
@@ -74,28 +105,6 @@ testDbConfig dbHost dbPort' = DbConfig
   , schema    = "project"
   , user      = T.unpack testDbUser
   }
-
-runMigrations :: Text -> Word16 -> IO ()
-runMigrations dbHost dbPort' = do
-  (code, out, err) <- readProcessWithExitCode "migrate"
-    [ "-path", "migrations"
-    , "-database", migrationUrl dbHost dbPort'
-    , "up"
-    ]
-    ""
-  case code of
-    ExitSuccess   -> pure ()
-    ExitFailure _ -> throwIO . ErrorCall $
-      "migrate failed against the integration-test container:\n" <> out <> err
-
--- | Same @postgres://...?sslmode=disable@ shape as the Makefile's
--- @DB_URL@, pointed at the container's mapped host/port instead of the
--- dev database.
-migrationUrl :: Text -> Word16 -> String
-migrationUrl dbHost dbPort' = T.unpack $
-  "postgres://" <> testDbUser <> ":" <> testDbPassword
-    <> "@" <> dbHost <> ":" <> T.pack (show dbPort')
-    <> "/" <> testDbUser <> "?sslmode=disable"
 
 seedReferenceData :: ConnectionPool -> IO ()
 seedReferenceData pool = flip runSqlPool pool $ do

@@ -180,13 +180,12 @@ test-suite integration
       base ^>=4.18.3.0
       , src
       , bytestring
+      , directory
       , http-types
       , hspec
       , mtl
       , persistent
-      , process
       , testcontainers
-      , testcontainers-postgresql
       , text
       , time
       , transformers

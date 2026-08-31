@@ -30,11 +30,11 @@ No database or service container is involved — `spec` is entirely pure
 This step deliberately runs `cabal test spec`, not a bare `cabal test`:
 the integration test-suite from
 `docs/solution-proposals/integration-testing.md` (#65) also exists in
-this package now, but needs Docker and the `migrate` CLI on the runner
-to start its own disposable Postgres — a bare `cabal test` would build
-and run every test-suite in the package, silently pulling that suite
-into this required check. Wiring `integration` into CI at all is
-tracked separately, not part of what this workflow covers.
+this package now, but needs Docker on the runner to start its own
+disposable Postgres — a bare `cabal test` would build and run every
+test-suite in the package, silently pulling that suite into this
+required check. Wiring `integration` into CI at all is tracked
+separately, not part of what this workflow covers.
 
 ## Why it always runs, and skips internally instead of using `paths`
 
@@ -83,7 +83,7 @@ This is the unit suite only, matching what CI actually runs. The
 integration suite (`cabal test integration` / `make test-integration`)
 is separate — see `docs/solution-proposals/integration-testing.md` for
 now (a `docs/development/` write-up lands with #53); it needs Docker
-and the `migrate` CLI locally and isn't part of this CI workflow.
+locally and isn't part of this CI workflow.
 
 **Running tests locally is now optional; writing/updating them is not.**
 CI catching a missing or broken test after the fact is not a substitute

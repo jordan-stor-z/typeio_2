@@ -54,8 +54,9 @@ seed-db:
 test:
 	cabal test spec
 
-## Run the Haskell integration test suite (needs Docker + the `migrate`
-## CLI on PATH -- starts and tears down its own disposable Postgres via
-## testcontainers, no manually-started database required)
+## Run the Haskell integration test suite (needs Docker -- starts and
+## tears down its own disposable, already-migrated Postgres via
+## testcontainers, no manually-started database or `migrate` CLI
+## required)
 test-integration:
 	cabal test integration

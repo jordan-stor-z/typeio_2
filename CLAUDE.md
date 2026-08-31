@@ -91,8 +91,8 @@ Known Gotchas below.)
   [`docs/development/ci.md`](docs/development/ci.md)), so running it
   locally before pushing is no longer required — the PR is the
   enforcement point. A separate integration test suite also exists
-  (`cabal test integration` / `make test-integration`, needs Docker +
-  the `migrate` CLI, not part of CI yet — see
+  (`cabal test integration` / `make test-integration`, needs Docker,
+  not part of CI yet — see
   `docs/solution-proposals/integration-testing.md`; a
   `docs/development/` write-up lands with #53).
   **Use the scoped `cabal test spec`/`cabal test integration` (or their
