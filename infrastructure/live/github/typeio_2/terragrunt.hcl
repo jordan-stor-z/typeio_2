@@ -18,26 +18,31 @@ provider "github" {
 EOF
 }
 
-# Where Terraform/OpenTofu state for this config lives: HCP Terraform
-# (Terraform Cloud) free tier, not local state and not checked into git --
-# see docs/development/infrastructure.md for why, and for one-time
-# workspace setup. Unlike Terraform, OpenTofu doesn't default `hostname`
-# to app.terraform.io, so it's set explicitly here.
-generate "cloud" {
-  path      = "cloud.tf"
-  if_exists = "overwrite_terragrunt"
-  contents  = <<EOF
-terraform {
-  cloud {
-    hostname     = "app.terraform.io"
-    organization = "typeio-2"
+# Where OpenTofu state for this config lives: a GCS bucket, not local
+# state and not checked into git -- see docs/development/infrastructure.md
+# for why (GCP is the likely eventual cloud target) and for one-time
+# account setup. Terragrunt creates the bucket itself (versioned) on the
+# first `terragrunt init` if it doesn't already exist -- no separate
+# bootstrap step. Not usable until GOOGLE_APPLICATION_CREDENTIALS and
+# GCS_STATE_PROJECT are set up; merged ahead of that setup deliberately.
+remote_state {
+  backend = "gcs"
 
-    workspaces {
-      name = "typeio_2"
+  generate = {
+    path      = "backend.tf"
+    if_exists = "overwrite_terragrunt"
+  }
+
+  config = {
+    project  = get_env("GCS_STATE_PROJECT", "")
+    location = "US"
+    bucket   = "typeio-2-opentofu-state"
+    prefix   = "github/typeio_2"
+
+    gcs_bucket_labels = {
+      purpose = "opentofu-state"
     }
   }
-}
-EOF
 }
 
 inputs = {

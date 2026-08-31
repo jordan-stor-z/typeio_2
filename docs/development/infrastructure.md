@@ -34,50 +34,62 @@ upgrade terragrunt` if you hit that.
   without reshuffling what's already here.
   - `live/github/typeio_2/terragrunt.hcl` — instantiates
     `modules/github-repo` with this repo's actual live values, and owns
-    its own provider/backend config directly (via `generate` blocks).
-    There's deliberately no shared root `terragrunt.hcl` yet — with only
-    one live GitHub config, an `include`-based parent config that exists
-    purely to be shared has nothing to share. Reintroduce one (root
+    its own provider config (via a `generate` block) and remote state
+    config (via a `remote_state` block) directly. There's deliberately
+    no shared root `terragrunt.hcl` yet — with only one live GitHub
+    config, an `include`-based parent config that exists purely to be
+    shared has nothing to share. Reintroduce one (root
     `live/github/terragrunt.hcl` + `include "root"` in each child) once
     a second config under `live/github/` actually needs the same
     provider/backend wiring.
 
-## State backend: HCP Terraform (Terraform Cloud), free tier
+## State backend: Google Cloud Storage
 
-No cloud provider has been chosen yet, so there's no natural home for a
-remote backend (S3, GCS, etc.), and a local state file checked into git
-is not an option — it'd have to hold live GitHub resource IDs, could
-diverge from reality with no locking, and there is no CI runner set up
-yet to be the sole `apply`r of a local file safely.
-[HCP Terraform](https://app.terraform.io)'s free tier was chosen because
-it's provider-agnostic (doesn't force a cloud choice just to get remote
-state) and gives state locking + history for free without standing up
-any infrastructure of its own to hold infrastructure state. As of 2026
-the free tier is usage-based (up to 500 managed resources, unlimited
-users, one concurrent run) rather than the older 5-user cap — comfortably
-enough for this project's single `github_branch_protection` resource.
+GitHub has no equivalent to GitLab's built-in managed Terraform state
+(GitLab implements the Terraform HTTP backend protocol directly in a
+project; there's no GitHub-native counterpart), and a local state file
+checked into git is not an option — it'd have to hold live GitHub
+resource IDs, could diverge from reality with no locking, and there is
+no CI runner set up yet to be the sole `apply`r of a local file safely.
 
-OpenTofu's `cloud` block genuinely talks to HCP Terraform (confirmed by
-running `tofu init` against `hostname = "app.terraform.io"` and getting
-a real `tofu login app.terraform.io` prompt, not a rejection) — but
-unlike Terraform, it does **not** default `hostname` to
-`app.terraform.io` when omitted, so it's set explicitly in the `cloud`
-block below.
+A GCS bucket was chosen over a dedicated remote-state SaaS (HCP
+Terraform, Spacelift, etc.) because GCP is the project's likely eventual
+cloud target anyway — state storage there isn't a separate throwaway
+account, it's a small first piece of the real thing. Terragrunt's `gcs`
+`remote_state` block **creates the bucket itself** (versioned) on the
+first `terragrunt init` if it doesn't already exist, so there's no
+separate manual bootstrap step the way a SaaS backend needs a
+workspace created by hand first.
 
-One-time setup (not automated — this is an account/workspace the
-project's HCP Terraform organization owns, not something `tofu apply`
-creates):
+(An earlier version of this used HCP Terraform's free tier instead —
+also verified working, including that OpenTofu's `cloud` block does
+genuinely talk to it, confirmed by running `tofu init` against
+`hostname = "app.terraform.io"` and getting a real `tofu login` prompt
+rather than a rejection. Switched to GCS per review on #46/#85 once GCP
+was confirmed as the likely target — no cloud-agnostic backend is worth
+preferring over the real one once that's settled.)
 
-1. Create an HCP Terraform organization (or reuse an existing one) and
-   update `organization` in
-   `infrastructure/live/github/typeio_2/terragrunt.hcl` if it differs
-   from `typeio-2`.
-2. Create a workspace named `typeio_2` with **CLI-driven** workflow (not
-   VCS-driven) — Terragrunt runs `tofu` locally/in CI and just uses HCP
-   Terraform for state.
-3. `tofu login app.terraform.io` (or set `TF_TOKEN_app_terraform_io` in
-   CI) so the local/CI `tofu`/`terragrunt` can authenticate to the
-   workspace.
+**Not usable yet — merged ahead of the account existing.** This is
+deliberate: the code is correct and ready, but running it before the GCP
+side exists would just fail. One-time setup, whenever it happens:
+
+1. Create (or reuse) a GCP project for this. `terragrunt init` from
+   `infrastructure/live/github/typeio_2` will error until then — a
+   confirmed-clean failure (`storage.NewClient() failed: ... could not
+   find default credentials`), not a config bug.
+2. Create a service account with permission to create/manage GCS
+   buckets and objects in that project (e.g. `roles/storage.admin`, or
+   narrower if preferred), and a JSON key for it.
+3. `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json` and
+   `export GCS_STATE_PROJECT=<the GCP project ID>` — both env vars, per
+   the existing "never hardcode credentials" convention; neither goes in
+   any `.tf`/`.hcl` file.
+4. `terragrunt init` from `infrastructure/live/github/typeio_2` —
+   creates `typeio-2-opentofu-state` (versioned) if it doesn't exist yet.
+   **Bucket names are globally unique across all of GCS**, like S3 — if
+   that name is taken, change `bucket` in the `terragrunt.hcl` before
+   running init, rather than fighting over a name someone else already
+   owns.
 
 ## GitHub provider authentication
 
@@ -97,7 +109,7 @@ actually live on `main` today (required PR, 0 required approvals,
 required status check `test`, strict, `enforce_admins`, no force
 pushes, no deletions) — applying without importing first would try to
 create a branch protection rule that already exists. Import it into the
-HCP Terraform-backed state once, after the workspace setup above:
+GCS-backed state once, after the account setup above:
 
 ```sh
 cd infrastructure/live/github/typeio_2
@@ -114,8 +126,10 @@ after import.
 This exact sequence (import + zero-diff plan, plus the `repository_id`
 fix above) was verified against the real, live `main` branch protection
 during development, using a temporary local-backend override that was
-never committed, before the HCP Terraform workspace existed — the steps
-above are what remains to run once it does.
+never committed, both against HCP Terraform originally and again after
+switching to OpenTofu — the same is expected to hold against GCS once
+the account exists, since only the backend, not the resource
+configuration, changed.
 
 ## Day to day
 
