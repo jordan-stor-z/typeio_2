@@ -1,6 +1,7 @@
 # Solution Proposal: End-to-End Testing
 
-- **Status:** Decided — see §8. Implementation not yet ticketed.
+- **Status:** Decided — see §8. Implementation tracked in #94 (pilot)
+  and #95–#98 (remaining workflows + CI).
 - **Date:** 2026-08-31
 - **Related:** #17 (this spike), `docs/solution-proposals/integration-testing.md`
   (§9 cross-reference: shares the "ephemeral seeded Postgres" question —
@@ -199,7 +200,9 @@ reasoning — nothing here is being pre-decided in the absence of the
 information (actual flows that break, actual CI cost) those questions
 depend on.
 
-**Implementation not yet ticketed.** No follow-up issue exists yet for
-building the E2E suite itself (parallel to how #65–#69 tracked
-`integration-testing.md`'s implementation) — filing one is a separate
-step from recording this decision.
+**Implementation tracked in #94–#98**, parallel to how #65–#69 tracked
+`integration-testing.md`'s implementation: #94 covers the Playwright
+infrastructure and the create-project pilot workflow; #95–#97 cover the
+remaining three candidate workflows from §7 (add/edit a node, change a
+node's status, view and interact with the dependency graph); #98 wires
+the suite into CI/CD once real workflow coverage exists.
