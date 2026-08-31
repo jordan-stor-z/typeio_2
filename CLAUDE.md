@@ -91,10 +91,12 @@ Known Gotchas below.)
   [`docs/development/ci.md`](docs/development/ci.md)), so running it
   locally before pushing is no longer required — the PR is the
   enforcement point. A separate integration test suite also exists
-  (`cabal test integration` / `make test-integration`, needs Docker,
-  not part of CI yet — see
+  (`cabal test integration` / `make test-integration`, needs Docker
+  locally) and runs on every PR via a second workflow,
+  `.github/workflows/integration-test.yml` — informational only, not
+  yet a required check (see `docs/development/ci.md`). See
   `docs/solution-proposals/integration-testing.md`; a
-  `docs/development/` write-up lands with #53).
+  `docs/development/` write-up lands with #53.
   **Use the scoped `cabal test spec`/`cabal test integration` (or their
   `make` targets), not a bare `cabal test`** — the latter runs every
   test-suite in the package, including the Docker-dependent one. Run
