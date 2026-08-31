@@ -1,2 +1,11 @@
 dist-newstyle/
 .env
+
+# OpenTofu / Terragrunt (infrastructure/) -- state lives in HCP Terraform,
+# never local or committed; see docs/development/infrastructure.md.
+.terraform/
+.terragrunt-cache/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
