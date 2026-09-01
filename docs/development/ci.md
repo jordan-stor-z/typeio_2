@@ -326,10 +326,10 @@ write-up of how the suite works and what it covers.
 
 The E2E suite is separate again, and doesn't have a single `cabal`
 command — it needs a real running server and database, not just
-Docker. See [`e2e/README.md`](../../e2e/README.md) for the full local
-sequence (`make e2e-install`, `make test-e2e`, and how to watch it
-drive a browser headed/in UI mode); a `docs/development/` write-up for
-this suite is tracked in #117.
+Docker. See [`e2e-testing.md`](e2e-testing.md) for the full write-up
+(where specs live, how to run them, what's covered, and the
+Playwright/htmx interaction hazards found so far) — `e2e/README.md`
+covers the same local sequence as a quick-start pointer.
 
 **Running tests locally is now optional; writing/updating them is not.**
 CI catching a missing or broken test after the fact is not a substitute
