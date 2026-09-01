@@ -91,7 +91,7 @@ runtime). Re-migrating per test run (not per test) is still worth doing
 once, at suite startup, against the fresh container.
 
 **Settled, not pending**: this section previously noted a dependency on
-[#50](https://github.com/jordan-stor-z/typeio_2/issues/50), which
+[#50](https://github.com/v12-Industry/typeio_2/issues/50), which
 explored lifting the transaction boundary out of the responder
 specifically to get cross-domain atomicity. #50 was **decided against**
 — not because the "`runSqlPool` always commits" reasoning above was

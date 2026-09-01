@@ -3,9 +3,9 @@
 - **Status: Decided against.** See §7 — kept here as a record of the
   analysis and why it was rejected, not as guidance to build any of this.
 - **Date:** 2026-08-30
-- **Related:** [#50](https://github.com/jordan-stor-z/typeio_2/issues/50)
+- **Related:** [#50](https://github.com/v12-Industry/typeio_2/issues/50)
   (this spike),
-  [#42](https://github.com/jordan-stor-z/typeio_2/issues/42) /
+  [#42](https://github.com/v12-Industry/typeio_2/issues/42) /
   `integration-testing.md` (the testing limitation that prompted this),
   `docs/development/backend/{routing,containers,environment}.md`
 
@@ -23,7 +23,7 @@ Today it can't. Every responder calls `runSqlPool` directly (e.g.
 `runSqlPool` opens *and commits* its own transaction around whatever
 it's given — so the transaction boundary is, incidentally, always
 exactly one responder. This is what
-[#42](https://github.com/jordan-stor-z/typeio_2/issues/42)'s
+[#42](https://github.com/v12-Industry/typeio_2/issues/42)'s
 integration-testing spike ran into ("wrap a test in a transaction and
 roll it back" doesn't work, because there's no outer transaction to roll
 back). That's a symptom; this document is about the actual cause — see
@@ -208,14 +208,14 @@ handleGetNodes pool lc respond = do
 handler and every intermediate tree function across all of `Platform.Web.Router`
 and every domain's `Container` is a real, repo-wide mechanical change —
 comparable in shape (though not in intent) to the directory-rename fix
-from [#41](https://github.com/jordan-stor-z/typeio_2/issues/41), just
+from [#41](https://github.com/v12-Industry/typeio_2/issues/41), just
 across Haskell function signatures instead of file paths. This spike is
 not proposing to do that everywhere in one pass; a follow-up
 implementation ticket would need to scope it (likely: the shared
 transaction plumbing first, then migrate handlers domain-by-domain, the
 same narrow-first pattern used for
-[#28](https://github.com/jordan-stor-z/typeio_2/issues/28) →
-[#29](https://github.com/jordan-stor-z/typeio_2/issues/29)–[#34](https://github.com/jordan-stor-z/typeio_2/issues/34)).
+[#28](https://github.com/v12-Industry/typeio_2/issues/28) →
+[#29](https://github.com/v12-Industry/typeio_2/issues/29)–[#34](https://github.com/v12-Industry/typeio_2/issues/34)).
 
 ## 5. Commit / rollback policy — refined from the original discussion
 

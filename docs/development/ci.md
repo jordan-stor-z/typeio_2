@@ -3,7 +3,9 @@
 There are five GitHub Actions workflows:
 
 - `.github/workflows/test.yml` — builds the app and runs the unit test
-  suite. **Required** to merge into `main`.
+  suite. **Required** to merge into `main`, including a second run
+  against every merge-queue entry — see [Merge queue](#merge-queue)
+  below.
 - `.github/workflows/integration-test.yml` — runs the Docker-backed
   integration test suite. Informational only, not required — see
   [Integration test workflow](#integration-test-workflow) below.
@@ -51,6 +53,75 @@ this package now, and has its own CI coverage — see
 bare `cabal test` would build and run every test-suite in the package
 from *this* job too, silently pulling a Docker-dependent suite into
 this required, Docker-less check.
+
+## Merge queue
+
+`main` merges go through a merge queue, not a direct "Merge pull
+request" click. Once a PR has an approving state and its own `test` run
+has passed, the button reads **"Merge when ready"** instead — clicking
+it adds the PR to the queue rather than merging immediately. GitHub then
+combines the queued PR with `main`'s current tip (and with any PR
+already ahead of it in the queue) into a temporary **merge group** ref,
+re-runs `test` against *that*, and only merges for real once it passes.
+If it fails, that entry is dropped from the queue (not merged) without
+blocking whatever's queued behind it.
+
+**Why**: without this, `main`'s branch protection needing `test` to
+pass "up to date" (`required_status_checks.strict`) meant *any* PR
+merging into `main` flipped every other open PR to "out of date,"
+forcing a manual branch update + full CI re-run on each one before it
+could merge — even for a completely unrelated change. The merge queue
+keeps the same guarantee (nothing merges without `test` passing against
+what `main` will actually look like right after) but has GitHub do that
+update-and-retest step automatically instead of a human doing it by hand
+on every open PR each time one merges. Classic branch protection's own
+`required_status_checks.strict` is now `false` for exactly this reason —
+leaving it `true` would keep the manual "out of date" nag alive
+independently of the queue, defeating the point.
+
+**How it's configured**: not through branch protection at all —
+GitHub's classic branch-protection API (REST or GraphQL) has no merge
+queue field, and confirmed by hitting it directly: the only way to
+enable a merge queue is a repository ruleset (`POST
+/repos/{owner}/{repo}/rulesets`) with a `merge_queue` rule, paired with
+its own `required_status_checks` rule naming `test` (the two rules
+travel together — a bare `merge_queue` rule 422s on its own). That
+ruleset's `required_status_checks_policy.strict` is deliberately
+`false` too, same reasoning as above: the queue's `ALLGREEN` grouping
+strategy already re-tests each entry against a fresh `main`, so a
+second, independent "must be up to date" gate would just reintroduce
+the same friction from a different angle.
+
+**Availability**: merge queue only works on repositories owned by an
+**organization** (public repos free, private repos need GitHub
+Enterprise Cloud) — not personal-account repos. This repo moved from a
+personal account (`jordan-stor-z`) to the `v12-Industry` organization
+specifically to unlock this.
+
+**Why `test.yml` needed a new trigger, and nothing else did**: the
+queue evaluates required checks against the synthetic merge-group ref,
+which fires a `merge_group` event, not `pull_request`. `test` is the
+only workflow in `required_status_checks` (both the classic contexts
+list and the ruleset's own), so it's the only one that needed
+`merge_group:` added to its `on:` — without it, `test` would never run
+for a queued entry, GitHub would treat it as permanently missing (not
+failing), and nothing would ever clear the queue. `security-scan.yml`
+and `e2e-test.yml` aren't required checks, so they don't need it.
+`test.yml`'s own base-ref diffing (the "Check for Haskell-relevant
+changes" step) and concurrency group both had to account for
+`merge_group`'s different event shape too — `github.base_ref` and
+`github.event.pull_request.number` are both empty for that event; see
+the comments in the workflow file itself for the fallback logic.
+
+**Not yet reflected in `infrastructure/`**: the Terraform/OpenTofu
+module (`infrastructure/modules/github-repo`) only wraps
+`github_branch_protection` today, not `github_repository_ruleset` — the
+merge-queue ruleset was configured by hand via the API, the same way
+the original branch protection was before it existed as code (see
+[`infrastructure.md`](infrastructure.md)'s "Importing the existing
+branch protection"). Whenever that infra is actually applied for the
+first time, the import step will need to cover this ruleset too, not
+just the branch protection rule.
 
 ## Integration test workflow
 
@@ -294,10 +365,13 @@ except through a checked PR. That's now actually enforced, not just a
 convention — `main` has branch protection requiring a pull request (0
 required approvals, so it's about the PR requirement, not review) and
 this `test` check to pass, with `enforce_admins: true` (no bypass, for
-anyone). It was previously just `CLAUDE.md`'s "never push directly to
-main" rule for agents, which bound agents but not humans or GitHub
-itself — see the note above about what configuring this actually
-required from the workflow.
+anyone) — plus, as of the merge queue (see [Merge
+queue](#merge-queue) above), a ruleset requiring every merge to
+actually go through the queue rather than a direct merge at all. It was
+previously just `CLAUDE.md`'s "never push directly to main" rule for
+agents, which bound agents but not humans or GitHub itself — see the
+note above about what configuring this actually required from the
+workflow.
 
 `integration-test.yml` triggers on `pull_request` only too, for the
 same reason — it's just not part of what branch protection enforces.
