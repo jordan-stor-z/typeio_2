@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { APIRequestContext, Page, expect } from '@playwright/test';
 
 // Shared setup helpers for this suite's specs -- reused rather than
 // duplicated across specs, per each ticket's "reuse #94's Playwright
@@ -46,4 +46,47 @@ export async function createProject(page: Page, titlePrefix: string): Promise<Cr
 
   const id = await card.locator('.id').innerText();
   return { id: id.trim(), title, description };
+}
+
+export interface CreatedNode {
+  id: string;
+  title: string;
+  description: string;
+  projectId: string;
+}
+
+// Adds a node to an existing project via a direct API call
+// (Domain.Project.Responder.Api.Node.Post), not a UI interaction: the
+// app has no UI affordance to create a node anywhere -- checked the D3
+// script, the graph template, and the node panel (see #95's PR
+// description for the full finding). Every spec that needs *a* node to
+// exist but isn't testing node creation itself calls this instead of
+// reimplementing the API-plus-lookup dance.
+export async function addNode(
+  request: APIRequestContext,
+  projectId: string,
+  titlePrefix: string
+): Promise<CreatedNode> {
+  const title = `${titlePrefix} ${Date.now()}`;
+  const description = `Created by e2e/tests/helpers.ts's addNode() at ${new Date().toISOString()}`;
+
+  const created = await request.post('/api/project/nodes', {
+    form: { title, description, projectId },
+  });
+  if (!created.ok()) {
+    throw new Error(`addNode: POST /api/project/nodes failed: ${created.status()} ${await created.text()}`);
+  }
+
+  // The POST response above is just "Ok" -- no created-node id -- so
+  // fetch it back to find the id. Domain.Project.Responder.Api.Node.Get
+  // returns every node in the database, unfiltered by project (#114,
+  // filed as a follow-up, not fixed here); the timestamped title is
+  // what actually picks out the right one.
+  const allNodes = await request.get('/api/project/nodes').then(r => r.json());
+  const node = allNodes.find((n: { title: string }) => n.title === title);
+  if (!node) {
+    throw new Error(`addNode: no node titled ${JSON.stringify(title)} in ${JSON.stringify(allNodes)}`);
+  }
+
+  return { id: String(node.nodeId), title, description, projectId };
 }
