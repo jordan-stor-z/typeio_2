@@ -248,6 +248,26 @@ A few ways this deliberately differs from every other workflow here:
   `security-scan.yml` — doubly so here, since it isn't even part of
   every PR's checks by default.
 
+**Known race, benign: creating a PR and labeling it `run-e2e` as two
+separate, rapid actions** (#153). `opened` and `labeled` are both
+trigger types above, so open-then-label fires two `pull_request` events
+close together, both landing in `e2e-test.yml`'s own `concurrency`
+group (same pattern as the other workflows — see "Same reasoning as
+`test.yml`" in the workflow file itself) — the second run's
+`cancel-in-progress` cancels the first as designed, but if
+the first run's `e2e-test` job had already been dispatched by then, it
+can keep running instead of stopping cleanly, leaving a stale
+`cancelled` `check-e2e-required` sitting next to a still-running
+`e2e-test` from the same (superseded) run. `gh pr checks`/the PR's
+checks UI can show a misleading `fail` in that window. Not a workflow
+bug — it self-resolves once the still-running job finishes and the
+concurrency group frees up for the newer run, or it can be nudged along
+with `gh run cancel` on the stale run. Avoid tripping it in the first
+place by passing the label at creation time (`gh pr create --label
+run-e2e ...`) instead of creating the PR and labeling it in a separate
+follow-up call, whenever `run-e2e` is already known to be needed before
+the PR exists.
+
 ## Why it always runs, and skips internally instead of using `paths`
 
 The first version of this workflow used a top-level `on.pull_request.paths`
