@@ -1,6 +1,6 @@
 # CI
 
-There are five GitHub Actions workflows:
+There are six GitHub Actions workflows:
 
 - `.github/workflows/test.yml` — builds the app and runs the unit test
   suite. **Required** to merge into `main`, including a second run
@@ -20,6 +20,10 @@ There are five GitHub Actions workflows:
   against a real server, seeded Postgres, and headless browser.
   Informational only, not required, and not run on every PR — see
   [E2E test workflow](#e2e-test-workflow) below.
+- `.github/workflows/warm-cache.yml` — populates the cabal build cache
+  that `test.yml`'s `pull_request`/`merge_group` runs can't write
+  themselves. Not a check at all — see [Cache
+  warming](#cache-warming) below.
 
 ## What it does
 
@@ -122,6 +126,42 @@ the original branch protection was before it existed as code (see
 branch protection"). Whenever that infra is actually applied for the
 first time, the import step will need to cover this ruleset too, not
 just the branch protection rule.
+
+## Cache warming
+
+`.github/workflows/warm-cache.yml` triggers on `push` to `main` only,
+runs the same setup/cache/build steps `test.yml` has (same
+`haskell-actions/setup@v2` versions, same `actions/cache@v6` `path`/
+`key`, copied exactly rather than re-derived), and stops after `cabal
+build all` — no `cabal test`. It exists to populate a cache scope
+`test.yml` structurally can't: GitHub Actions cache reads are limited
+to a run's current branch or the repo's default branch, and only
+certain trigger types (`push`, `workflow_dispatch`,
+`repository_dispatch`, `delete`, `registry_package`, `schedule`) are
+allowed to *write* into that default-branch scope. `test.yml` only
+triggers on `pull_request`/`merge_group`, neither of which qualifies —
+so before this workflow existed, no run had ever written a cache into
+`main`'s actual scope, and every genuinely new ref (a PR's first push,
+or every merge-queue entry on its own synthetic branch) paid a full
+cold `cabal build all` regardless of an identical-key cache already
+existing elsewhere in the repo.
+
+Every merge lands as a single merge commit (the merge queue's own
+`merge_method: MERGE` — see [Merge queue](#merge-queue) above; direct
+pushes are blocked entirely), so this workflow's relevance check diffs
+`HEAD^...HEAD` — "what changed in the merge that just landed" — the
+same "skip GHC setup entirely for a docs-only change" pattern `test.yml`
+uses, just against the previous commit instead of a PR's base branch.
+No `cabal test` step: anything on `main` already passed that check via
+its own PR or merge-queue entry (see "[Why pull requests only, not
+`main`](#why-pull-requests-only-not-main)" below) — this workflow exists
+purely to leave a cache behind for the *next* run to find, not to
+re-verify correctness. Not a required check; nothing waits on it.
+
+See `docs/solution-proposals/ci-cache-warming.md` (#159, decided) for
+the full diagnosis — confirmed with real run timing and
+`actions/cache@v6`'s own log output, not just reasoning — and #160 for
+what landed.
 
 ## Integration test workflow
 
@@ -376,18 +416,23 @@ workflow.
 `integration-test.yml` triggers on `pull_request` only too, for the
 same reason — it's just not part of what branch protection enforces.
 
-`security-scan.yml` and `release.yml` are the two workflows that don't
-trigger on `pull_request` at all, for two different reasons:
-`release.yml` triggers on `push` to `main` instead — see [Release
-workflow](#release-workflow) above — because it isn't re-checking a PR,
-it's reacting to one that already merged. `security-scan.yml` triggers
-on a weekly `schedule` only (as of #136) — see [Security scan
-workflow](#security-scan-workflow) above — because a per-PR run was
-checking something a PR trigger can't meaningfully check (whether a
-dependency became known-vulnerable with no code change at all); `main`
-is the right target for that scheduled run for the same "already
-checked, nothing new to say" reason `pull_request`-only is right for
-the others.
+`security-scan.yml`, `release.yml`, and `warm-cache.yml` are the three
+workflows that don't trigger on `pull_request` at all, for three
+different reasons: `release.yml` triggers on `push` to `main` instead —
+see [Release workflow](#release-workflow) above — because it isn't
+re-checking a PR, it's reacting to one that already merged.
+`security-scan.yml` triggers on a weekly `schedule` only (as of #136) —
+see [Security scan workflow](#security-scan-workflow) above — because a
+per-PR run was checking something a PR trigger can't meaningfully check
+(whether a dependency became known-vulnerable with no code change at
+all); `main` is the right target for that scheduled run for the same
+"already checked, nothing new to say" reason `pull_request`-only is
+right for the others. `warm-cache.yml` also triggers on `push` to
+`main`, but for close to the opposite reason `release.yml` does: not
+because re-checking correctness on `main` would be redundant, but
+because `main` is the *only* place GitHub allows writing the cache
+scope this workflow exists to populate — see [Cache
+warming](#cache-warming) above.
 
 `e2e-test.yml` goes further still: its `pull_request` trigger is gated
 on the `run-e2e` label rather than running unconditionally, on top of

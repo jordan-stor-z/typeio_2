@@ -1,0 +1,92 @@
+name: Warm Cache
+
+# Populates GitHub Actions' default-branch cache scope for the cabal
+# store/dist-newstyle, which no other workflow does today -- test.yml
+# only triggers on pull_request/merge_group, and per GitHub's own docs
+# only push/workflow_dispatch/repository_dispatch/delete/
+# registry_package/schedule are allowed to write a cache into that
+# scope. Without this, every genuinely new ref (a PR's first push, or a
+# merge-queue entry on its own synthetic branch) cold-builds regardless
+# of an identical-key cache already existing elsewhere in the repo --
+# see docs/solution-proposals/ci-cache-warming.md for the full
+# diagnosis (confirmed with real run timing/log data, not just
+# reasoning) and #159/#160.
+#
+# Deliberately its own workflow, not folded into test.yml: different
+# trigger (push, not pull_request/merge_group) and a different job
+# (build only, no `cabal test`) -- same one-workflow-per-concern
+# pattern the rest of .github/workflows/ already uses.
+#
+# Not a required check -- nothing waits on this; it exists purely to
+# leave a cache behind for the *next* run to find.
+on:
+  push:
+    branches: [main]
+
+# A second push to main while an earlier warm-up is still running should
+# replace it, not queue alongside it -- only the latest tip's cache is
+# worth having.
+concurrency:
+  group: warm-cache-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm-cache:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the previous commit's history to diff against below
+
+      # Same skip pattern test.yml uses, so a docs-only merge doesn't
+      # spend GHC setup/build time on a cache that wouldn't change
+      # anyway. Every merge to main lands as a single merge commit (the
+      # merge queue's `merge_method: MERGE` -- see the "main merge
+      # queue" ruleset -- direct pushes are blocked entirely), so
+      # `HEAD^` reliably means "main just before this merge," the same
+      # way `origin/${{ github.base_ref }}` does for test.yml's
+      # pull_request case.
+      - name: Check for Haskell-relevant changes
+        id: changes
+        run: |
+          if git diff --name-only "HEAD^...HEAD" \
+              | grep -qE '\.hs$|\.cabal$|^cabal\.project$|^\.github/workflows/test\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: setup
+        if: steps.changes.outputs.relevant == 'true'
+        uses: haskell-actions/setup@v2
+        with:
+          # Matches test.yml exactly -- see that file for why these
+          # versions.
+          ghc-version: '9.6.7'
+          cabal-version: '3.12.1.0'
+
+      # Same path/key as test.yml, copied exactly rather than
+      # re-derived -- any drift here would silently recreate this same
+      # class of problem via a key mismatch instead of a scope mismatch.
+      # This step is the entire point of the workflow: pull_request/
+      # merge_group runs can't write to the default-branch scope
+      # themselves (see the file header comment above), so this
+      # push-triggered run is the only thing that ever does.
+      - uses: actions/cache@v6
+        if: steps.changes.outputs.relevant == 'true'
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-cabal-${{ hashFiles('typeio.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      # Build only -- no `cabal test`. Anything that landed on main
+      # already passed that check via its own PR or merge-queue entry
+      # (see docs/development/ci.md's "why pull requests only, not
+      # main"); this workflow exists purely to populate the cache the
+      # step above needs to write, not to re-verify correctness.
+      - name: cabal build all
+        if: steps.changes.outputs.relevant == 'true'
+        run: cabal build all
