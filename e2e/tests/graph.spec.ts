@@ -9,20 +9,20 @@ import { addNode, createProject } from './helpers';
 // proposal's hazards call out -- a one-shot transient, not this spec's
 // concern.
 //
-// Clicking the node uses locator.dispatchEvent('click'), not
-// locator.click(): found a serious, separate bug while writing this --
-// the graph's D3 script (static/script/nodetree2.js) never positions
-// any node past the first one in the list (confirmed via
-// getAttribute('transform') returning null on the second node,
-// regardless of how long you wait -- not a settle-timing issue, the
-// simulation genuinely never touches that element). Filed as #120,
-// with the root cause and fix; not fixed here, since this ticket is
-// about the click/highlight behavior, not the graph's layout
-// algorithm. dispatchEvent() fires the same hx-trigger="click" handler
-// a real pointer click would, independent of where the (currently
-// broken) layout happens to have put the element on screen -- once
-// #120 lands, this can likely go back to a real click() against a
-// predictably on-screen node.
+// Two things here changed with the radial layout (#162):
+//
+//   - Nodes are located by id (`#node-<id>`), not by their label text.
+//     Labels now wrap to the node and truncate past three lines
+//     (Data.Text.Util.wrapLabel), so a node's full title is no longer
+//     present as one contiguous string to filter on -- and the id was
+//     always the more robust handle anyway, being independent of how
+//     the label happens to render.
+//   - This uses a real click() again, not dispatchEvent('click'). The
+//     workaround existed because of #120 (nodes never positioned, so
+//     there was no reliable on-screen point to click); with the layout
+//     now deterministic and fitted to the viewport, a real pointer
+//     click works -- which also makes this a regression test for nodes
+//     actually landing somewhere visible and clickable.
 test("clicking a graph node opens its detail panel and highlights it, closing clears both", async ({ page, request }) => {
   const project = await createProject(page, 'E2E graph project');
   const node = await addNode(request, project.id, 'E2E graph node');
@@ -36,11 +36,11 @@ test("clicking a graph node opens its detail panel and highlights it, closing cl
   // right after goto().
   await expect(page.locator('#graph-nodes .node')).toHaveCount(2);
 
-  const graphNode = page.locator('#graph-nodes .node').filter({ hasText: node.title });
+  const graphNode = page.locator(`#node-${node.id}`);
   await expect(graphNode).toBeAttached();
   await expect(graphNode).not.toHaveClass(/node-highlight/);
 
-  await graphNode.dispatchEvent('click');
+  await graphNode.click();
 
   // Opens #node-panel (Node.templateNodePanel), which itself loads the
   // plain node-detail view into #node-detail -- assert on that settled
@@ -55,10 +55,46 @@ test("clicking a graph node opens its detail panel and highlights it, closing cl
   // anything panel-side.
   await expect(graphNode).toHaveClass(/node-highlight/);
 
-  // Close the panel (a normal button in #node-panel's own
-  // panel-actions, unaffected by #120 -- no positioning issue here) and
-  // confirm both the panel and the highlight clear.
+  // Close the panel and confirm both the panel and the highlight clear.
   await page.getByRole('button', { name: 'close' }).click();
   await expect(page.locator('#node-panel')).toBeEmpty();
   await expect(graphNode).not.toHaveClass(/node-highlight/);
+});
+
+// The layout's own contract (#162): the graph must render compactly and
+// legibly, not sprawl or pile nodes on top of each other. Asserting on
+// geometry here rather than eyeballing a screenshot -- this is the
+// property that regressed twice while building the layout.
+test("the dependency graph lays nodes out on-screen without overlapping them", async ({ page, request }) => {
+  const project = await createProject(page, 'E2E graph layout');
+  await addNode(request, project.id, 'E2E layout node A');
+  await addNode(request, project.id, 'E2E layout node B');
+  await addNode(request, project.id, 'E2E layout node C');
+
+  await page.goto(`/ui/project/vw?projectId=${project.id}`);
+  await expect(page.locator('#graph-nodes .node')).toHaveCount(4);
+
+  const positions = await page.locator('#graph-nodes .node').evaluateAll((els) =>
+    els.map((el) => {
+      const m = (el.getAttribute('transform') || '').match(/translate\(([-\d.eE]+),([-\d.eE]+)\)/);
+      return { id: el.id, x: m ? parseFloat(m[1]) : NaN, y: m ? parseFloat(m[2]) : NaN };
+    })
+  );
+
+  // Every node positioned at all -- #120's regression, where every node
+  // past the first kept a null transform.
+  for (const p of positions) {
+    expect(Number.isFinite(p.x) && Number.isFinite(p.y), `${p.id} has a real position`).toBe(true);
+  }
+
+  // And no two of them stacked on top of each other: node circles are
+  // r=45 (manage-project.css), so centres must be at least a diameter
+  // apart to not overlap.
+  for (let i = 0; i < positions.length; i++) {
+    for (let j = i + 1; j < positions.length; j++) {
+      const a = positions[i], b = positions[j];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      expect(dist, `${a.id} and ${b.id} do not overlap`).toBeGreaterThanOrEqual(90);
+    }
+  }
 });

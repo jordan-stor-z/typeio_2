@@ -26,7 +26,7 @@ import Data.Bifunctor (first)
 import Data.Either (notNullEither)
 import Data.Int (Int64)
 import Data.Text (Text, pack, unpack)
-import Data.Text.Util (intToText)
+import Data.Text.Util (intToText, wrapLabel)
 import Database.Esqueleto.Experimental
   ( from
   , fromSqlKey
@@ -196,21 +196,33 @@ templateGraph g = do
     , h_ "on load transition my opacity to 1 over 200ms"
     ]
     $ do
-      defs_
-        [ id_ "arrow"
-        , viewBox_ "0 -5 10 10"
-        , refX_ "30"
-        , refY_ "0"
-        , markerWidth_ "6"
-        , markerHeight_ "6"
-        , orient_ "auto"
-        ]
-        $ do
-          path_
-            [ d_ "M0,-5L10,0L0,5"
-            , fill_ "#999"
-            ]
-            empty
+      -- `marker-end` on the edges resolves `url(#arrow)` and requires
+      -- that id to be a `<marker>`. It used to be on the `<defs>`
+      -- itself, with the marker's own attributes (viewBox/refX/orient/
+      -- markerWidth) hung off `<defs>` where they mean nothing -- so
+      -- the reference never resolved to a marker and no arrowhead has
+      -- ever actually rendered, leaving the graph showing dependencies
+      -- as undirected lines. `<defs>` is just the container; the
+      -- `<marker>` inside it is what carries the id and the geometry.
+      defs_ []
+        $ marker_
+          [ id_ "arrow"
+          , viewBox_ "0 -5 10 10"
+          , -- The arrowhead's own tip (x=10 in the viewBox above) is
+            -- what should land on the end of the line; nodetree2.js
+            -- already stops each edge at the node's edge rather than
+            -- its centre, so the head needs no extra pulling back.
+            refX_ "10"
+          , refY_ "0"
+          , markerWidth_ "6"
+          , markerHeight_ "6"
+          , orient_ "auto"
+          ]
+        $ path_
+          [ d_ "M0,-5L10,0L0,5"
+          , fill_ "#999"
+          ]
+          empty
       g_ [class_ "zoom-group"] $ do
         g_ [id_ "graph-links"] $ do
           -- A `<path>`, not a `<line>`: nodetree2.js draws each
@@ -275,9 +287,22 @@ toGraphNode (Entity k e) =
     , nodeType = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
     }
 
+-- How wide (in characters) and how tall (in lines) a node's label is
+-- allowed to get. Sized to sit inside the node circle's own 45px radius
+-- at the label font size, so a long title wraps to the node instead of
+-- rendering as one runaway line far wider than the node it belongs to
+-- -- which is what previously forced the graph's spacing (and with it
+-- the whole layout) to sprawl. The untruncated title is always still
+-- one click away in the node's detail panel.
+labelWidth :: Int
+labelWidth = 12
+
+labelLines :: Int
+labelLines = 3
+
 nodeContents :: GraphNode -> Html ()
 nodeContents n = do
-  toHtml . label $ n
+  labelTspans . label $ n
   g_
     [ class_ "hidden"
     , hxGet_ $
@@ -298,6 +323,29 @@ nodeContents n = do
     empty
   where
     empty = mempty :: Html ()
+
+-- SVG `<text>` has no wrapping of its own, so a multi-line label has to
+-- be emitted as one `<tspan>` per line. Each line resets `x` to the
+-- node's own origin (otherwise tspans just continue along the same
+-- line) and steps `dy` by one line height, with the first line lifted
+-- by half the block's height so the whole label stays vertically
+-- centred on the node however many lines it wraps to.
+labelTspans :: Text -> Html ()
+labelTspans lbl =
+  forM_ (zip [0 :: Int ..] ls) $ \(i, l) ->
+    tspan_
+      [ x_ "0"
+      , dy_ $ if i == 0 then firstDy else lineHeight
+      ]
+      $ toHtml l
+  where
+    ls = wrapLabel labelWidth labelLines lbl
+    lineHeight = "1.1em"
+    firstDy =
+      (<> "em")
+        . pack
+        . show
+        $ (-1.1 * fromIntegral (length ls - 1) / 2 :: Double)
 
 toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph
 toGraph ns ds = Graph (map toLink ds) (map toGNode ns)

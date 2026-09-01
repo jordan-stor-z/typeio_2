@@ -4,12 +4,8 @@
   );
   const svg = d3.select("svg");
   const zoomGroup = svg.select(".zoom-group");
-  // Lower bound is generous (0.05) because footprint-based spacing
-  // below can make the graph's real extent much bigger than a fixed
-  // ringSpacing ever produced -- a long, deep dependency chain needs to
-  // still be zoomable out far enough to see end to end.
   const zoom = d3.zoom()
-    .scaleExtent([0.05, 3])
+    .scaleExtent([0.1, 3])
     .on("zoom", (event) => {
       zoomGroup.attr("transform", event.transform);
     });
@@ -23,13 +19,30 @@
   const svgWidth = Math.min(svg.node().clientWidth, window.innerWidth - svgRect.left);
   const svgHeight = Math.min(svg.node().clientHeight, window.innerHeight - svgRect.top);
 
-  // --- Radial layout: the project root is the nucleus ----------------
-  // Every work node's distance from root follows its dependency depth
-  // (BFS hop count over the links, direction ignored -- "how far from
-  // root" doesn't care which way a dependency arrow points), not
-  // wherever a generic charge/link/center force simulation happens to
-  // settle it. Nodes sharing a branch also get angularly grouped (see
-  // `place` below), which is what keeps dependency lines from crossing.
+  // --- Radial tidy tree, project root as the nucleus -----------------
+  //
+  // Two properties this layout is built to guarantee, in order:
+  //
+  //   1. No crossing edges. Every subtree owns a *disjoint* angular
+  //      wedge, and a node is always placed strictly inside its
+  //      parent's wedge. Two edges from different subtrees therefore
+  //      live in non-overlapping wedges and cannot cross, and within a
+  //      subtree the same argument recurses. (An earlier revision
+  //      rotated each lone child by a fixed "spiral" step to make long
+  //      chains curl; that shifts a child outside its parent's wedge
+  //      into a sibling's, which is exactly what reintroduces
+  //      crossings. Compact labels made the spiral unnecessary, so it's
+  //      gone.)
+  //   2. Compactness. Node radius is the *node's* size, not its
+  //      label's: labels are wrapped to the node server-side
+  //      (Data.Text.Util.wrapLabel), so a node occupies ~55px rather
+  //      than the ~205px an unwrapped title used to demand. Ring
+  //      spacing and wedge widths both derive from that, which is what
+  //      keeps the whole graph inside a screenful instead of sprawling.
+  //
+  // Non-tree edges (a node depended on by more than one other -- a
+  // shared dependency) are drawn on top of this tree as gentle curves;
+  // they're the only edges that can cross anything, and there are few.
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const root = nodes.find((n) => n.nodeType === "project_root") ?? nodes[0];
 
@@ -39,15 +52,21 @@
     neighbors.get(l.target).push(l.source);
   });
 
+  // BFS spanning tree: depth is hop count from root (direction of a
+  // dependency edge is irrelevant to "how far from the nucleus"), and
+  // the first node to reach a given node becomes its tree parent.
+  const depth = new Map([[root.id, 0]]);
   const children = new Map(nodes.map((n) => [n.id, []]));
-  const visited = new Set([root.id]);
+  const treeEdge = new Set();
   const queue = [root.id];
   while (queue.length) {
     const id = queue.shift();
     for (const nb of neighbors.get(id)) {
-      if (visited.has(nb)) continue;
-      visited.add(nb);
+      if (depth.has(nb)) continue;
+      depth.set(nb, depth.get(id) + 1);
       children.get(id).push(nb);
+      treeEdge.add(`${id}:${nb}`);
+      treeEdge.add(`${nb}:${id}`);
       queue.push(nb);
     }
   }
@@ -56,171 +75,156 @@
   // NaN position -- shouldn't happen for a project's own dependency
   // graph, but the data isn't this script's to trust blindly.
   nodes.forEach((n) => {
-    if (!visited.has(n.id)) children.get(root.id).push(n.id);
+    if (!depth.has(n.id)) {
+      depth.set(n.id, 1);
+      children.get(root.id).push(n.id);
+    }
   });
 
-  // Give each node an angular slot sized by its own subtree, so a whole
-  // dependency branch stays grouped together around its ring instead of
-  // scattering wherever physics puts it -- this is what keeps
-  // dependency lines from crossing.
-  const subtreeSize = new Map();
-  const sizeOf = (id) => {
-    if (subtreeSize.has(id)) return subtreeSize.get(id);
-    const kids = children.get(id);
-    const size = kids.length === 0 ? 1 : kids.reduce((sum, k) => sum + sizeOf(k), 0);
-    subtreeSize.set(id, size);
-    return size;
-  };
-  nodes.forEach((n) => sizeOf(n.id));
+  // Every node is the same size now that labels wrap to the node, so
+  // one constant covers the circle plus a little breathing room.
+  const nodeRadius = 52;
+  const ringSpacing = nodeRadius * 2 + 44;
+  // The drawn circle's own radius (CSS `#tree-container .node circle`),
+  // as opposed to `nodeRadius` above, which is the clearance the layout
+  // reserves around a node. Edges are trimmed back to this so they stop
+  // at the circle's edge rather than running to its centre -- which is
+  // what makes the arrowheads visible instead of buried under the node.
+  const circleRadius = 45;
+  const radiusAt = (d) => d * ringSpacing;
 
-  // A lone child inherits its parent's *entire* angular span (its
-  // share, sizeOf(k)/sizeOf(id), is always 1), which reproduces the
-  // exact same midpoint angle as the parent -- fine for a single hop,
-  // but a long unbranched chain (this app's dependency graphs are
-  // mostly this shape) then shoots straight out from the nucleus in
-  // one direction instead of curling around it. `spiralStep` nudges a
-  // lone child's slice by a fixed rotation so each hop down an
-  // unbranched chain curls a bit further around center -- a real fork
-  // still just splits its parent's span proportionally, undisturbed.
-  const spiralStep = 0.5;
-  const angle = new Map([[root.id, 0]]);
+  // Angular width a subtree needs, computed bottom-up. A node needs
+  // enough arc at its own radius to not touch its siblings; a parent
+  // needs at least the sum of what its children need. Deeper rings are
+  // physically longer, so the same clearance costs less angle out
+  // there -- which is what stops a deep tree from fanning out into a
+  // huge wasted circle the way a flat "share of 2*PI per leaf"
+  // allocation does. Memoised: `place` below asks for the same
+  // subtree's need once per sibling, which is exponential unmemoised.
+  const needCache = new Map();
+  const needOf = (id) => {
+    if (needCache.has(id)) return needCache.get(id);
+    const r = Math.max(radiusAt(depth.get(id)), ringSpacing);
+    const own = (nodeRadius * 2.2) / r;
+    const kids = children.get(id);
+    const need = kids.length === 0
+      ? own
+      : Math.max(own, kids.reduce((sum, k) => sum + needOf(k), 0));
+    needCache.set(id, need);
+    return need;
+  };
+
+  // A ring only has so much room: n nodes on the ring at depth d need
+  // n node-widths of arc, and a ring of radius d*ringSpacing only
+  // offers 2*PI*d*ringSpacing of it. A wide project (many work nodes
+  // hanging directly off the root) therefore doesn't fit on its ring at
+  // the default spacing, and packing it in anyway is how nodes end up
+  // overlapping. Since every node's angular need is inversely
+  // proportional to its radius, pushing every ring out by exactly the
+  // factor by which demand overflows a full turn makes it fit in one
+  // shot -- no iteration, no guessing.
+  const radiusScale = Math.max(1, needOf(root.id) / (2 * Math.PI));
+  const scaledRadiusAt = (d) => radiusAt(d) * radiusScale;
+
+  // Hand each subtree its own slice of its parent's wedge, sized by
+  // that need, and place the node itself at the middle of its slice.
+  const angle = new Map();
   const place = (id, start, end) => {
     angle.set(id, (start + end) / 2);
     const kids = children.get(id);
-    const spin = kids.length === 1 ? spiralStep : 0;
+    if (kids.length === 0) return;
+    const total = kids.reduce((sum, k) => sum + needOf(k), 0) || 1;
     let a = start;
     for (const k of kids) {
-      const span = (end - start) * (sizeOf(k) / sizeOf(id));
-      place(k, a + spin, a + span + spin);
+      const span = (end - start) * (needOf(k) / total);
+      place(k, a, a + span);
       a += span;
     }
   };
-  place(root.id, 0, 2 * Math.PI);
-
-  // Node labels are long, single-line, and don't wrap (see the `text`
-  // element `nodeContents` renders), so the circle's own 45px CSS
-  // radius understates how much room a node actually needs on screen --
-  // a title like "Final Inspection & Occupancy Certification" is far
-  // wider than its circle. `footprint` estimates that on-screen half-
-  // width so spacing can account for it.
-  const footprint = (n) => 45 + Math.min(160, n.label.length * 3.2);
-
-  // Radius grows outward from root by accumulating each node's own and
-  // its parent's footprint along its branch (plus a fixed gap), rather
-  // than a flat depth * constant -- so a long-titled node automatically
-  // gets more room than a short one, instead of leaning on collision
-  // force to shove overlapping labels apart after the fact.
-  const gap = 30;
-  const radius = new Map([[root.id, 0]]);
-  const placeRadius = (id) => {
-    for (const k of children.get(id)) {
-      radius.set(k, radius.get(id) + footprint(byId.get(id)) + footprint(byId.get(k)) + gap);
-      placeRadius(k);
-    }
-  };
-  placeRadius(root.id);
+  // The tree only claims as much of the circle as it actually needs
+  // (capped at a full turn), rather than always fanning across 2*PI --
+  // a two-branch project shouldn't be flung to opposite sides of the
+  // screen just because there's room. Centred on -PI/2 so the graph
+  // grows upward-ish from the nucleus rather than starting rightward.
+  const sweep = Math.min(2 * Math.PI, needOf(root.id) / radiusScale);
+  place(root.id, -Math.PI / 2 - sweep / 2, -Math.PI / 2 + sweep / 2);
 
   const cx = svgWidth / 2;
   const cy = svgHeight / 2;
   nodes.forEach((n) => {
-    const r = radius.get(n.id);
-    n.targetX = cx + r * Math.cos(angle.get(n.id));
-    n.targetY = cy + r * Math.sin(angle.get(n.id));
-    // Seed the real position from the target too, so the simulation
-    // below starts from the intended layout and only has to settle
-    // minor cross-branch crowding, rather than discover the layout
-    // from scratch the way the old free-floating charge/link/center
-    // setup did.
-    n.x = n.targetX;
-    n.y = n.targetY;
+    const r = scaledRadiusAt(depth.get(n.id));
+    n.x = cx + r * Math.cos(angle.get(n.id));
+    n.y = cy + r * Math.sin(angle.get(n.id));
   });
-  // The root is the nucleus -- pin it exactly at the SVG's true center
-  // (fx/fy make a node immune to every force) so it always renders
-  // there deterministically, regardless of what happens elsewhere.
-  root.fx = cx;
-  root.fy = cy;
 
   // Fit the initial view to the layout just computed instead of a
-  // fixed guess -- footprint-based spacing means the graph's real size
-  // varies a lot with dependency depth and title length, so a constant
-  // initial zoom (the old code used a flat 1.3x) would leave a small
-  // project too zoomed in and a deep one mostly off-screen.
-  const extentX = nodes.map((n) => [n.targetX - footprint(n), n.targetX + footprint(n)]).flat();
-  const extentY = nodes.map((n) => [n.targetY - footprint(n), n.targetY + footprint(n)]).flat();
-  const margin = 100;
-  const spanX = Math.max(...extentX) - Math.min(...extentX) + margin * 2;
-  const spanY = Math.max(...extentY) - Math.min(...extentY) + margin * 2;
-  const midX = (Math.max(...extentX) + Math.min(...extentX)) / 2;
-  const midY = (Math.max(...extentY) + Math.min(...extentY)) / 2;
-  const initialScale = Math.min(1.3, svgWidth / spanX, svgHeight / spanY);
+  // fixed guess, so a small project isn't over-zoomed and a deep one
+  // isn't mostly off-screen.
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  const margin = nodeRadius + 30;
+  const minX = Math.min(...xs) - margin, maxX = Math.max(...xs) + margin;
+  const minY = Math.min(...ys) - margin, maxY = Math.max(...ys) + margin;
+  const initialScale = Math.min(1.3, svgWidth / (maxX - minX), svgHeight / (maxY - minY));
   svg.call(
     zoom.transform,
     d3.zoomIdentity
       .translate(svgWidth / 2, svgHeight / 2)
       .scale(initialScale)
-      .translate(-midX, -midY)
+      .translate(-(minX + maxX) / 2, -(minY + maxY) / 2)
   );
 
   links.forEach((l) => {
     l.source = byId.get(l.source);
     l.target = byId.get(l.target);
+    l.isTreeEdge = treeEdge.has(`${l.source.id}:${l.target.id}`);
   });
 
-  // Draws each dependency edge as a gentle curve instead of a straight
-  // chord. Tried bowing via the two endpoints' average polar position
-  // first (matching the spiral everything else here is laid out in),
-  // but that blows up into a wild, far-swinging loop for the "extra"
-  // edges a shared dependency creates (two nodes in different spiral
-  // arms, structurally distant despite an edge existing) -- their
-  // average angle/radius doesn't sit anywhere near a sane midpoint.
-  // Bowing perpendicular to the straight chord instead, scaled to a
-  // fixed fraction of its own length, can't blow up regardless of
-  // topology: an adjacent hop gets a small gentle curve, a long
-  // cross-branch edge gets a proportionally bigger but still sane one.
-  const curvedPath = (d) => {
-    const x1 = d.source.x, y1 = d.source.y;
-    const x2 = d.target.x, y2 = d.target.y;
+  // Tree edges are drawn straight: they run parent-to-child within one
+  // wedge, so they're short and provably don't cross anything. The
+  // extra edges a shared dependency creates can span wedges, so they're
+  // bowed aside to stay visually distinct from the tree structure
+  // rather than being mistaken for it -- and so that where one does
+  // have to cross a tree edge, it reads as passing over rather than
+  // ambiguously merging into it.
+  const edgePath = (d) => {
+    const fullDx = d.target.x - d.source.x, fullDy = d.target.y - d.source.y;
+    const fullDist = Math.sqrt(fullDx * fullDx + fullDy * fullDy) || 1;
+    // Stop the edge at each node's circle rather than its centre, so
+    // the line doesn't disappear under the node and, more importantly,
+    // so the arrowhead marking which way the dependency points stays
+    // visible outside it.
+    const trim = circleRadius + 4;
+    const ux = fullDx / fullDist, uy = fullDy / fullDist;
+    const x1 = d.source.x + ux * trim, y1 = d.source.y + uy * trim;
+    const x2 = d.target.x - ux * trim, y2 = d.target.y - uy * trim;
+    if (d.isTreeEdge) return `M${x1},${y1} L${x2},${y2}`;
     const dx = x2 - x1, dy = y2 - y1;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bow = dist * 0.15;
+    const bow = dist * 0.12;
     const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
-    // Perpendicular to the chord, oriented outward from the nucleus
-    // (not just an arbitrary fixed rotation) so every edge bulges away
-    // from root -- consistent, rather than some curving one way and
-    // some the other depending on which way each chord happens to run.
+    // Bow away from the nucleus, consistently, so these curves arc
+    // around the graph rather than cutting back through the middle.
     let px = -dy / dist, py = dx / dist;
-    const outX = midX - cx, outY = midY - cy;
-    if (px * outX + py * outY < 0) { px = -px; py = -py; }
-    const ctrlX = midX + px * bow;
-    const ctrlY = midY + py * bow;
-    return `M${x1},${y1} Q${ctrlX},${ctrlY} ${x2},${y2}`;
+    if (px * (midX - cx) + py * (midY - cy) < 0) { px = -px; py = -py; }
+    return `M${x1},${y1} Q${midX + px * bow},${midY + py * bow} ${x2},${y2}`;
   };
 
-  // A short, tightly-anchored simulation exists only to settle any
-  // remaining cross-branch crowding (forceCollide) around the layout
-  // just computed -- not to discover the layout itself, which is why
-  // it's anchored back to each node's own target position/radius
-  // rather than left to freely wander.
-  const simulation = d3.forceSimulation(nodes)
-    .force("radial", d3.forceRadial((d) => radius.get(d.id), cx, cy).strength(0.6))
-    .force("x", d3.forceX((d) => d.targetX).strength(0.4))
-    .force("y", d3.forceY((d) => d.targetY).strength(0.4))
-    .force("collide", d3.forceCollide(footprint))
-    .alphaDecay(0.06)
-    .velocityDecay(0.6);
-  const link = svg.select("#graph-links")
+  svg.select("#graph-links")
     .selectAll("path.link")
-    .data(links);
-  const node = svg.select("#graph-nodes")
+    .data(links)
+    .attr("class", (d) => (d.isTreeEdge ? "link" : "link link-shared"))
+    .attr("d", edgePath);
+  svg.select("#graph-nodes")
     .selectAll("g.node")
-    .data(nodes);
-  simulation.on("tick", () => {
-    link.attr("d", curvedPath);
-    node.attr("transform", d => `translate(${d.x},${d.y})`);
-  });
-  simulation.on("end", () => {
-      svg.transition()
-        .duration(500)
-        .style("opacity", 1);
-  });
+    .data(nodes)
+    .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+  // The layout is computed, not simulated -- there's nothing to settle
+  // and nothing to wait for, so reveal it immediately. (The old
+  // free-floating force simulation faded in on its "end" event, which
+  // is why this used to be deferred.)
+  svg.transition()
+    .duration(300)
+    .style("opacity", 1);
 })();
