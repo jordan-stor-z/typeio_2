@@ -146,7 +146,15 @@ svg {
   stroke-opacity: 0.6;
   stroke-width: 2px;
   marker-end: url(#arrow);
+  fill: none;
 }
+
+/* `.link-shared` deliberately has no styling of its own: a shared
+   dependency is an ordinary dependency and reads better drawn like any
+   other edge. The class stays on the element as a marker -- it's the
+   set of edges that fall outside the graph's spanning tree, and so the
+   only ones that can cross anything -- so that if crossings ever do
+   become a problem worth distinguishing, the hook is already there. */
 
 #tree-container .node .root {
   fill: var(--accent-bold);

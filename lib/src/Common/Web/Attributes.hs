@@ -93,6 +93,9 @@ textAnchor_ = makeAttributes "text-anchor"
 dy_ :: Text -> Attributes
 dy_ = makeAttributes "dy"
 
+x_ :: Text -> Attributes
+x_ = makeAttributes "x"
+
 hxVals_ :: [(Text, Text)] -> Attributes
 hxVals_ =
   makeAttributes "hx-vals"
