@@ -9,9 +9,7 @@ module Domain.Project.Responder.Ui.ProjectIndex.List where
 import Common.Web.Attributes
 import Control.Monad (forM_)
 import Control.Monad.Reader (ReaderT)
-import Data.Int (Int64)
 import Data.Text.Util (intToText)
-import Data.Time (UTCTime)
 import Database.Esqueleto.Experimental
   ( desc
   , from
