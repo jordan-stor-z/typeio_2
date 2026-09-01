@@ -180,34 +180,24 @@
     l.isTreeEdge = treeEdge.has(`${l.source.id}:${l.target.id}`);
   });
 
-  // Tree edges are drawn straight: they run parent-to-child within one
-  // wedge, so they're short and provably don't cross anything. The
-  // extra edges a shared dependency creates can span wedges, so they're
-  // bowed aside to stay visually distinct from the tree structure
-  // rather than being mistaken for it -- and so that where one does
-  // have to cross a tree edge, it reads as passing over rather than
-  // ambiguously merging into it.
+  // Every edge is drawn the same way -- a straight line, trimmed to the
+  // node circles at both ends. A shared dependency is an ordinary
+  // dependency and reads better looking like one; an earlier revision
+  // bowed those aside and dashed them to mark them out as the edges
+  // that can cross, but that's a distinction the reader didn't ask for
+  // and mostly just added noise.
   const edgePath = (d) => {
-    const fullDx = d.target.x - d.source.x, fullDy = d.target.y - d.source.y;
-    const fullDist = Math.sqrt(fullDx * fullDx + fullDy * fullDy) || 1;
+    const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     // Stop the edge at each node's circle rather than its centre, so
     // the line doesn't disappear under the node and, more importantly,
     // so the arrowhead marking which way the dependency points stays
     // visible outside it.
     const trim = circleRadius + 4;
-    const ux = fullDx / fullDist, uy = fullDy / fullDist;
+    const ux = dx / dist, uy = dy / dist;
     const x1 = d.source.x + ux * trim, y1 = d.source.y + uy * trim;
     const x2 = d.target.x - ux * trim, y2 = d.target.y - uy * trim;
-    if (d.isTreeEdge) return `M${x1},${y1} L${x2},${y2}`;
-    const dx = x2 - x1, dy = y2 - y1;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bow = dist * 0.12;
-    const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
-    // Bow away from the nucleus, consistently, so these curves arc
-    // around the graph rather than cutting back through the middle.
-    let px = -dy / dist, py = dx / dist;
-    if (px * (midX - cx) + py * (midY - cy) < 0) { px = -px; py = -py; }
-    return `M${x1},${y1} Q${midX + px * bow},${midY + py * bow} ${x2},${y2}`;
+    return `M${x1},${y1} L${x2},${y2}`;
   };
 
   svg.select("#graph-links")
