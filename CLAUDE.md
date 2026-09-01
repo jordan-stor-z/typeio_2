@@ -154,6 +154,19 @@ Known Gotchas below.)
   per [`docs/development/labels.md`](docs/development/labels.md) —
   `gh issue create` takes `--label` directly. Not optional/an
   afterthought; do it at creation time.
+- **Also apply `run-e2e` at issue-creation time when the work will need
+  E2E coverage** — i.e. its acceptance criteria involve a user-facing
+  flow through the UI (the kind of thing `e2e/` tests drive a browser
+  against), not backend-only or docs-only work with nothing for a
+  browser-driven test to exercise. Labeling the *issue* (not just, or
+  instead of, the PR that eventually closes it) records "needs E2E
+  coverage" as part of its requirements up front, and
+  `.github/workflows/e2e-test.yml` picks it up automatically on
+  whichever PR later closes it (via GitHub's closing-issue-references),
+  without anyone needing to remember to also label that PR — see
+  [`docs/development/ci.md`](docs/development/ci.md)'s "E2E test
+  workflow" section for the full mechanics. If it's unclear at
+  creation time, skip it — a PR can still be labeled directly later.
 - Branch naming: `feature/issue-$N-<short-description>` for issue `$N`.
 - Workflow:
   1. `gh issue view <n> --comments` to read the ticket — **`--comments`
