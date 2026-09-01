@@ -55,8 +55,32 @@ picked abstractly — see the mapping below.
   `help wanted`, `invalid`, `question`, `wontfix`) are untouched — they
   don't overlap with this taxonomy and remain available if needed.
 
+## `run-e2e`
+
+A special-purpose label, outside the `type:*`/`area:*` taxonomy above —
+same bucket as the untouched stock labels the Conventions section calls
+out (`good first issue`, `question`, etc.), not a `type:*` or `area:*`
+label itself.
+
+Opts a PR into `.github/workflows/e2e-test.yml`'s Playwright suite,
+which otherwise doesn't run on every PR. It can be applied two ways:
+
+- **On a PR directly** — the PR itself needs E2E coverage (e.g. no
+  linked issue, or an already-open PR turns out to need it).
+- **On an issue, at creation/triage time** — when the work is expected
+  to need E2E coverage as part of its requirements, before any PR
+  exists for it. `e2e-test.yml` also reads the labels of any issue a PR
+  closes (via GitHub's closing-issue-references), so whichever PR later
+  closes that issue picks up the requirement automatically — nobody has
+  to remember to also label the PR.
+
+See `docs/development/ci.md`'s "E2E test workflow" section for the full
+mechanics.
+
 ## When to apply labels
 
 Per `CLAUDE.md`'s Ticket & Branching Conventions: apply the appropriate
 `type:*` and `area:*` labels at issue-creation time, not as an
-afterthought — `gh issue create` accepts `--label` directly.
+afterthought — `gh issue create` accepts `--label` directly. Also apply
+`run-e2e` at issue-creation time when the work will need E2E coverage —
+see the `run-e2e` section above.
