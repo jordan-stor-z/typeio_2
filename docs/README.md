@@ -28,6 +28,7 @@ proposals for this project.
 - [`development/backend/environment.md`](development/backend/environment.md) — the `Env` record (config, logger, DB pool) acquired once at startup, and how it differs from Containers.
 - [`development/backend/containers.md`](development/backend/containers.md) — the Container dependency-injection pattern: Root → per-domain → API/UI sub-containers.
 - [`development/backend/logging.md`](development/backend/logging.md) — the two independent structured-JSON logging pipelines (request/response, and database queries) and why they're separate.
+- [`development/backend/database-schema.md`](development/backend/database-schema.md) — the `project` schema's six tables and one view, what each represents, how they relate, and a mermaid ER diagram — grounded in `migrations/000001`–`000008` and `Domain.Project.Model`.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
 - [`development/dependency-security.md`](development/dependency-security.md) — the full Dependabot + security-scanning picture: what each of the two mechanisms (native Dependabot/secret scanning vs. the OSV-Scanner CI workflow) covers, where their findings surface, and how to triage what comes up.
 - [`development/unit-testing.md`](development/unit-testing.md) — where tests live, how to run them, what's actually covered (and what's deliberately not, and why).

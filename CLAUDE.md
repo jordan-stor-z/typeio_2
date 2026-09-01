@@ -53,6 +53,7 @@ cases:
 | `#container`/`#view`, Lucid rendering, CSS conventions | `docs/development/ui/` |
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
+| The `project` DB schema: entities, columns, relationships, ER diagram | `docs/development/backend/database-schema.md` |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
 | Dependabot / security scanning: what runs, where findings show up, how to triage | `docs/development/dependency-security.md` |
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
@@ -112,6 +113,10 @@ Known Gotchas below.)
   repo. Don't rely on it; use `cabal build all` instead until it's fixed.
 
 ## Database Schema (`project`)
+
+Full reference, with an ER diagram:
+[`docs/development/backend/database-schema.md`](docs/development/backend/database-schema.md).
+Quick summary:
 
 - `project.project`: Core project container.
 - `project.node`: Project nodes/tasks — JSONB attributes, description,
