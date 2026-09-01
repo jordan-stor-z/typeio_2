@@ -216,15 +216,25 @@ Quick summary:
   to pick up upstream changes. This is about keeping a feature branch
   current, not landing it; only do this to the branch you're actively
   working on this session, not an arbitrary other branch.
-- **NEVER merge a feature branch *into* `main`, and never merge a PR.**
-  No `gh pr merge`, no fast-forwarding/merging a branch's work onto
-  `main` by any means.
+- **Only merge a PR the user has labeled `review:approved`.** That
+  label is the user's explicit signal they've reviewed the PR and want
+  it merged — it's their call to apply, never something to add
+  unprompted or infer from context. Without it: never merge a feature
+  branch *into* `main` and never merge a PR — no `gh pr merge`, no
+  fast-forwarding/merging a branch's work onto `main` by any other
+  means. With it: rebase the branch onto current `main` first if it's
+  behind (the same pull-in-onto-itself mechanism above), push, wait for
+  required checks to pass, then `gh pr merge --merge` (a merge commit,
+  matching this repo's history — not squash/rebase-merge) to land it.
+  See [`labels.md`](docs/development/labels.md)'s `review:approved`
+  section.
 - **NEVER check out `main` to edit it directly.** Only check it out to
   sync (`git checkout main && git pull`) before branching.
 - **NEVER push directly to `main` or `master`.**
 - **Hand-off Rule:** once a feature branch is pushed and verified
   (`cabal build all`, plus migration checks if relevant), open a PR and
-  stop — merging is left to the user.
+  stop — merging is left to the user, unless/until they apply
+  `review:approved` to it (see above).
 
 ## Known Gotchas
 

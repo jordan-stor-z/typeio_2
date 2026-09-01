@@ -77,6 +77,18 @@ which otherwise doesn't run on every PR. It can be applied two ways:
 See `docs/development/ci.md`'s "E2E test workflow" section for the full
 mechanics.
 
+## `review:approved`
+
+Another special-purpose label outside the `type:*`/`area:*` taxonomy —
+same bucket as `run-e2e` above, not a `type:*`/`area:*` label itself.
+
+Applied by the user to a PR they've reviewed and want merged. It's the
+merge-authorization signal `CLAUDE.md`'s Git Safety & Branch Boundaries
+section requires before merging any PR is allowed — without it, a PR
+sits open regardless of how ready its checks/diff look. Applying it is
+the user's call to make, not something to add unprompted or infer from
+a PR just having green checks or looking finished.
+
 ## When to apply labels
 
 Per `CLAUDE.md`'s Ticket & Branching Conventions: apply the appropriate
