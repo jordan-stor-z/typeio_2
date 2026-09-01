@@ -1,0 +1,8 @@
+{
+  // HLS's own default formattingProvider is "ormolu"; this repo commits
+  // to Fourmolu (see fourmolu.yaml at the repo root), so format-on-save
+  // needs to be pointed at it explicitly. See
+  // docs/development/onboarding.md for the equivalent setting in other
+  // editors (Neovim/coc, Emacs lsp-haskell, etc.).
+  "haskell.formattingProvider": "fourmolu"
+}

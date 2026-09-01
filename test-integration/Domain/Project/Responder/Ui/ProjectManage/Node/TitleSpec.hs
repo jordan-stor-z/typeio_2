@@ -1,27 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Integration coverage for 'handlePutTitle' (#68), building on the
--- infrastructure and pattern established in #65's pilot
--- ('Domain.Project.Responder.Api.Node.PostSpec').
+{- | Integration coverage for 'handlePutTitle' (#68), building on the
+infrastructure and pattern established in #65's pilot
+('Domain.Project.Responder.Api.Node.PostSpec').
+-}
 module Domain.Project.Responder.Ui.ProjectManage.Node.TitleSpec (spec) where
 
 import qualified Data.ByteString.Lazy.Char8 as LC8
-import Data.Int                             (Int64)
-import Database.Persist                     (get)
-import Database.Persist.Sql                 (fromSqlKey, runSqlPool)
-import qualified Domain.Project.Model       as M
+import Data.Int (Int64)
+import Database.Persist (get)
+import Database.Persist.Sql (fromSqlKey, runSqlPool)
+import qualified Domain.Project.Model as M
 import Domain.Project.Responder.Ui.ProjectManage.Node.Title (handlePutTitle)
-import Integration.Support                  ( resetBetweenTests
-                                            , seedProjectWithRootNode
-                                            , withTestDatabase
-                                            )
-import Network.HTTP.Types                   (hContentType, methodPut)
-import Network.Wai                          (defaultRequest, requestHeaders, requestMethod)
-import Network.Wai.Test                     ( SRequest(..)
-                                            , assertStatus
-                                            , runSession
-                                            , srequest
-                                            )
+import Integration.Support
+  ( resetBetweenTests
+  , seedProjectWithRootNode
+  , withTestDatabase
+  )
+import Network.HTTP.Types (hContentType, methodPut)
+import Network.Wai (defaultRequest, requestHeaders, requestMethod)
+import Network.Wai.Test
+  ( SRequest (..)
+  , assertStatus
+  , runSession
+  , srequest
+  )
 import Test.Hspec
 
 spec :: Spec
@@ -33,8 +36,12 @@ spec = aroundAll withTestDatabase $
 
         runSession
           ( do
-              resp <- srequest $ putTitleRequest
-                (fromSqlKey rootKey) (fromSqlKey projectKey) "UpdatedTitle"
+              resp <-
+                srequest $
+                  putTitleRequest
+                    (fromSqlKey rootKey)
+                    (fromSqlKey projectKey)
+                    "UpdatedTitle"
               assertStatus 200 resp
           )
           (handlePutTitle pool)
@@ -53,13 +60,18 @@ spec = aroundAll withTestDatabase $
           (handlePutTitle pool)
 
 putTitleRequest :: Int64 -> Int64 -> LC8.ByteString -> SRequest
-putTitleRequest nodeId projectId title = SRequest
-  { simpleRequest = defaultRequest
-      { requestMethod  = methodPut
-      , requestHeaders = [(hContentType, "application/x-www-form-urlencoded")]
-      }
-  , simpleRequestBody =
-      "title=" <> title
-      <> "&nodeId=" <> LC8.pack (show nodeId)
-      <> "&projectId=" <> LC8.pack (show projectId)
-  }
+putTitleRequest nodeId projectId title =
+  SRequest
+    { simpleRequest =
+        defaultRequest
+          { requestMethod = methodPut
+          , requestHeaders = [(hContentType, "application/x-www-form-urlencoded")]
+          }
+    , simpleRequestBody =
+        "title="
+          <> title
+          <> "&nodeId="
+          <> LC8.pack (show nodeId)
+          <> "&projectId="
+          <> LC8.pack (show projectId)
+    }

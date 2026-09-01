@@ -2,8 +2,8 @@
 
 module Data.HashTreeSpec (spec) where
 
-import Data.HashTree
 import Data.Function (on)
+import Data.HashTree
 import Data.List (foldl', nubBy)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
@@ -30,21 +30,25 @@ spec = do
       findPath ["missing"] ((emptyT :: HashTree String Int) <+> "a" -| 1) `shouldBe` Nothing
     it "inserting into an already-resolved leaf is a no-op, per addT's Node case" $
       let leaf = Node (1 :: Int) :: HashTree String Int
-      in findPath ["anything"] (leaf <+> "a" -| 2) `shouldBe` Just 1
+       in findPath ["anything"] (leaf <+> "a" -| 2) `shouldBe` Just 1
 
   describe "-< (nest a subtree), mirroring Platform.Web.Router's own usage" $ do
     it "finds a leaf nested two levels deep" $
       -- HashTree is homogeneous (a Branch's children are HashTree k a too,
       -- not HashTree k (HashTree k a)) -- a "subtree" is the same type as
       -- the tree it gets nested into.
-      let sub  = (emptyT :: HashTree String String) <+> "central" -| "seed"
+      let sub = (emptyT :: HashTree String String) <+> "central" -| "seed"
           tree = (emptyT :: HashTree String String) <+> "api" -< sub
-      in findPath ["api", "central"] tree `shouldBe` Just "seed"
+       in findPath ["api", "central"] tree `shouldBe` Just "seed"
     it "different branches at the same level don't collide with each other" $ do
       let apiTree = (emptyT :: HashTree String String) <+> "nodes" -| "api-nodes"
-          uiTree  = (emptyT :: HashTree String String) <+> "nodes" -| "ui-nodes"
-          tree    = (emptyT :: HashTree String String)
-                      <+> "api" -< apiTree <+> "ui" -< uiTree
+          uiTree = (emptyT :: HashTree String String) <+> "nodes" -| "ui-nodes"
+          tree =
+            (emptyT :: HashTree String String)
+              <+> "api"
+              -< apiTree
+              <+> "ui"
+              -< uiTree
       findPath ["api", "nodes"] tree `shouldBe` Just "api-nodes"
       findPath ["ui", "nodes"] tree `shouldBe` Just "ui-nodes"
 
@@ -56,5 +60,5 @@ spec = do
   prop "findPath resolves every top-level leaf inserted via <+>/-|, for any set of distinct keys" $
     \(kvs :: [(String, Int)]) ->
       let distinct = nubBy ((==) `on` fst) kvs
-          tree     = foldl' (\t (k, v) -> t <+> k -| v) (emptyT :: HashTree String Int) distinct
-      in all (\(k, v) -> findPath [k] tree == Just v) distinct
+          tree = foldl' (\t (k, v) -> t <+> k -| v) (emptyT :: HashTree String Int) distinct
+       in all (\(k, v) -> findPath [k] tree == Just v) distinct

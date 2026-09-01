@@ -53,11 +53,12 @@ spec = around_ (setValidEnv >>) $
       unsetEnv "DB_HOST"
       unsetEnv "WEB_INDEX_REDIRECT"
       result <- loadAppConfig
-      result `shouldBe` Left
-        [ "ENV is missing from environment config"
-        , "DB_HOST is missing from environment config"
-        , "WEB_INDEX_REDIRECT is missing from environment config"
-        ]
+      result
+        `shouldBe` Left
+          [ "ENV is missing from environment config"
+          , "DB_HOST is missing from environment config"
+          , "WEB_INDEX_REDIRECT is missing from environment config"
+          ]
 
     it "succeeds even when WEB_PORT is unset, defaulting to 3000 (see Config.Web.defaultWebPort)" $ do
       unsetEnv "WEB_PORT"
@@ -66,10 +67,12 @@ spec = around_ (setValidEnv >>) $
         Right cfg -> port (webConf cfg) `shouldBe` 3000
         Left errs -> expectationFailure ("expected success, got: " ++ show errs)
 
-    it "rejects an out-of-range DB_POOL_COUNT overall, even though Config.Db.validateConfig \
-       \alone doesn't turn it into Nothing (see Config.DbSpec) -- it's this level's \
-       \runValidation that actually checks the accumulated error list, not any single field's \
-       \own Maybe" $ do
-      setEnv "DB_POOL_COUNT" "12"
-      result <- loadAppConfig
-      result `shouldBe` Left ["DB_POOL_COUNT must be between 1 and 10"]
+    it
+      "rejects an out-of-range DB_POOL_COUNT overall, even though Config.Db.validateConfig \
+      \alone doesn't turn it into Nothing (see Config.DbSpec) -- it's this level's \
+      \runValidation that actually checks the accumulated error list, not any single field's \
+      \own Maybe"
+      $ do
+        setEnv "DB_POOL_COUNT" "12"
+        result <- loadAppConfig
+        result `shouldBe` Left ["DB_POOL_COUNT must be between 1 and 10"]

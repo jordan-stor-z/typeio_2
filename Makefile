@@ -8,11 +8,25 @@ MIGRATE=migrate
 MIGRATIONS_DIR=migrations
 
 # --- Commands ---
-.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version start-app test test-integration test-e2e e2e-install
+.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version start-app test test-integration test-e2e e2e-install format format-check
 
 ## Run migratin tests
 test-migrations:
 	./scripts/test-migrations.sh
+
+## Format all Haskell source files in place with Fourmolu (fourmolu.yaml
+## at the repo root). Also what the PostToolUse hook in
+## .claude/settings.json and HLS's formattingProvider run on save --
+## this target exists so CI/pre-commit and humans/agents share one
+## command.
+format:
+	fourmolu --mode inplace $$(find lib exe test test-integration -name '*.hs')
+
+## Check that every Haskell source file is already Fourmolu-formatted,
+## without modifying anything -- non-zero exit on any diff. CI-friendly
+## counterpart to `format`.
+format-check:
+	fourmolu --mode check $$(find lib exe test test-integration -name '*.hs')
 
 ## Run postgres container
 run-postgres:

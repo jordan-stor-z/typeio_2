@@ -2,52 +2,62 @@
 
 module Domain.Central.Responder.Ui.IndexView where
 
-import Lucid 
 import Common.Web.Attributes
+import Data.List (intersperse)
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.List  (intersperse)
-import Data.Text  (Text)
+import Data.Text (Text)
+import Lucid
 import Network.HTTP.Types (status200)
-import Network.HTTP.Types.URI         (QueryText, queryToQueryText)
-import Network.Wai        (Application, queryString, Response, responseLBS, ResponseReceived)
+import Network.HTTP.Types.URI (QueryText, queryToQueryText)
+import Network.Wai (Application, Response, ResponseReceived, queryString, responseLBS)
 
 queryTextToText :: QueryText -> Maybe Text
 queryTextToText [] = Nothing
-queryTextToText qs = Just $ foldr (\(k, v) acc -> 
-  acc <> k <> "=" <> fromMaybe "" v <> "&") "?" qs
+queryTextToText qs =
+  Just $
+    foldr
+      ( \(k, v) acc ->
+          acc <> k <> "=" <> fromMaybe "" v <> "&"
+      )
+      "?"
+      qs
 
-handleIndexView :: Text -> Application 
-handleIndexView path req res = do 
-  res $ responseLBS
-    status200
-    [("Content-Type", "text/html; charset=utf-8")]
-    (renderBS . indexTemplate path $ qs)
-  where 
-    qs = queryTextToText 
-         . queryToQueryText
-         . queryString 
-         $ req
+handleIndexView :: Text -> Application
+handleIndexView path req res = do
+  res $
+    responseLBS
+      status200
+      [("Content-Type", "text/html; charset=utf-8")]
+      (renderBS . indexTemplate path $ qs)
+  where
+    qs =
+      queryTextToText
+        . queryToQueryText
+        . queryString
+        $ req
 
 indexTemplate :: Text -> Maybe Text -> Html ()
 indexTemplate path qs = html_ $ do
   head_ $ do
-    title_   "TypeIO"
-    link_    [rel_ "stylesheet", href_ "/static/styles/global.css"]
-    link_    [ rel_ "stylesheet"
-             , href_ "/static/styles/material.css"
-             ]
-    meta_    [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
-    script_  [src_ "/static/script/htmx.js"] empty 
-    script_  [src_ "/static/script/d3.js"]   empty 
-    script_  [src_ "https://unpkg.com/hyperscript.org@0.9.14"] empty
+    title_ "TypeIO"
+    link_ [rel_ "stylesheet", href_ "/static/styles/global.css"]
+    link_
+      [ rel_ "stylesheet"
+      , href_ "/static/styles/material.css"
+      ]
+    meta_ [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
+    script_ [src_ "/static/script/htmx.js"] empty
+    script_ [src_ "/static/script/d3.js"] empty
+    script_ [src_ "https://unpkg.com/hyperscript.org@0.9.14"] empty
   body_ $ do
-    div_ 
-      [ id_           "container"
-      , hxGet_        lnk 
-      , hxTrigger_    "load"
+    div_
+      [ id_ "container"
+      , hxGet_ lnk
+      , hxTrigger_ "load"
       , hxReplaceUrl_ True
-      , hxSwap_       "innerHTML"
-      ] empty
-  where 
-    empty   = mempty :: Html ()
-    lnk     = maybe path (path <>) qs
+      , hxSwap_ "innerHTML"
+      ]
+      empty
+  where
+    empty = mempty :: Html ()
+    lnk = maybe path (path <>) qs
