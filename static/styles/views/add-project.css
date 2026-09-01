@@ -27,7 +27,7 @@ textarea {
   background-color: var(--border-color);
   border:           none;
   box-sizing:       border-box;
-  color:            var(--text-primary)
+  color:            var(--text-primary);
   display:          inline-block;
   position:         relative;
   font-family:      system-ui, sans-serif;
