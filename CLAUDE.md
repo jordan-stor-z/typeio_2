@@ -198,7 +198,15 @@ Quick summary:
      it on the PR — but it's the fastest way to find a failure early.
   6. Commit referencing the issue, push, and open a PR with
      `gh pr create` — include `Closes #$N` in the body when the PR fully
-     resolves the ticket.
+     resolves the ticket. **If the PR needs `run-e2e` and that's already
+     known** (the issue didn't already carry it), pass `--label run-e2e`
+     directly on `gh pr create` rather than labeling it in a separate
+     follow-up call — creating a PR and labeling it right after fires
+     two `pull_request` events (`opened`, then `labeled`) close
+     together, which races `e2e-test.yml`'s own `concurrency`
+     cancellation (harmless, but produces a confusing transient `fail`
+     — see `docs/development/ci.md`'s "E2E test workflow" section,
+     #153).
   7. If the ticket auto-closed from an earlier merge, add a closing
      comment linking the PR instead of re-closing it.
 - **PR comments come from two separate GitHub APIs — check both, every
