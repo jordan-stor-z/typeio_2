@@ -8,29 +8,27 @@ name: Security Scan
 # (#62) for the full investigation and decision (§3-§9).
 #
 # Deliberately a SEPARATE workflow from test.yml, not a new job in it --
-# different trigger shape (needs `schedule` too, below) and different
-# blocking semantics (informational, below). See docs/development/ci.md.
+# different trigger shape (schedule-only, below) and different blocking
+# semantics (informational, below). See docs/development/ci.md.
 #
-# Triggers on every PR into main (same shape as test.yml -- no `paths:`
-# filter; see the proposal's §6) plus a weekly schedule. These catch
-# different problems: per-PR catches a newly *introduced* vulnerable
-# dependency; the schedule catches a dependency that didn't change but
-# became known-vulnerable since it was last touched, which no PR would
-# ever trigger a check for.
+# Schedule-only (#136) -- originally also ran on every PR into main, to
+# catch a newly *introduced* vulnerable dependency at the point it
+# landed; narrowed to just the weekly run per #136, leaving only the
+# scan for drift (a dependency that didn't change but became
+# known-vulnerable since it was last touched, which no PR would ever
+# trigger a check for).
 on:
-  pull_request:
-    branches: [main]
   schedule:
     # Weekly, matching Dependabot's own default cadence for version
     # updates. The exact time isn't load-bearing -- just a low-traffic
     # UTC slot (see the proposal's §10 open questions).
     - cron: '0 5 * * 1'
 
-# Same reasoning as test.yml: a second push to the same PR should
-# replace the first run, not queue a second one alongside it. Scheduled
-# runs have no PR number, so fall back to the ref.
+# Same reasoning as test.yml: a second scheduled run shouldn't queue
+# alongside one still in flight. No PR number to key on (schedule-only
+# now, see #136), so this always falls back to the ref.
 concurrency:
-  group: security-scan-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: security-scan-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
