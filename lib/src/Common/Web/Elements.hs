@@ -2,7 +2,6 @@
 
 module Common.Web.Elements where
 
-import Data.Text (Text)
 import Lucid.Base
 
 circle_ :: Term arg result => arg -> result

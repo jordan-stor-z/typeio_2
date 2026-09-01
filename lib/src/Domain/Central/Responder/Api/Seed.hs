@@ -2,8 +2,6 @@
 
 module Domain.Central.Responder.Api.Seed where
 
-import Network.Wai (ResponseReceived)
-
 import Database.Persist (insertUnique)
 import Database.Persist.Postgresql (ConnectionPool)
 import Database.Persist.Sql (runSqlPool)

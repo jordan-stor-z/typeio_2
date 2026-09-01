@@ -2,12 +2,8 @@ module Domain.System.Container where
 
 import Config.App (AppConfig, webConf)
 import Domain.System.Middleware.Container as MC
-import Domain.System.Middleware.Logging.Request (requestLogMiddleware)
-import Domain.System.Middleware.Logging.Response (responseLogMiddleware)
-import Domain.System.Middleware.RequestId (requestIdMiddleware)
 import Domain.System.Responder.Container as RC
 import Logging.Core (EntryLog)
-import Network.Wai (Middleware)
 
 data SystemContainer = SystemContainer
   { middleware :: MC.Container
