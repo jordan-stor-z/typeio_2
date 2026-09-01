@@ -76,15 +76,21 @@ fact, action by action, not just pass/fail.
   see the spec's comments), then edits its title and description
   through the node-detail panel, asserting on each field's settled
   save-success indicator and on the re-fetched detail view afterward.
-- `tests/helpers.ts` — shared setup (`createProject()`) both specs
-  above use, so creating a project isn't duplicated across specs that
-  need one but aren't testing project creation itself.
+- `tests/node-status.spec.ts` — changes a node's status via the
+  node-detail panel's status dropdown, asserting on the immediate
+  save-success indicator and, separately, on the plain (non-edit)
+  detail view's status text to confirm it actually persisted. See the
+  spec's comments for a real app bug found while writing this (the edit
+  dropdown never actually shows the node's real current status,
+  regardless of what's in the database).
+- `tests/helpers.ts` — shared setup (`createProject()`, `addNode()`)
+  every spec above uses, so creating a project/node isn't duplicated
+  across specs that need one but aren't testing its creation.
 
-The other two candidate workflows (change a node's status, view and
-interact with the dependency graph) aren't covered yet — tracked as
-follow-ups in #96–#97, each adding its own spec under `tests/`
-following this same pattern. CI wiring is tracked separately in #98,
-once real workflow coverage exists to wire in.
+The one remaining candidate workflow (view and interact with the
+dependency graph) isn't covered yet — tracked as a follow-up in #97.
+CI wiring is tracked separately in #98, once real workflow coverage
+exists to wire in.
 
 ## Notes
 
@@ -112,3 +118,13 @@ once real workflow coverage exists to wire in.
   trigger; see `edit-node.spec.ts`'s comments for the full story
   (including why `fill('')` as a "clear first" step doesn't work
   either).
+- **A freshly htmx-swapped-in element can need an explicit `click()`
+  before Playwright's non-pointer interaction helpers (e.g.
+  `selectOption()`) reliably trigger its own `hx-trigger`.** Confirmed
+  on the node-edit panel's status `<select>`: calling `selectOption()`
+  alone, right after the edit form swaps in, never fires its `change`
+  PUT — but `locator.click()` immediately before it does, every time.
+  Not a settle-timing issue (an artificial wait between the two doesn't
+  fix it on its own) — see `node-status.spec.ts`'s comments. Reach for
+  this if a spec's htmx request never fires despite the value/state
+  visibly updating correctly client-side.
