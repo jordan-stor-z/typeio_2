@@ -214,13 +214,30 @@ A few ways this deliberately differs from every other workflow here:
   a finding here isn't necessarily about what a given PR changed — the
   same reasoning `security-scan.yml`'s §7 gives for not blocking a PR on
   an unrelated finding applies just as much to "don't even run this on
-  every PR" here. Adding the `run-e2e` label to a PR opts it in: the
-  workflow triggers immediately (`labeled`) and again on every
-  subsequent push while the label's still there (`synchronize`) — an
-  unlabeled PR's pushes still trigger the workflow, but the job's own
-  `if:` (checking `contains(github.event.pull_request.labels.*.name,
-  'run-e2e')`) reports it skipped almost immediately rather than doing
-  any real work.
+  every PR" here.
+- **Two jobs, not one, for the `pull_request` case** — a cheap
+  `check-e2e-required` job runs first and decides whether the real
+  `e2e-test` job (which `needs:` it) should run at all, checking two
+  things:
+  1. **The PR's own `run-e2e` label** — the direct case: someone
+     decides an already-open PR needs E2E coverage and labels it.
+  2. **Any issue the PR closes** (`Closes #N` etc. in the PR body —
+     GitHub's own "closing issue references") **carrying `run-e2e`** —
+     the planning-time case: label an issue `run-e2e` when it's
+     created/triaged, as part of recording its requirements, before any
+     PR exists for it. Whichever PR later closes that issue picks the
+     requirement up automatically, via a GraphQL query
+     (`closingIssuesReferences`) `check-e2e-required` makes — a linked
+     issue's labels aren't part of the `pull_request` event payload, so
+     this can't be a plain `if:` expression the way the PR's own label
+     check is; it has to be an actual API call in a step.
+
+  Either path sets `required=true`; `e2e-test`'s own `if:` (checking
+  `needs.check-e2e-required.outputs.required`) gates on that. An
+  unlabeled PR with no qualifying linked issue costs one cheap job that
+  reports quickly — the two-job split keeps that fast precondition
+  check separate from ever having to spin up (or skip inside) the full
+  GHC+Docker+Postgres+browser job.
 - **Not a required check**, same as `integration-test.yml`/
   `security-scan.yml` — doubly so here, since it isn't even part of
   every PR's checks by default.

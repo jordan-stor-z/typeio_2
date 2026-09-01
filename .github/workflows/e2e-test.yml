@@ -15,14 +15,18 @@ name: E2E Test
 #   - schedule (weekly): catches drift -- something breaking with no
 #     code change at all (a Playwright/browser update, an environment
 #     shift) -- same reasoning security-scan.yml's own weekly run uses.
-#   - pull_request, gated on the `run-e2e` label: opt a specific PR in
-#     when its changes are E2E-risky, without paying the cost on every
-#     PR. Triggers on `labeled` (the moment it's added) and
-#     `synchronize` (a PR that already carries the label gets re-run on
-#     every new push, without re-adding the label each time); the job's
-#     own `if:` checks the label is actually present either way, so an
-#     unlabeled PR's pushes report skipped almost immediately rather
-#     than doing any real work.
+#   - pull_request, gated on the `run-e2e` label -- either directly on
+#     the PR, or on any issue the PR closes. That second path is the
+#     point: label an issue `run-e2e` at triage/creation time (before
+#     any PR exists) to record "this needs E2E coverage" as part of its
+#     requirements, and whichever PR later closes it picks that up
+#     automatically -- nobody has to remember to also label the PR.
+#     Direct PR labeling still works too (e.g. no linked issue, or an
+#     existing PR turns out to need it). See the check-e2e-required job
+#     below for how; triggers on `opened`/`labeled`/`synchronize` so
+#     this is evaluated on a PR's first push, whenever a label changes,
+#     and again on every later push (a PR that qualifies stays
+#     evaluated on every commit, not just once).
 on:
   workflow_dispatch:
   schedule:
@@ -32,7 +36,7 @@ on:
     - cron: '30 5 * * 3'
   pull_request:
     branches: [main]
-    types: [labeled, synchronize]
+    types: [opened, labeled, synchronize]
 
 # Same reasoning as the other workflows: a second push to the same PR
 # should replace the first run, not queue alongside it. Scheduled/
@@ -61,13 +65,62 @@ env:
   E2E_BASE_URL: http://localhost:3000
 
 jobs:
+  # Cheap precondition job, only for pull_request events -- decides
+  # whether this PR actually needs the (slow, expensive) e2e-test job
+  # below, checking both label paths described in the trigger comment
+  # above: the PR's own `run-e2e` label, and -- via GraphQL, since a
+  # linked issue's labels aren't part of the pull_request event payload
+  # and can't be checked in a plain `if:` expression -- the labels of
+  # any issue this PR closes (`Closes #N`, `Fixes #N`, etc. in the PR
+  # body; GitHub calls this "closing issue references").
+  check-e2e-required:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      required: ${{ steps.check.outputs.required }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if gh pr view "$PR" -R "$REPO" --json labels -q '.labels[].name' | grep -qx 'run-e2e'; then
+            echo "required=true (PR's own label)"
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          owner="${REPO%/*}"
+          repo="${REPO#*/}"
+          closing_labels=$(gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){closingIssuesReferences(first:10){nodes{number labels(first:20){nodes{name}}}}}}}' \
+            -f owner="$owner" -f repo="$repo" -F pr="$PR" \
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[] | "\(.number): \(.labels.nodes[].name)"')
+          echo "Closing issues and their labels: ${closing_labels:-<none>}"
+          if echo "$closing_labels" | grep -q ': run-e2e$'; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e-test:
-    # Skip real work for an unlabeled PR push -- see the trigger
-    # comment above for why `labeled`+`synchronize`+this `if:` together,
-    # not just one or the other.
+    needs: [check-e2e-required]
+    # Job-level if:, checking the previous job's *output* rather than
+    # the raw event payload directly -- this needs.*.outputs reference
+    # only works because e2e-test declares `needs: check-e2e-required`
+    # above; `always()` so this still evaluates (and the `!=
+    # 'pull_request'` branch still applies) even though
+    # check-e2e-required itself is skipped entirely for
+    # schedule/workflow_dispatch runs, which would otherwise make this
+    # job's default "did its dependency succeed" gate skip it too.
     if: >
-      github.event_name != 'pull_request' ||
-      contains(github.event.pull_request.labels.*.name, 'run-e2e')
+      always() &&
+      (github.event_name != 'pull_request' ||
+       needs.check-e2e-required.outputs.required == 'true')
     # Same pinned-OS reasoning as the other workflows.
     runs-on: ubuntu-24.04
     steps:
