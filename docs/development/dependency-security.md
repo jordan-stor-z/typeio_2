@@ -20,7 +20,7 @@ the two mechanisms are for and how to act on what they find.
 | What it is | A GitHub repo feature, not a CI workflow | A GitHub Actions workflow (Google's OSV-Scanner) |
 | Ecosystems covered | npm only — GitHub has no Hackage/Cabal support (tracked upstream in `dependabot/dependabot-core#2745`, not shipped as of this writing) | Both: reads a scan-time-generated `cabal.project.freeze` for Haskell, and `package-lock.json` for npm |
 | Config | `.github/dependabot.yml` | `.github/workflows/security-scan.yml` |
-| Trigger | Continuous, run by GitHub itself | Every PR into `main`, plus a weekly schedule (`0 5 * * 1`) |
+| Trigger | Continuous, run by GitHub itself | A weekly schedule only (`0 5 * * 1`) — no longer per-PR, see below |
 | Where findings show up | Security tab → Dependabot alerts; auto-opened PRs for fixes | The workflow run's job summary |
 | Blocking? | No — alerts, not merge gates | No — `continue-on-error: true`, not a required check |
 
@@ -60,24 +60,29 @@ GitHub itself.
 
 ## OSV-Scanner (`security-scan.yml`)
 
-Fills the Hackage gap: on every PR into `main` and on a weekly
-schedule, the workflow runs `cabal freeze` to produce a
-`cabal.project.freeze` (not committed to the repo — generated fresh
-each run, see the proposal's §5), then runs
+Fills the Hackage gap: on a weekly schedule, the workflow runs
+`cabal freeze` to produce a `cabal.project.freeze` (not committed to
+the repo — generated fresh each run, see the proposal's §5), then runs
 [OSV-Scanner](https://github.com/google/osv-scanner) against it and
 against `package-lock.json` if one exists. Results are appended to the
 run's job summary — there's no separate dashboard. See
 [`ci.md`'s "Security scan workflow"](ci.md#security-scan-workflow)
 section for the exact steps and trigger reasoning.
 
+It originally also ran on every PR into `main`, to catch a newly
+*introduced* vulnerable dependency at the point it landed. That half
+was dropped in #136: a per-PR run kept surfacing findings unrelated to
+what the given PR actually changed, on an informational-only check
+nothing could act on from inside that PR anyway. The weekly `schedule`
+alone still covers what a PR trigger structurally can't — a dependency
+that didn't change but became known-vulnerable since it was last
+touched — so that's what's left.
+
 It's deliberately **informational only** — `continue-on-error: true`,
-not a required check — because a finding on a given PR isn't
-necessarily about code that PR introduced (a pre-existing vulnerable
-dependency the PR didn't touch would still show up), so failing that
-PR's merge on it would conflate "this PR is bad" with "this repo has a
-finding right now." See the proposal's §7 for the full reasoning,
-including why this also avoids the "required check silently stuck
-missing forever" trap `ci.md`'s [Why it always
+not a required check — so a finding doesn't block whatever happens to
+be in flight when the scheduled scan runs. See the proposal's §7 for
+the full reasoning, including why this also avoids the "required check
+silently stuck missing forever" trap `ci.md`'s [Why it always
 runs](ci.md#why-it-always-runs-and-skips-internally-instead-of-using-paths)
 section describes for `test.yml`.
 
@@ -87,13 +92,12 @@ section describes for `test.yml`.
   tab. A Dependabot security-update PR (when one is auto-opened) shows
   up as a normal PR from the `dependabot[bot]` author.
 - **OSV-Scanner findings**: the **job summary** of the relevant
-  `security-scan.yml` run — either a PR's checks tab (for a per-PR run)
-  or the workflow's own run history (for the weekly scheduled run,
-  which has no PR to attach to). There's no other surface for these;
-  don't expect a Security-tab entry, since this workflow deliberately
-  doesn't upload SARIF to Code Scanning (see `ci.md`'s explanation of
-  why it uses the raw scanner action instead of this project's reusable
-  workflow).
+  `security-scan.yml` run, found in the workflow's own run history —
+  it's schedule-only (#136), so there's no PR to attach it to. There's
+  no other surface for these; don't expect a Security-tab entry, since
+  this workflow deliberately doesn't upload SARIF to Code Scanning (see
+  `ci.md`'s explanation of why it uses the raw scanner action instead of
+  this project's reusable workflow).
 
 ## Handling what comes up
 
