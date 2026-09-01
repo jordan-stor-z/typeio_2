@@ -188,8 +188,16 @@ Known Gotchas below.)
 
 ## Git Safety & Branch Boundaries (STRICT)
 
-- **NEVER merge branches or PRs.** No `git merge`, `git rebase`,
-  `gh pr merge`, or other merge actions.
+- **A feature branch may pull `main` in *onto itself*** — via
+  `git rebase origin/main` or `git merge origin/main` run on that
+  feature branch, force-pushing only to that branch's own remote (never
+  to `main`) — to resolve a merge conflict blocking mergeability/CI, or
+  to pick up upstream changes. This is about keeping a feature branch
+  current, not landing it; only do this to the branch you're actively
+  working on this session, not an arbitrary other branch.
+- **NEVER merge a feature branch *into* `main`, and never merge a PR.**
+  No `gh pr merge`, no fast-forwarding/merging a branch's work onto
+  `main` by any means.
 - **NEVER check out `main` to edit it directly.** Only check it out to
   sync (`git checkout main && git pull`) before branching.
 - **NEVER push directly to `main` or `master`.**
