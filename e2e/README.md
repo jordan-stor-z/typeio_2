@@ -83,14 +83,19 @@ fact, action by action, not just pass/fail.
   spec's comments for a real app bug found while writing this (the edit
   dropdown never actually shows the node's real current status,
   regardless of what's in the database).
+- `tests/graph.spec.ts` — clicks a node in the D3-rendered dependency
+  graph, asserting its detail panel opens and it picks up the
+  `.node-highlight` glow, then that closing the panel clears both. See
+  the spec's comments for a severe app bug found while writing this
+  (the graph never positions any node past the first one — #120).
 - `tests/helpers.ts` — shared setup (`createProject()`, `addNode()`)
   every spec above uses, so creating a project/node isn't duplicated
   across specs that need one but aren't testing its creation.
 
-The one remaining candidate workflow (view and interact with the
-dependency graph) isn't covered yet — tracked as a follow-up in #97.
-CI wiring is tracked separately in #98, once real workflow coverage
-exists to wire in.
+All four candidate workflows from the proposal's §7 are now covered.
+CI wiring is tracked separately in #98. A formal `docs/development/`
+page covering all of this (this file will likely shrink to a plain
+"how to run it" pointer once that lands) is tracked in #117.
 
 ## Notes
 
@@ -128,3 +133,13 @@ exists to wire in.
   fix it on its own) — see `node-status.spec.ts`'s comments. Reach for
   this if a spec's htmx request never fires despite the value/state
   visibly updating correctly client-side.
+- **`locator.dispatchEvent('click')` for an element a real pointer
+  genuinely can't reach.** The dependency graph's D3 layout can leave a
+  node positioned off-screen or overlapping other page content (#120),
+  which fails `locator.click()`'s actionability check no matter how
+  long you wait. `dispatchEvent('click')` fires the same event
+  `hx-trigger="click"` reacts to without needing the element to be
+  visually clickable first — see `graph.spec.ts`'s comments. Prefer a
+  real `click()` whenever the element is actually reachable; reach for
+  `dispatchEvent()` only when a known, separately-tracked rendering bug
+  is what's actually in the way, not as a default habit.
