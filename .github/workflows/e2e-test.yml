@@ -1,0 +1,228 @@
+name: E2E Test
+
+# Runs the Playwright suite (e2e/, #94-#97) against a real running
+# server + a real, seeded Postgres + a headless browser. Per
+# docs/solution-proposals/e2e-testing.md §6/§8 (decided) and #98:
+# informational only, not a required check, and deliberately NOT run on
+# every PR -- multi-process (browser + server + database), meaningfully
+# slower than test.yml/integration-test.yml, and a finding here isn't
+# necessarily about what a given PR changed. See docs/development/ci.md
+# for the full writeup.
+#
+# Three ways to run it, matched to three different needs:
+#   - workflow_dispatch: run it right now, on demand, against any
+#     branch.
+#   - schedule (weekly): catches drift -- something breaking with no
+#     code change at all (a Playwright/browser update, an environment
+#     shift) -- same reasoning security-scan.yml's own weekly run uses.
+#   - pull_request, gated on the `run-e2e` label -- either directly on
+#     the PR, or on any issue the PR closes. That second path is the
+#     point: label an issue `run-e2e` at triage/creation time (before
+#     any PR exists) to record "this needs E2E coverage" as part of its
+#     requirements, and whichever PR later closes it picks that up
+#     automatically -- nobody has to remember to also label the PR.
+#     Direct PR labeling still works too (e.g. no linked issue, or an
+#     existing PR turns out to need it). See the check-e2e-required job
+#     below for how; triggers on `opened`/`labeled`/`synchronize` so
+#     this is evaluated on a PR's first push, whenever a label changes,
+#     and again on every later push (a PR that qualifies stays
+#     evaluated on every commit, not just once).
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, same cadence/reasoning as security-scan.yml's schedule.
+    # Deliberately a different day/time than that one -- no reason for
+    # both slow, occasional jobs to contend for runners at once.
+    - cron: '30 5 * * 3'
+  pull_request:
+    branches: [main]
+    types: [opened, labeled, synchronize]
+
+# Same reasoning as the other workflows: a second push to the same PR
+# should replace the first run, not queue alongside it. Scheduled/
+# manual runs have no PR number, so fall back to the ref.
+concurrency:
+  group: e2e-test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Same shape .env's keys take locally (docs/development/onboarding.md) --
+# no .env file on the runner, so these are set directly as job env vars
+# instead; Config.App/Config.Db/Config.Web read them the same way
+# either way.
+env:
+  DB_DATABASE: project
+  DB_PORT: '5432'
+  DB_HOST: localhost
+  DB_USER: postgres
+  DB_PASS: postgres
+  DB_POOL_COUNT: '10'
+  DB_SCHEMA: project
+  ENV: Development
+  WEB_INDEX_REDIRECT: /ui/projects/vw
+  WEB_PORT: '3000'
+  WEB_REQUEST_ID_HEADER: X-Request-ID
+  WEB_REDIRECT_PATH: /api/nodes
+  E2E_BASE_URL: http://localhost:3000
+
+jobs:
+  # Cheap precondition job, only for pull_request events -- decides
+  # whether this PR actually needs the (slow, expensive) e2e-test job
+  # below, checking both label paths described in the trigger comment
+  # above: the PR's own `run-e2e` label, and -- via GraphQL, since a
+  # linked issue's labels aren't part of the pull_request event payload
+  # and can't be checked in a plain `if:` expression -- the labels of
+  # any issue this PR closes (`Closes #N`, `Fixes #N`, etc. in the PR
+  # body; GitHub calls this "closing issue references").
+  check-e2e-required:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      required: ${{ steps.check.outputs.required }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if gh pr view "$PR" -R "$REPO" --json labels -q '.labels[].name' | grep -qx 'run-e2e'; then
+            echo "required=true (PR's own label)"
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          owner="${REPO%/*}"
+          repo="${REPO#*/}"
+          closing_labels=$(gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){closingIssuesReferences(first:10){nodes{number labels(first:20){nodes{name}}}}}}}' \
+            -f owner="$owner" -f repo="$repo" -F pr="$PR" \
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[] | "\(.number): \(.labels.nodes[].name)"')
+          echo "Closing issues and their labels: ${closing_labels:-<none>}"
+          if echo "$closing_labels" | grep -q ': run-e2e$'; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  e2e-test:
+    needs: [check-e2e-required]
+    # Job-level if:, checking the previous job's *output* rather than
+    # the raw event payload directly -- this needs.*.outputs reference
+    # only works because e2e-test declares `needs: check-e2e-required`
+    # above; `always()` so this still evaluates (and the `!=
+    # 'pull_request'` branch still applies) even though
+    # check-e2e-required itself is skipped entirely for
+    # schedule/workflow_dispatch runs, which would otherwise make this
+    # job's default "did its dependency succeed" gate skip it too.
+    if: >
+      always() &&
+      (github.event_name != 'pull_request' ||
+       needs.check-e2e-required.outputs.required == 'true')
+    # Same pinned-OS reasoning as the other workflows.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          # Same pinned versions as the other workflows -- see
+          # typeio.cabal's `base ^>=4.18.3.0` bound and
+          # docs/development/onboarding.md.
+          ghc-version: '9.6.7'
+          cabal-version: '3.12.1.0'
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-cabal-${{ hashFiles('typeio.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: cabal build all
+        run: cabal build all
+
+      # Same bind-mounted-migrations approach
+      # test-integration/Integration/Support.hs uses for its disposable
+      # Postgres (docker-entrypoint-initdb.d, applied via psql -- not
+      # the `migrate` CLI, nothing extra to install on the runner) --
+      # here as a plain `docker run` step rather than testcontainers,
+      # since this Postgres needs to be up and reachable *before*
+      # `cabal run server` starts, independent of any Haskell test
+      # process controlling it (unlike test-integration's own suite).
+      - name: Start Postgres
+        run: |
+          docker run -d \
+            --name e2e-postgres \
+            -e POSTGRES_USER="$DB_USER" \
+            -e POSTGRES_PASSWORD="$DB_PASS" \
+            -e POSTGRES_DB="$DB_DATABASE" \
+            -p "$DB_PORT:5432" \
+            -v "$GITHUB_WORKSPACE/migrations:/docker-entrypoint-initdb.d/migrations:ro" \
+            -v "$GITHUB_WORKSPACE/test-integration/docker/apply-migrations.sh:/docker-entrypoint-initdb.d/apply-migrations.sh:ro" \
+            postgres:15
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec e2e-postgres pg_isready -U "$DB_USER" -d "$DB_DATABASE" > /dev/null 2>&1; then
+              echo "Postgres ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Postgres did not become ready in time"
+          docker logs e2e-postgres
+          exit 1
+
+      # Backgrounded with nohup so it survives this step's own shell
+      # exiting -- the process keeps running for the rest of the job,
+      # same runner, no container boundary between steps.
+      - name: Start server
+        run: nohup cabal run server > server.log 2>&1 &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null "http://localhost:$WEB_PORT/ui/projects/vw"; then
+              echo "Server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Server did not become ready in time"
+          cat server.log
+          exit 1
+
+      # What `make seed-db` does locally -- reusing the app's own
+      # existing seeding path (Domain.Central.Responder.Api.Seed) rather
+      # than duplicating NodeStatus/NodeType a third time.
+      - name: Seed reference data
+        run: curl -sf -X POST "http://localhost:$WEB_PORT/api/central/seed-database"
+
+      # Cached on the lockfile hash, same pattern as the cabal-store
+      # cache above -- the real cost here is the ~180MB Chromium
+      # download, not npm's own handful of small packages.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+
+      - name: Install E2E suite dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        working-directory: e2e
+        run: npm test
+
+      - name: Print server log
+        if: failure()
+        run: cat server.log

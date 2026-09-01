@@ -1,6 +1,6 @@
 # CI
 
-There are four GitHub Actions workflows:
+There are five GitHub Actions workflows:
 
 - `.github/workflows/test.yml` — builds the app and runs the unit test
   suite. **Required** to merge into `main`.
@@ -14,6 +14,10 @@ There are four GitHub Actions workflows:
   once a version bump lands on `main`. Not a check at all (nothing to
   pass or fail against a PR) — see [Release workflow](#release-workflow)
   below.
+- `.github/workflows/e2e-test.yml` — runs the Playwright E2E suite
+  against a real server, seeded Postgres, and headless browser.
+  Informational only, not required, and not run on every PR — see
+  [E2E test workflow](#e2e-test-workflow) below.
 
 ## What it does
 
@@ -146,7 +150,7 @@ release workflow and the rationale behind it (`docs/solution-proposals/release-m
 §9 has the original decision); this section just places it among the
 other workflows here.
 
-Unlike the other three, it's not a PR check at all:
+Unlike the other four, it's not a PR check at all:
 
 - **Triggers on `push` to `main`, not `pull_request`.** It isn't
   re-checking anything — `main` only changes via already-checked PRs
@@ -161,6 +165,82 @@ Unlike the other three, it's not a PR check at all:
   nothing to do with the version, so the actual check — did the
   `version:` line itself change — happens in the workflow's "Check
   version bump" step.
+
+## E2E test workflow
+
+`.github/workflows/e2e-test.yml` runs the Playwright suite (`e2e/`,
+built up across #94–#97) against a real, compiled `server` process
+talking to a real, seeded Postgres, driven by a headless browser. See
+`docs/solution-proposals/e2e-testing.md` (#17, decided §6/§8) for the
+full design rationale and #98 for what landed; this section covers the
+CI shape specifically.
+
+Steps, in order:
+
+1. Install GHC/cabal and `cabal build all`, same versions/caching as
+   the other workflows.
+2. Start a `postgres:15` container via a plain `docker run` step (not
+   `services:`, and not `test-integration`'s testcontainers-managed
+   approach) — bind-mounting `migrations/` and
+   `test-integration/docker/apply-migrations.sh` into
+   `docker-entrypoint-initdb.d/`, the same migration mechanism
+   `test-integration/Integration/Support.hs` already established. A
+   plain step, not a `services:` block, specifically because
+   `services:` containers start before the job checks out the repo —
+   their bind mounts would see an empty directory, and Postgres only
+   runs its `docker-entrypoint-initdb.d` scripts once, at that early
+   startup.
+3. `cabal run server`, backgrounded (`nohup ... &`, survives the step
+   exiting since the process just keeps running on the same runner),
+   pointed at that Postgres via the same env vars `.env` sets locally.
+4. `POST /api/central/seed-database` once the server's reachable — what
+   `make seed-db` already does, reusing the app's own seeding path
+   rather than duplicating it.
+5. Install Playwright's Chromium (cached on `e2e/package-lock.json`'s
+   hash, the same pattern as the cabal-store cache) and `npm test`.
+
+A few ways this deliberately differs from every other workflow here:
+
+- **Three triggers, not one or two**: `workflow_dispatch` (run it right
+  now, on demand), a weekly `schedule` (catches drift — something
+  breaking with no code change at all, same reasoning
+  `security-scan.yml`'s schedule uses, on a different day so the two
+  slow/occasional jobs don't contend for runners at the same time), and
+  `pull_request` gated on a label.
+- **The `run-e2e` label, not "every PR."** This suite is meaningfully
+  slower and more moving-parts than the others (browser + server +
+  database, versus `test.yml`'s pure in-process run or
+  `integration-test.yml`'s single testcontainers-managed database), and
+  a finding here isn't necessarily about what a given PR changed — the
+  same reasoning `security-scan.yml`'s §7 gives for not blocking a PR on
+  an unrelated finding applies just as much to "don't even run this on
+  every PR" here.
+- **Two jobs, not one, for the `pull_request` case** — a cheap
+  `check-e2e-required` job runs first and decides whether the real
+  `e2e-test` job (which `needs:` it) should run at all, checking two
+  things:
+  1. **The PR's own `run-e2e` label** — the direct case: someone
+     decides an already-open PR needs E2E coverage and labels it.
+  2. **Any issue the PR closes** (`Closes #N` etc. in the PR body —
+     GitHub's own "closing issue references") **carrying `run-e2e`** —
+     the planning-time case: label an issue `run-e2e` when it's
+     created/triaged, as part of recording its requirements, before any
+     PR exists for it. Whichever PR later closes that issue picks the
+     requirement up automatically, via a GraphQL query
+     (`closingIssuesReferences`) `check-e2e-required` makes — a linked
+     issue's labels aren't part of the `pull_request` event payload, so
+     this can't be a plain `if:` expression the way the PR's own label
+     check is; it has to be an actual API call in a step.
+
+  Either path sets `required=true`; `e2e-test`'s own `if:` (checking
+  `needs.check-e2e-required.outputs.required`) gates on that. An
+  unlabeled PR with no qualifying linked issue costs one cheap job that
+  reports quickly — the two-job split keeps that fast precondition
+  check separate from ever having to spin up (or skip inside) the full
+  GHC+Docker+Postgres+browser job.
+- **Not a required check**, same as `integration-test.yml`/
+  `security-scan.yml` — doubly so here, since it isn't even part of
+  every PR's checks by default.
 
 ## Why it always runs, and skips internally instead of using `paths`
 
@@ -202,6 +282,10 @@ workflow](#security-scan-workflow) above for why that one's different.
 to `main` instead — see [Release workflow](#release-workflow) above for
 why: it isn't re-checking a PR, it's reacting to one that already
 merged.
+`e2e-test.yml` goes further still: its `pull_request` trigger is gated
+on the `run-e2e` label rather than running unconditionally, on top of
+its own weekly `schedule` and an on-demand `workflow_dispatch` — see
+[E2E test workflow](#e2e-test-workflow) above.
 
 ## Running the same checks locally
 
@@ -226,6 +310,13 @@ It needs Docker locally (see [Integration test workflow](#integration-test-workf
 above for what it runs in CI — informational only, not required). See
 [`integration-testing.md`](integration-testing.md) for the full
 write-up of how the suite works and what it covers.
+
+The E2E suite is separate again, and doesn't have a single `cabal`
+command — it needs a real running server and database, not just
+Docker. See [`e2e/README.md`](../../e2e/README.md) for the full local
+sequence (`make e2e-install`, `make test-e2e`, and how to watch it
+drive a browser headed/in UI mode); a `docs/development/` write-up for
+this suite is tracked in #117.
 
 **Running tests locally is now optional; writing/updating them is not.**
 CI catching a missing or broken test after the fact is not a substitute
