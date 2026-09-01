@@ -54,6 +54,7 @@ cases:
 | htmx or hyperscript attribute patterns | `docs/development/frontend/` |
 | The router, `Env`, containers (DI), or logging | `docs/development/backend/` (one file each) |
 | CI: what it runs, when, and how to reproduce it locally | `docs/development/ci.md` |
+| Dependabot / security scanning: what runs, where findings show up, how to triage | `docs/development/dependency-security.md` |
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
