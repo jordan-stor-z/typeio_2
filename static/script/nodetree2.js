@@ -29,7 +29,7 @@
     .selectAll("line")
     .data(links);
   const node = svg.select("#graph-nodes")
-    .selectAll("g")
+    .selectAll("g.node")
     .data(nodes);
   simulation.on("tick", () => {
     link
