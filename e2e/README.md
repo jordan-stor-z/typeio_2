@@ -20,16 +20,23 @@ rationale; this file only covers how to run what's here today.
 This suite doesn't start the app itself — it drives a browser against
 whatever's already running at `E2E_BASE_URL` (default
 `http://localhost:3000`). Start the app the same way local development
-always does, from the repo root:
+always does, from the repo root — the one-command path:
+
+```
+make start-app
+```
+
+— or the same steps by hand, one per terminal:
 
 ```
 make run-postgres      # start Postgres in Docker
 make migrate-up        # apply all migrations
-make seed-db           # seed reference data (NodeStatus/NodeType)
 cabal run server        # start the app, reads .env
+make seed-db           # seed reference data (NodeStatus/NodeType; needs the server already running)
 ```
 
-Then, in a separate terminal, from the repo root:
+See [`onboarding.md`](../docs/development/onboarding.md) for more on
+either path. Then, in a separate terminal, from the repo root:
 
 ```
 make e2e-install   # first time only (npm install + Playwright's Chromium)

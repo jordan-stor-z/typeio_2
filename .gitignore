@@ -1,6 +1,9 @@
 dist-newstyle/
 .env
 
+# make start-app's backgrounded server log (local/script/start-app.sh)
+local/server.log
+
 # OpenTofu / Terragrunt (infrastructure/) -- state lives in HCP Terraform,
 # never local or committed; see docs/development/infrastructure.md.
 .terraform/

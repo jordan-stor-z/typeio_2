@@ -21,12 +21,29 @@ hang off of.
 
 ## Getting it running
 
+The one-command path — starts Postgres, applies migrations, builds and
+starts the app in the background, waits for it to be ready, then seeds
+it:
+
+```
+cabal build all    # build everything
+make start-app
+```
+
+`make start-app` keeps running afterward (server logs at
+`local/server.log`) until you Ctrl+C it, which stops the backgrounded
+server cleanly. See the `Makefile` (`start-app` target) and
+`local/script/start-app.sh` for what it's doing under the hood.
+
+Or run the same steps by hand, one command per terminal — useful if you
+want a piece of this running on its own:
+
 ```
 make run-postgres      # start Postgres in Docker
 make migrate-up        # apply all migrations
-make seed-db           # seed sample data
 cabal build all        # build everything
 cabal run server        # start the app, reads .env
+make seed-db           # seed sample data (needs the server already running)
 ```
 
 Once it's running, visit `http://localhost:3000` (or whatever `WEB_PORT`

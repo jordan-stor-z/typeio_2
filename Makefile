@@ -8,7 +8,7 @@ MIGRATE=migrate
 MIGRATIONS_DIR=migrations
 
 # --- Commands ---
-.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version test test-integration test-e2e e2e-install
+.PHONY: migrate-up migrate-down migrate-new migrate-force migrate-down-all migrate-version start-app test test-integration test-e2e e2e-install
 
 ## Run migratin tests
 test-migrations:
@@ -50,6 +50,15 @@ migrate-new:
 seed-db:
 	curl --location --request POST 'localhost:$(or $(WEB_PORT),3000)/api/central/seed-database'
 
+## Start Postgres, apply migrations, start the app in the background,
+## wait for it to be ready, then seed it -- one command in place of
+## run-postgres/migrate-up/cabal run server/seed-db run by hand across
+## separate terminals. Keeps running afterward (logs at
+## local/server.log) until Ctrl+C, which stops the backgrounded server
+## cleanly -- no orphaned process left behind.
+start-app:
+	./local/script/start-app.sh
+
 ## Run the Haskell unit test suite
 test:
 	cabal test spec
@@ -69,8 +78,8 @@ e2e-install:
 ## Run the E2E test suite. Unlike test/test-integration, this doesn't
 ## start its own database or server -- needs a real app already running
 ## against a real, migrated + seeded Postgres (run-postgres, migrate-up,
-## seed-db, then `cabal run server` in another terminal). See
-## e2e/README.md for the full sequence and how to run it headed/in UI
-## mode to watch it drive a browser.
+## `cabal run server` in another terminal, then seed-db -- or just
+## `make start-app`). See e2e/README.md for the full sequence and how to
+## run it headed/in UI mode to watch it drive a browser.
 test-e2e:
 	cd e2e && npm test
