@@ -29,6 +29,7 @@ proposals for this project.
 - [`development/backend/containers.md`](development/backend/containers.md) — the Container dependency-injection pattern: Root → per-domain → API/UI sub-containers.
 - [`development/backend/logging.md`](development/backend/logging.md) — the two independent structured-JSON logging pipelines (request/response, and database queries) and why they're separate.
 - [`development/ci.md`](development/ci.md) — what the GitHub Actions workflow runs, why it's PR-only, and how to reproduce it locally.
+- [`development/dependency-security.md`](development/dependency-security.md) — the full Dependabot + security-scanning picture: what each of the two mechanisms (native Dependabot/secret scanning vs. the OSV-Scanner CI workflow) covers, where their findings surface, and how to triage what comes up.
 - [`development/unit-testing.md`](development/unit-testing.md) — where tests live, how to run them, what's actually covered (and what's deliberately not, and why).
 - [`development/integration-testing.md`](development/integration-testing.md) — the responder-testing suite unit tests deliberately skip: a disposable `testcontainers` Postgres, truncate-based isolation, the reference-data-vs-fixture seeding split, and what's covered so far (the `handlePostNode` pilot).
 - [`development/labels.md`](development/labels.md) — the `type:*`/`area:*` GitHub issue label taxonomy, and when to use each.
