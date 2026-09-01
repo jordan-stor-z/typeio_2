@@ -35,7 +35,14 @@ make run-postgres
 make migrate-up
 
 mkdir -p "$(dirname "$LOG_FILE")"
-echo "🚀 Starting the app (logging to $LOG_FILE)..."
+# Truncate first so each run starts from an empty log rather than
+# appending onto a previous run's output -- '>' below would truncate on
+# its own the moment the server writes its first line, but doing it
+# explicitly up front means a startup failure (before the app logs
+# anything) still leaves an empty file, not a stale one from last time.
+: > "$LOG_FILE"
+echo "🚀 Starting the app in the background..."
+echo "📝 Logging to $LOG_FILE"
 cabal run server > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 

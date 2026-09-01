@@ -43,7 +43,7 @@ make run-postgres      # start Postgres in Docker
 make migrate-up        # apply all migrations
 cabal build all        # build everything
 cabal run server        # start the app, reads .env
-make seed-db           # seed sample data (needs the server already running)
+make seed-db           # seed reference data (NodeStatus/NodeType; needs the server already running)
 ```
 
 Once it's running, visit `http://localhost:3000` (or whatever `WEB_PORT`
