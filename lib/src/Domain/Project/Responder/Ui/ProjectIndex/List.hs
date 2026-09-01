@@ -9,9 +9,7 @@ module Domain.Project.Responder.Ui.ProjectIndex.List where
 import Common.Web.Attributes
 import Control.Monad (forM_)
 import Control.Monad.Reader (ReaderT)
-import Data.Int (Int64)
 import Data.Text.Util (intToText)
-import Data.Time (UTCTime)
 import Database.Esqueleto.Experimental
   ( desc
   , from
@@ -64,8 +62,8 @@ templateList ps = div_ [id_ "view"] $ do
   div_ [id_ "project-index", class_ "card-grid"] $ do
     forM_ ps $ \p -> do
       div_
-        [ id_ "project-item"
-        , class_ "nav-target"
+        [ id_ $ "project-item-" <> (intToText . fromSqlKey . M.projectVwProjectId $ p)
+        , class_ "nav-target project-item"
         , hxGet_ (projectLink . fromSqlKey . M.projectVwProjectId $ p)
         , hxPushUrl_ True
         , hxSwap_ "innerHTML"

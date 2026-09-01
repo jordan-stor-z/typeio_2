@@ -35,13 +35,13 @@ export async function createProject(page: Page, titlePrefix: string): Promise<Cr
 
   // Not page.locator('#project-index').filter(...): #project-index is
   // the single list container (one match, so filter() has nothing to
-  // narrow among) -- #project-item is the per-card div. It's also a
-  // non-unique id (ProjectIndex.List renders one per card, all sharing
-  // the same literal id -- invalid HTML, a real finding, not fixed
-  // here), but that's exactly what makes filter() work correctly here:
-  // it resolves to every card, then narrows to the one containing this
-  // title.
-  const card = page.locator('#project-item').filter({ hasText: title });
+  // narrow among) -- .project-item is the per-card div's class.
+  // ProjectIndex.List used to render every card with the same literal
+  // *id* here (invalid HTML -- fixed in #119; each card's id is now
+  // unique, per-project), so this now scopes by the shared class
+  // instead, which still resolves to every card, then narrows to the
+  // one containing this title.
+  const card = page.locator('.project-item').filter({ hasText: title });
   await expect(card.getByRole('heading', { name: title, level: 3 })).toBeVisible();
 
   const id = await card.locator('.id').innerText();
