@@ -120,25 +120,27 @@ Steps:
 A few ways this deliberately differs from `test.yml` and
 `integration-test.yml`:
 
-- **Two triggers, not one**: every PR into `main` (no `paths:` filter —
-  same shape as `test.yml`, see the proposal's §6) *and* a weekly
-  `schedule`. These catch different problems: a PR catches a newly
-  *introduced* vulnerable dependency; the schedule catches a dependency
-  that didn't change but became known-vulnerable since it was last
-  touched, which no PR would ever trigger a check for. The scheduled run
-  is also the one exception to [Why pull requests
-  only](#why-pull-requests-only-not-main) below — `main` is exactly the
-  right target for it, since it's checking for drift in the *outside
-  world* (newly disclosed CVEs), not re-checking something a PR already
-  covered.
+- **Schedule-only, not a PR check** (#136). Originally ran on every PR
+  into `main` too (no `paths:` filter — same shape as `test.yml`), to
+  catch a newly *introduced* vulnerable dependency at the point it
+  landed — see the proposal's §6/§10 for that original decision. Dropped
+  per #136: a per-PR OSV-Scanner run kept surfacing findings unrelated
+  to what a given PR actually changed, on a check nothing could act on
+  anyway (informational, next bullet). The weekly `schedule` alone still
+  covers what a PR trigger structurally can't — a dependency that didn't
+  change but became known-vulnerable since it was last touched — and
+  `main` is exactly the right target for that, since it's checking for
+  drift in the *outside world* (newly disclosed CVEs), not re-checking
+  something a PR already covered. See `docs/solution-proposals/security-scanning.md`'s
+  note below its original §6/§10 decision for the follow-up record.
 - **Not a required check**, and not planned to become one without a
   separate, deliberate decision — see the proposal's §7 for why a
-  vulnerability finding shouldn't block the specific PR that happened to
-  trigger the scan.
+  vulnerability finding shouldn't block whatever happened to be in
+  flight when the scheduled scan ran.
 - **A separate workflow file**, not a job in `test.yml` — different
-  trigger shape (needs `schedule`) and different blocking semantics
-  (informational vs. required) than `test.yml`'s `test` job; see the
-  proposal's §8.
+  trigger shape (`schedule` instead of `pull_request`) and different
+  blocking semantics (informational vs. required) than `test.yml`'s
+  `test` job; see the proposal's §8.
 
 ## Release workflow
 
@@ -150,7 +152,11 @@ release workflow and the rationale behind it (`docs/solution-proposals/release-m
 §9 has the original decision); this section just places it among the
 other workflows here.
 
-Unlike the other four, it's not a PR check at all:
+Unlike `test.yml`, `integration-test.yml`, and `e2e-test.yml`, it's not
+a PR check at all (`security-scan.yml` isn't either, as of #136 — see
+[Security scan workflow](#security-scan-workflow) above — but for a
+different reason: it's reacting to schedule drift, not to a version
+bump landing):
 
 - **Triggers on `push` to `main`, not `pull_request`.** It isn't
   re-checking anything — `main` only changes via already-checked PRs
@@ -275,13 +281,20 @@ required from the workflow.
 
 `integration-test.yml` triggers on `pull_request` only too, for the
 same reason — it's just not part of what branch protection enforces.
-`security-scan.yml` triggers on `pull_request` for the same reason, but
-also adds a weekly `schedule` — see [Security scan
-workflow](#security-scan-workflow) above for why that one's different.
-`release.yml` is the one workflow that deliberately triggers on `push`
-to `main` instead — see [Release workflow](#release-workflow) above for
-why: it isn't re-checking a PR, it's reacting to one that already
-merged.
+
+`security-scan.yml` and `release.yml` are the two workflows that don't
+trigger on `pull_request` at all, for two different reasons:
+`release.yml` triggers on `push` to `main` instead — see [Release
+workflow](#release-workflow) above — because it isn't re-checking a PR,
+it's reacting to one that already merged. `security-scan.yml` triggers
+on a weekly `schedule` only (as of #136) — see [Security scan
+workflow](#security-scan-workflow) above — because a per-PR run was
+checking something a PR trigger can't meaningfully check (whether a
+dependency became known-vulnerable with no code change at all); `main`
+is the right target for that scheduled run for the same "already
+checked, nothing new to say" reason `pull_request`-only is right for
+the others.
+
 `e2e-test.yml` goes further still: its `pull_request` trigger is gated
 on the `run-e2e` label rather than running unconditionally, on top of
 its own weekly `schedule` and an on-demand `workflow_dispatch` — see

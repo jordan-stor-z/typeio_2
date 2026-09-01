@@ -1,11 +1,16 @@
 # Solution Proposal: Security Scanning for CI/CD
 
 - **Status:** Decided — see §11. Implementation tracked in #99–#101.
+  **Narrowed by #136** (2026-09-01): the per-PR half of §6's trigger
+  recommendation was dropped from `security-scan.yml` after landing —
+  see the note at the end of §6. `docs/development/ci.md` is the live
+  source of truth for what the workflow actually triggers on today.
 - **Date:** 2026-08-31
 - **Related:** #62 (this spike), `docs/development/ci.md` (required-check
   path-filter gotcha this proposal designs around), #46/#47 (pending
   Terraform/Terragrunt CI — infrastructure-dependency scanning is a
-  separate surface, noted but not designed here)
+  separate surface, noted but not designed here), #136 (narrowed the
+  trigger model post-implementation — see §6)
 
 ## 1. Problem statement
 
@@ -167,6 +172,18 @@ and never find out. **Recommendation: both.**
   Dependabot itself defaults to for version updates and reasonable for a
   low-churn dependency set — daily would be scanning-for-scanning's-sake
   here, not evidence-based.
+
+**Update (#136, 2026-09-01):** the per-PR half of this recommendation
+was dropped after landing — in practice, a per-PR OSV-Scanner run kept
+surfacing findings unrelated to what the given PR actually changed, on
+an informational-only check nothing could act on from inside that PR
+anyway (§7). The scheduled run was never in question — it's the one
+that catches what a per-PR trigger structurally can't (a newly
+*disclosed* CVE with no code change at all) — so `security-scan.yml`
+now runs on the weekly `schedule` only. This section is left otherwise
+as-is, as the point-in-time record of the original both-triggers
+reasoning; see `docs/development/ci.md`'s "Security scan workflow"
+section for what the workflow actually runs today.
 
 ## 7. Blocking vs. informational: informational, not required
 
