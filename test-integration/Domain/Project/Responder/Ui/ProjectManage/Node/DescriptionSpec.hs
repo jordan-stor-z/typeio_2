@@ -44,11 +44,11 @@ spec = aroundAll withTestDatabase $
           Just nd -> M.nodeDescription nd `shouldBe` "UpdatedDescription"
           Nothing -> expectationFailure "expected the root Node to still exist"
 
-      it "returns 500 when the node doesn't exist" $ \pool ->
+      it "returns 404 when the node doesn't exist" $ \pool ->
         runSession
           ( do
               resp <- srequest $ putDescriptionRequest 999999 999999 "desc"
-              assertStatus 500 resp
+              assertStatus 404 resp
           )
           (handlePutDescription pool)
 

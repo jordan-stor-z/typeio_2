@@ -22,7 +22,7 @@ import Control.Monad.Trans.Either ( hoistEither
 import Data.Int                   (Int64)
 import Data.Text                  (Text, unpack)
 import Data.Text.Encoding         (decodeUtf8)
-import Network.HTTP.Types         (status200, status500)
+import Network.HTTP.Types         (status200, status404, status500)
 import Network.Wai                (Application, responseLBS)
 import Network.Wai.Parse          (parseRequestBody, lbsBackEnd, Param)
 
@@ -66,7 +66,7 @@ handlePutDescription pl req rspnd = do
                 $ e
     Left MissingNode -> rspnd
                 . responseLBS 
-                  status500
+                  status404
                   [("Content-Type", "text/html")]
                 . renderBS
                 $ templateNodeNotFound
