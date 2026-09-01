@@ -13,7 +13,7 @@ generate "provider" {
   if_exists = "overwrite_terragrunt"
   contents  = <<EOF
 provider "github" {
-  owner = "jordan-stor-z"
+  owner = "v12-Industry"
 }
 EOF
 }

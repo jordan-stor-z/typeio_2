@@ -131,6 +131,16 @@ switching to OpenTofu — the same is expected to hold against GCS once
 the account exists, since only the backend, not the resource
 configuration, changed.
 
+**Not yet covered by this module**: `main`'s merge-queue ruleset (see
+[`ci.md`](ci.md#merge-queue)) was configured directly via the API, the
+same hand-first-then-import path branch protection took before it was
+code here. The `github-repo` module only wraps
+`github_branch_protection` today, not `github_repository_ruleset` —
+whoever does the first real `terragrunt apply` should add a
+`github_repository_ruleset` resource for it (and import the live
+ruleset the same way) rather than assume branch protection is the only
+drift to reconcile.
+
 ## Day to day
 
 ```sh
