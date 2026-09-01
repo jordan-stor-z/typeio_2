@@ -37,11 +37,13 @@ make test-integration
 
 **Needs Docker, nothing else** — no manually-started Postgres, and no
 separately-installed `migrate` CLI (see "How migrations get applied"
-below for why). It is **not** part of CI yet (see
-[`ci.md`](ci.md)); `cabal test spec`/`make test` is what CI runs, which
-is exactly why local commands here use the scoped `integration` target
-rather than a bare `cabal test` — the latter would build and run this
-suite too.
+below for why). It also runs in CI, on every PR into `main` that
+touches Haskell-relevant files, via a separate
+`.github/workflows/integration-test.yml` — but informational only, not
+yet a required check (see [`ci.md`](ci.md) for the full rationale).
+`cabal test spec`/`make test` is the one CI *requires*, which is exactly
+why local commands here use the scoped `integration` target rather than
+a bare `cabal test` — the latter would build and run this suite too.
 
 ## Container lifecycle
 
