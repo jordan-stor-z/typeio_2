@@ -83,8 +83,8 @@ rationale in the proposal's §4/§8):
   The answer for testing responders is integration tests against a real,
   ephemeral test database — see
   [`integration-testing.md`](integration-testing.md) for how to run them
-  and what's covered so far (the `handlePostNode` pilot; the rest of the
-  write/mutate handlers are tracked in #66–#69), and
+  and what's covered so far (all five write/mutate handlers, the
+  `handlePostNode` pilot plus its #66–#69 follow-ups), and
   [`../solution-proposals/integration-testing.md`](../solution-proposals/integration-testing.md)
   for the rationale behind each design choice. Out of scope for this
   doc either way — unit tests still don't cover responders.
