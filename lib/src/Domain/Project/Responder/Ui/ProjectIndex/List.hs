@@ -64,8 +64,8 @@ templateList ps = div_ [id_ "view"] $ do
   div_ [id_ "project-index", class_ "card-grid"] $ do
     forM_ ps $ \p -> do
       div_
-        [ id_ "project-item"
-        , class_ "nav-target"
+        [ id_ $ "project-item-" <> (intToText . fromSqlKey . M.projectVwProjectId $ p)
+        , class_ "nav-target project-item"
         , hxGet_ (projectLink . fromSqlKey . M.projectVwProjectId $ p)
         , hxPushUrl_ True
         , hxSwap_ "innerHTML"

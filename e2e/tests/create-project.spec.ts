@@ -54,10 +54,10 @@ test('creating a project shows it on the project index', async ({ page }) => {
   // project list fragment. Asserting on the settled result here (the
   // new project's rendered card) rather than any intermediate state
   // covers both hops without needing to know about either explicitly.
-  // #project-item, not #project-index: see helpers.ts's createProject()
+  // .project-item, not #project-index: see helpers.ts's createProject()
   // for why (#project-index is the single list container, not a
   // per-card element -- filter() needs the latter to actually narrow).
-  const card = page.locator('#project-item').filter({ hasText: title });
+  const card = page.locator('.project-item').filter({ hasText: title });
   await expect(card.getByRole('heading', { name: title, level: 3 })).toBeVisible();
   await expect(card.getByText(description)).toBeVisible();
 });
