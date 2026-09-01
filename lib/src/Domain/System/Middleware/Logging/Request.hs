@@ -4,10 +4,8 @@ module Domain.System.Middleware.Logging.Request where
 
 import Config.Web (WebConfig (..))
 import Data.Aeson (ToJSON (..), object, (.=))
-import Data.Bifunctor (bimap)
 import Data.ByteString.Char8 (ByteString, unpack)
-import Data.CaseInsensitive (original)
-import Data.HashMap.Strict (HashMap, fromList)
+import Data.HashMap.Strict (HashMap)
 import Domain.System.Middleware.Logging.Common (hashMapHeaders)
 import Logging.Core (EntryLog, LogLevel (..), runEntryLog)
 import Network.HTTP.Types (HeaderName)

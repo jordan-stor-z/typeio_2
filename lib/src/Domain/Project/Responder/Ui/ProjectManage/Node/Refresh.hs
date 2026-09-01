@@ -15,7 +15,6 @@ import Lucid
 import qualified Domain.Project.Model as M
 
 import Common.Web.Query (lookupVal)
-import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Either
   ( EitherT
@@ -24,15 +23,14 @@ import Control.Monad.Trans.Either
   , hoistMaybe
   , runEitherT
   )
-import qualified Data.ByteString.Lazy as B (fromStrict, pack, toStrict)
+import qualified Data.ByteString.Lazy as B (fromStrict)
 import Data.Int (Int64)
 import Data.Text (Text, pack, unpack)
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Util (intToText)
 import Database.Esqueleto.Experimental
 import Network.HTTP.Types (QueryText, queryToQueryText, status200, status204, status404, status500)
 import Network.Wai (Application, Request (queryString), responseLBS)
-import Network.Wai.Parse (Param, lbsBackEnd, parseRequestBody)
 
 data GetNodeRefreshErr
   = InvalidParams [ValidationErr]

@@ -27,7 +27,6 @@ import qualified Domain.Project.Model as M
   , nodeProjectId
   , nodeTitle
   , nodeUpdated
-  , unNodeKey
   , unNodeStatusKey
   , unNodeTypeKey
   )

@@ -5,7 +5,7 @@ module Common.Web.Query where
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import Network.HTTP.Types.URI (Query, QueryText)
+import Network.HTTP.Types.URI (QueryText)
 
 lookupVal :: Text -> QueryText -> Maybe Text
 lookupVal k pr = find ((== k) . fst) pr >>= snd

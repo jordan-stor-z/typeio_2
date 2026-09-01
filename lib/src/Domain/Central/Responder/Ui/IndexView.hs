@@ -3,13 +3,12 @@
 module Domain.Central.Responder.Ui.IndexView where
 
 import Common.Web.Attributes
-import Data.List (intersperse)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Lucid
 import Network.HTTP.Types (status200)
 import Network.HTTP.Types.URI (QueryText, queryToQueryText)
-import Network.Wai (Application, Response, ResponseReceived, queryString, responseLBS)
+import Network.Wai (Application, queryString, responseLBS)
 
 queryTextToText :: QueryText -> Maybe Text
 queryTextToText [] = Nothing

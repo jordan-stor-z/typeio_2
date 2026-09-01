@@ -14,7 +14,6 @@ import Database.Persist.Postgresql
   ( PostgresConf (..)
   , PostgresConfHooks (..)
   , defaultPostgresConfHooks
-  , withPostgresqlPool
   , withPostgresqlPoolWithConf
   )
 import Database.Persist.Sql (SqlBackend)

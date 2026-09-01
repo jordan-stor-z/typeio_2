@@ -12,7 +12,6 @@ import Common.Validation
   , valRead
   , (.$)
   )
-import Common.Web.Attributes
 import Common.Web.Query (lookupVal)
 import Control.Monad (forM_, unless)
 import Control.Monad.Trans.Class (lift)
@@ -22,9 +21,8 @@ import Data.Text (Text, pack, unpack)
 import Data.Time (UTCTime)
 import Data.Time.Format (defaultTimeLocale, formatTime)
 import Database.Persist (Entity (..))
-import Database.Persist.Sql (ConnectionPool, fromSqlKey, runSqlPool)
+import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import qualified Domain.Project.Model as M
-import Domain.Project.Responder.Ui.ProjectManage.Link
 import Domain.Project.Responder.Ui.ProjectManage.Node.Query
 import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 import Lucid

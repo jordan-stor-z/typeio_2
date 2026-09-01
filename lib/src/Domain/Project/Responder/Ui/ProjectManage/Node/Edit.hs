@@ -22,7 +22,7 @@ import Control.Monad.Trans.Either (EitherT, firstEitherT, hoistEither, hoistMayb
 import Data.Aeson (object, (.=))
 import Data.Int (Int64)
 import Data.Text (Text, pack, unpack)
-import Data.Text.Lazy (fromStrict, toStrict)
+import Data.Text.Lazy (toStrict)
 import Data.Text.Util (intToText)
 import Data.Time (UTCTime)
 import Data.Time.Format (defaultTimeLocale, formatTime)
