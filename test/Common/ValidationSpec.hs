@@ -9,9 +9,10 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck ((===))
 
--- | Stands in for the app's own Read-deriving enums (e.g.
--- Config.App.EnvironmentName), to prove valRead works for more than
--- just numeric types.
+{- | Stands in for the app's own Read-deriving enums (e.g.
+Config.App.EnvironmentName), to prove valRead works for more than
+just numeric types.
+-}
 data Color = Red | Green | Blue deriving (Show, Eq, Read)
 
 spec :: Spec
@@ -63,9 +64,10 @@ spec = do
     it "rejects a name that isn't one of the enum's constructors" $
       (runWriter (valRead "bad color" (Just "Purple")) :: (Maybe Color, [ValidationErr]))
         `shouldBe` (Nothing, ["bad color"])
-    it "does NOT parse a plain unquoted word as a String -- Read requires a quoted literal, \
-       \not just any input" $
-      (runWriter (valRead "bad string" (Just "hello")) :: (Maybe String, [ValidationErr]))
+    it
+      "does NOT parse a plain unquoted word as a String -- Read requires a quoted literal, \
+      \not just any input"
+      $ (runWriter (valRead "bad string" (Just "hello")) :: (Maybe String, [ValidationErr]))
         `shouldBe` (Nothing, ["bad string"])
     it "does parse a properly-quoted string literal as a String" $
       (runWriter (valRead "bad string" (Just "\"hello\"")) :: (Maybe String, [ValidationErr]))
@@ -85,16 +87,18 @@ spec = do
       runValidation id (isThere "missing" (Just (1 :: Int)))
         `shouldBe` (Right 1 :: Either [ValidationErr] Int)
 
-    it "fails with the recorded errors even when the value is still Just -- this is what \
-       \makes isBetween/isNotEmpty/isEq's \"pass the value through but still record an \
-       \error\" behavior actually reject the input overall" $
-      runValidation id (isBetween 1 10 "out of range" (Just (99 :: Int)))
+    it
+      "fails with the recorded errors even when the value is still Just -- this is what \
+      \makes isBetween/isNotEmpty/isEq's \"pass the value through but still record an \
+      \error\" behavior actually reject the input overall"
+      $ runValidation id (isBetween 1 10 "out of range" (Just (99 :: Int)))
         `shouldBe` (Left ["out of range"] :: Either [ValidationErr] Int)
 
-    it "falls back to a generic \"Unknown error\" for a (Nothing, []) result -- reachable \
-       \when a Nothing-passthrough check (isNotEmpty/isBetween/isEq/valRead) runs on a \
-       \Nothing that was never actually flagged by isThere first" $
-      runValidation id (isNotEmpty "empty" (Nothing :: Maybe String))
+    it
+      "falls back to a generic \"Unknown error\" for a (Nothing, []) result -- reachable \
+      \when a Nothing-passthrough check (isNotEmpty/isBetween/isEq/valRead) runs on a \
+      \Nothing that was never actually flagged by isThere first"
+      $ runValidation id (isNotEmpty "empty" (Nothing :: Maybe String))
         `shouldBe` (Left ["Unknown error in validation"] :: Either [ValidationErr] String)
 
   describe "errcat" $

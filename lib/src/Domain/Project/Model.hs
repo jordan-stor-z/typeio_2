@@ -1,29 +1,32 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}  
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Domain.Project.Model where
 
-import Data.String         (IsString(..))
-import Data.Time           (UTCTime)
-import Database.Persist.TH ( mkPersist
-                           , mkMigrate
-                           , persistLowerCase
-                           , share
-                           , sqlSettings
-                           )
+import Data.String (IsString (..))
+import Data.Time (UTCTime)
+import Database.Persist.TH
+  ( mkMigrate
+  , mkPersist
+  , persistLowerCase
+  , share
+  , sqlSettings
+  )
 
-share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+share
+  [mkPersist sqlSettings, mkMigrate "migrateAll"]
+  [persistLowerCase|
 ProjectVw sql=project_vw
   projectId   ProjectId
   Primary projectId 

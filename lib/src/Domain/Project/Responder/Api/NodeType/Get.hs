@@ -1,22 +1,23 @@
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Domain.Project.Responder.Api.NodeType.Get where
 
-import Data.Aeson                         ((.=)
-                                           , encode
-                                           , toJSON
-                                           , ToJSON
-                                           , object
-                                           )
-import Database.Esqueleto.Experimental     (from, select, table)
-import Database.Persist                    (Entity(..))
-import Database.Persist.Sql                (ConnectionPool, runSqlPool)
-import qualified Domain.Project.Model as M (NodeType(..), unNodeTypeKey)
-import Network.HTTP.Types                  (status200)
-import Network.Wai                         (Response, responseLBS, ResponseReceived)
+import Data.Aeson
+  ( ToJSON
+  , encode
+  , object
+  , toJSON
+  , (.=)
+  )
+import Database.Esqueleto.Experimental (from, select, table)
+import Database.Persist (Entity (..))
+import Database.Persist.Sql (ConnectionPool, runSqlPool)
+import qualified Domain.Project.Model as M (NodeType (..), unNodeTypeKey)
+import Network.HTTP.Types (status200)
+import Network.Wai (Response, ResponseReceived, responseLBS)
 
 newtype NodeType = NodeType
   { nodeTypeId :: String
@@ -24,15 +25,15 @@ newtype NodeType = NodeType
 
 instance ToJSON NodeType where
   toJSON (NodeType ntId) =
-    object [ "nodeTypeId" .= ntId ]
+    object ["nodeTypeId" .= ntId]
 
-handleGetNodeTypes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived 
+handleGetNodeTypes :: ConnectionPool -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 handleGetNodeTypes pl respond = do
-  ns <- encode . map toSchema <$> runSqlPool query pl 
+  ns <- encode . map toSchema <$> runSqlPool query pl
   respond $ responseLBS status200 [("Content-Type", "application/json")] ns
   where
-    query                 = select $ from $ table @M.NodeType
-    toSchema (Entity k _) = NodeType
-      { nodeTypeId = M.unNodeTypeKey k
-      }
-
+    query = select $ from $ table @M.NodeType
+    toSchema (Entity k _) =
+      NodeType
+        { nodeTypeId = M.unNodeTypeKey k
+        }

@@ -1,50 +1,52 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Logging.Database where
 
-import Data.Char (toLower)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.IO.Unlift (MonadUnliftIO)
-import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.Logger
-  ( askLoggerIO
-  , LogLevel
+  ( LogLevel
   , LogSource
   , MonadLogger
   , MonadLoggerIO
+  , askLoggerIO
   , monadLoggerLog
-  ) 
-import Control.Monad.Reader 
-  ( ask
-  , local
-  , MonadReader
-  , reader
+  )
+import Control.Monad.Reader
+  ( MonadReader
   , ReaderT
+  , ask
+  , local
+  , reader
   , runReaderT
   )
-import Data.Aeson ((.=), encode, ToJSON, toJSON, object)
+import Data.Aeson (ToJSON, encode, object, toJSON, (.=))
 import Data.ByteString.Char8 (ByteString, unpack)
-import Data.Time (getCurrentTime, UTCTime)
-import System.Log.FastLogger 
+import Data.Char (toLower)
+import Data.Time (UTCTime, getCurrentTime)
+import System.Log.FastLogger
   ( LoggerSet
-  , newStdoutLoggerSet
-  , pushLogStr
+  , ToLogStr (toLogStr)
   , defaultBufSize
   , fromLogStr
-  , ToLogStr (toLogStr)
+  , newStdoutLoggerSet
+  , pushLogStr
   )
 
-data DatabaseLog = DatabaseLog 
-  { message   :: QueryMessage 
-  , level     :: LogLevel
-  , source    :: LogSource
+data DatabaseLog = DatabaseLog
+  { message :: QueryMessage
+  , level :: LogLevel
+  , source :: LogSource
   , timestamp :: UTCTime
-  } deriving (Show)
+  }
+  deriving Show
 
-newtype DatabaseLoggingT m a = DatabaseLoggingT 
+newtype DatabaseLoggingT m a = DatabaseLoggingT
   { unDatabaseLoggingT :: ReaderT LoggerSet m a
-  } deriving 
+  }
+  deriving
     ( Functor
     , Applicative
     , Monad
@@ -52,25 +54,27 @@ newtype DatabaseLoggingT m a = DatabaseLoggingT
     , MonadUnliftIO
     )
 
-newtype QueryMessage = QueryMessage 
-  { query :: ByteString 
-  } deriving (Show)
+newtype QueryMessage = QueryMessage
+  { query :: ByteString
+  }
+  deriving Show
 
-databaseLog :: (ToLogStr a) 
-  => LogSource 
-  -> LogLevel 
-  -> a 
-  -> UTCTime
-  -> DatabaseLog 
-databaseLog src lvl msg t = 
-  DatabaseLog 
-    { message   = queryMessage msg
-    , level     = lvl
-    , source    = src
+databaseLog ::
+  ToLogStr a =>
+  LogSource ->
+  LogLevel ->
+  a ->
+  UTCTime ->
+  DatabaseLog
+databaseLog src lvl msg t =
+  DatabaseLog
+    { message = queryMessage msg
+    , level = lvl
+    , source = src
     , timestamp = t
     }
 
-queryMessage :: ToLogStr a => a -> QueryMessage 
+queryMessage :: ToLogStr a => a -> QueryMessage
 queryMessage = QueryMessage . (fromLogStr . toLogStr)
 
 runDatabaseLoggingT :: MonadIO m => DatabaseLoggingT m a -> m a
@@ -80,18 +84,19 @@ runDatabaseLoggingT action = do
 
 instance ToJSON DatabaseLog where
   toJSON (DatabaseLog msg lvl src ts) =
-    object [ "message" .= msg 
-           , "level"   .= map toLower (drop 5 . show $ lvl)
-           , "source"  .= src
-           , "timestamp" .= ts 
-           ]
+    object
+      [ "message" .= msg
+      , "level" .= map toLower (drop 5 . show $ lvl)
+      , "source" .= src
+      , "timestamp" .= ts
+      ]
 
 instance MonadIO m => MonadLogger (DatabaseLoggingT m) where
   monadLoggerLog _ src lvl msg = do
     loggerSet <- ask
     t <- liftIO getCurrentTime
     let js = databaseLog src lvl msg t
-        ts = toLogStr . encode $ js 
+        ts = toLogStr . encode $ js
     liftIO $ pushLogStr loggerSet ts
 
 instance MonadIO m => MonadLoggerIO (DatabaseLoggingT m) where
@@ -110,4 +115,3 @@ instance Monad m => MonadReader LoggerSet (DatabaseLoggingT m) where
 
 instance ToJSON QueryMessage where
   toJSON (QueryMessage q) = object ["query" .= unpack q]
-

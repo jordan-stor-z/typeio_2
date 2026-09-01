@@ -2,8 +2,8 @@
 
 module Common.Web.Elements where
 
-import Lucid.Base
 import Data.Text (Text)
+import Lucid.Base
 
 circle_ :: Term arg result => arg -> result
 circle_ = term "circle"
@@ -28,4 +28,3 @@ text_ = term "text"
 
 tspan_ :: Term arg result => arg -> result
 tspan_ = term "tspan"
-

@@ -2,10 +2,10 @@
 
 module Common.Web.Attributes where
 
-import Data.Aeson (ToJSON, (.=), object)
+import Data.Aeson (ToJSON, object, (.=))
 import Data.Aeson.Key (fromText)
 import Data.Aeson.Text (encodeToLazyText)
-import Data.Text  (Text)
+import Data.Text (Text)
 import Data.Text.Lazy (toStrict)
 import Lucid.Base (Attributes, makeAttributes)
 
@@ -72,7 +72,7 @@ refX_ = makeAttributes "refX"
 refY_ :: Text -> Attributes
 refY_ = makeAttributes "refY"
 
-stroke_ :: Text -> Attributes 
+stroke_ :: Text -> Attributes
 stroke_ = makeAttributes "stroke"
 
 strokeOpacity_ :: Text -> Attributes
@@ -94,17 +94,19 @@ dy_ :: Text -> Attributes
 dy_ = makeAttributes "dy"
 
 hxVals_ :: [(Text, Text)] -> Attributes
-hxVals_ = makeAttributes "hx-vals" 
-  . toStrict 
-  . encodeToLazyText 
-  . object 
-  . fmap (\(k, v) -> fromText k .= v)
+hxVals_ =
+  makeAttributes "hx-vals"
+    . toStrict
+    . encodeToLazyText
+    . object
+    . fmap (\(k, v) -> fromText k .= v)
 
 hxVals'_ :: ToJSON a => a -> Attributes
-hxVals'_ = makeAttributes "hx-vals" 
-          . toStrict 
-          . encodeToLazyText
+hxVals'_ =
+  makeAttributes "hx-vals"
+    . toStrict
+    . encodeToLazyText
 
 boolText :: Bool -> Text
-boolText True  = "true"
+boolText True = "true"
 boolText False = "false"
