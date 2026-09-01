@@ -42,21 +42,20 @@ test("changing a node's status updates and persists it", async ({ page, request 
   await expect(page.locator('#status-indicator i.material-icons')).toHaveText('done');
 
   // Confirms it actually persisted, not just that the indicator claimed
-  // success -- via the plain (non-edit) node-detail view's Status text,
-  // not by reopening the edit dropdown and checking its selected
-  // option. Found a real bug writing this: the edit dropdown
-  // (Node.Edit.templateNodeEdit) sets `selected` on the <select>
-  // element itself, not on the matching <option> -- not meaningful
-  // HTML, so no browser ever shows the real current status there
-  // regardless of what's actually in the database (it always shows
-  // whichever <option> comes first, "active", since none of them
-  // carry `selected`). Confirmed directly against the server's raw
-  // HTML response, not a Playwright/browser quirk. Flagged as its own
-  // ticket rather than worked around silently -- see the PR
-  // description. The plain detail view renders status as text driven
-  // directly by the same DB column and isn't affected by that bug, so
-  // it's still a faithful persistence check.
+  // success -- via the plain (non-edit) node-detail view's Status text.
   await page.getByRole('button', { name: 'check' }).click();
   const statusRow = page.locator('#node-detail #node-properties article').filter({ hasText: 'Status:' });
   await expect(statusRow.locator('.property-value')).toHaveText('closed');
+
+  // Also reopen the edit panel and confirm the dropdown itself now
+  // shows the real current status pre-selected (#115: Node.Edit.templateNodeEdit
+  // used to set `selected` on the <select> element itself rather than
+  // the matching <option>, which isn't meaningful HTML -- every browser
+  // ignored it and defaulted to whichever <option> came first,
+  // "active", regardless of the node's real status). Re-navigating
+  // (rather than clicking mode_edit again) is deliberate: it forces a
+  // fresh GET of the edit panel from the server, not a reused DOM node.
+  await page.goto(`/ui/project/vw?projectId=${project.id}&nodeId=${node.id}`);
+  await page.getByRole('button', { name: 'mode_edit' }).click();
+  await expect(page.locator('select[name="status"]')).toHaveValue('closed');
 });

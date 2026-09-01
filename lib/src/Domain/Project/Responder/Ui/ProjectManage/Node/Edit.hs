@@ -176,20 +176,20 @@ templateNodeEdit nsts (Entity k nde) = do
           label_  [for_ "status"] $ p_ "Status:"
           select_ [ class_    "property-value pill-dropdown",
                     name_     "status",
-                    selected_ (pack . M.unNodeStatusKey . M.nodeNodeStatusId $ nde),
                     hxPut_    "/ui/project/node/status",
                     hxPushUrl_ False,
                     hxInclude_ "this",
                     hxTrigger_ "change",
-                    hxVals'_ $ object 
+                    hxVals'_ $ object
                       [ "projectId" .= (intToText . fromSqlKey . M.nodeProjectId $ nde)
                       , "nodeId"    .= (intToText . fromSqlKey $ k)
                       ],
                     hxTarget_ "#status-indicator"
                    ] $ do
-            forM_ nsts $ \nst -> 
-              option_ [value_ (pack . M.unNodeStatusKey . entityKey $ nst)]
-                (toHtml . pack . M.unNodeStatusKey . entityKey $ nst) 
+            forM_ nsts $ \nst ->
+              let key       = pack . M.unNodeStatusKey . entityKey $ nst
+                  isCurrent = M.unNodeStatusKey (M.nodeNodeStatusId nde) == M.unNodeStatusKey (entityKey nst)
+              in option_ (value_ key : [selected_ "selected" | isCurrent]) (toHtml key)
         div_ [id_ "status-indicator", class_ "indicator-box"] empty 
     where
       empty = mempty :: Html ()
