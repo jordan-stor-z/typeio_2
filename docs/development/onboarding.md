@@ -116,6 +116,13 @@ Roughly, from `cabal run server` down to a response:
 - [`integration-testing.md`](integration-testing.md) — the
   Docker-backed suite that covers responders, which the unit suite
   deliberately doesn't.
+- [`labels.md`](labels.md) — the `type:*`/`area:*` GitHub issue label
+  taxonomy, and when to use each.
+- [`release-management.md`](release-management.md) — how to cut a
+  release: bumping `typeio.cabal`'s `version:`, and what happens
+  automatically once it merges (tag + GitHub Release).
+- [`infrastructure.md`](infrastructure.md) — repo-level config (GitHub
+  branch protection) managed as OpenTofu + Terragrunt.
 - [`../solution-proposals/`](../solution-proposals/) — spikes and
   decisions, e.g. the plan to adopt Fourmolu for auto-formatting.
 

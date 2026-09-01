@@ -59,6 +59,7 @@ cases:
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
+| Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
 | Why something was decided a certain way, or was rejected | `docs/solution-proposals/` — check its `Status` line first |
 
 If you're about to touch code in one of these areas and haven't read its
