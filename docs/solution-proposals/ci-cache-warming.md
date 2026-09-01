@@ -1,6 +1,6 @@
 # Solution Proposal: Warming `main`'s CI Cache
 
-- **Status:** Proposed — awaiting decision (§6).
+- **Status:** Decided — see §6. Implementation tracked in #160.
 - **Date:** 2026-09-01
 - **Related:** #159 (this spike, supersedes #130 — see #130's closing
   comment for why), #157/#158 (the merge queue landing is what made this
@@ -156,6 +156,6 @@ one-workflow-per-concern pattern (`test.yml`/`integration-test.yml`/
 
 ## 6. Decision
 
-Pending — this write-up is for review, not yet confirmed. Recommending
-Option A per §4; follow-up implementation ticket (#160) filed with that
-design, but not started, pending sign-off here.
+**Option A — a `push`-to-`main`, build-only cache-warming workflow.**
+Confirmed 2026-09-01. Implementation tracked in #160, per the design
+captured there and in §4/§5 above.
