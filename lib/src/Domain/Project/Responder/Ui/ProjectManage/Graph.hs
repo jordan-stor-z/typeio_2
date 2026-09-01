@@ -213,13 +213,20 @@ templateGraph g = do
             empty
       g_ [class_ "zoom-group"] $ do
         g_ [id_ "graph-links"] $ do
+          -- A `<path>`, not a `<line>`: nodetree2.js draws each
+          -- dependency edge as a gentle curve bowed around the project
+          -- root rather than a straight chord, which only a path's `d`
+          -- attribute can express. `fill_ "none"` matters here in a way
+          -- it never did for `<line>` (which has no fillable area) --
+          -- an open curved path without it renders as a solid wedge.
           forM_ (links g) $ \_ ->
-            line_
+            path_
               [ class_ "link"
               , stroke_ "#999"
               , strokeOpacity_ "0.6"
               , strokeWidth_ "2"
               , markerEnd_ "url(#arrow)"
+              , fill_ "none"
               ]
               empty
         g_ [id_ "graph-nodes"] $ do

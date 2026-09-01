@@ -73,13 +73,25 @@
   };
   nodes.forEach((n) => sizeOf(n.id));
 
+  // A lone child inherits its parent's *entire* angular span (its
+  // share, sizeOf(k)/sizeOf(id), is always 1), which reproduces the
+  // exact same midpoint angle as the parent -- fine for a single hop,
+  // but a long unbranched chain (this app's dependency graphs are
+  // mostly this shape) then shoots straight out from the nucleus in
+  // one direction instead of curling around it. `spiralStep` nudges a
+  // lone child's slice by a fixed rotation so each hop down an
+  // unbranched chain curls a bit further around center -- a real fork
+  // still just splits its parent's span proportionally, undisturbed.
+  const spiralStep = 0.5;
   const angle = new Map([[root.id, 0]]);
   const place = (id, start, end) => {
     angle.set(id, (start + end) / 2);
+    const kids = children.get(id);
+    const spin = kids.length === 1 ? spiralStep : 0;
     let a = start;
-    for (const k of children.get(id)) {
+    for (const k of kids) {
       const span = (end - start) * (sizeOf(k) / sizeOf(id));
-      place(k, a, a + span);
+      place(k, a + spin, a + span + spin);
       a += span;
     }
   };
@@ -154,6 +166,36 @@
     l.target = byId.get(l.target);
   });
 
+  // Draws each dependency edge as a gentle curve instead of a straight
+  // chord. Tried bowing via the two endpoints' average polar position
+  // first (matching the spiral everything else here is laid out in),
+  // but that blows up into a wild, far-swinging loop for the "extra"
+  // edges a shared dependency creates (two nodes in different spiral
+  // arms, structurally distant despite an edge existing) -- their
+  // average angle/radius doesn't sit anywhere near a sane midpoint.
+  // Bowing perpendicular to the straight chord instead, scaled to a
+  // fixed fraction of its own length, can't blow up regardless of
+  // topology: an adjacent hop gets a small gentle curve, a long
+  // cross-branch edge gets a proportionally bigger but still sane one.
+  const curvedPath = (d) => {
+    const x1 = d.source.x, y1 = d.source.y;
+    const x2 = d.target.x, y2 = d.target.y;
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const bow = dist * 0.15;
+    const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
+    // Perpendicular to the chord, oriented outward from the nucleus
+    // (not just an arbitrary fixed rotation) so every edge bulges away
+    // from root -- consistent, rather than some curving one way and
+    // some the other depending on which way each chord happens to run.
+    let px = -dy / dist, py = dx / dist;
+    const outX = midX - cx, outY = midY - cy;
+    if (px * outX + py * outY < 0) { px = -px; py = -py; }
+    const ctrlX = midX + px * bow;
+    const ctrlY = midY + py * bow;
+    return `M${x1},${y1} Q${ctrlX},${ctrlY} ${x2},${y2}`;
+  };
+
   // A short, tightly-anchored simulation exists only to settle any
   // remaining cross-branch crowding (forceCollide) around the layout
   // just computed -- not to discover the layout itself, which is why
@@ -167,17 +209,13 @@
     .alphaDecay(0.06)
     .velocityDecay(0.6);
   const link = svg.select("#graph-links")
-    .selectAll("line")
+    .selectAll("path.link")
     .data(links);
   const node = svg.select("#graph-nodes")
     .selectAll("g.node")
     .data(nodes);
   simulation.on("tick", () => {
-    link
-      .attr("x1", d => d.source.x)
-      .attr("y1", d => d.source.y)
-      .attr("x2", d => d.target.x)
-      .attr("y2", d => d.target.y);
+    link.attr("d", curvedPath);
     node.attr("transform", d => `translate(${d.x},${d.y})`);
   });
   simulation.on("end", () => {
