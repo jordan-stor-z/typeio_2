@@ -61,6 +61,14 @@ first is optional but catches a failure faster than waiting on CI.
 `scripts/test-migrations.sh`, that doesn't exist in the repo) — don't
 rely on it.
 
+**Formatting** is automated via Fourmolu (`fourmolu.yaml` at the repo
+root) — `make format` formats every `.hs` file in place, `make
+format-check` checks without modifying anything. Point your editor's
+`haskell.formattingProvider` HLS setting at `fourmolu` for format-on-save
+(`.vscode/settings.json` already does this for VS Code); Claude Code
+picks it up automatically via a `PostToolUse` hook. See
+`docs/solution-proposals/haskell-auto-formatting.md` for the rationale.
+
 ## How a request flows through the app
 
 Roughly, from `cabal run server` down to a response:
@@ -124,7 +132,8 @@ Roughly, from `cabal run server` down to a response:
 - [`infrastructure.md`](infrastructure.md) — repo-level config (GitHub
   branch protection) managed as OpenTofu + Terragrunt.
 - [`../solution-proposals/`](../solution-proposals/) — spikes and
-  decisions, e.g. the plan to adopt Fourmolu for auto-formatting.
+  decisions, e.g. the rationale behind adopting Fourmolu for
+  auto-formatting.
 
 ## A couple of things that will trip you up
 

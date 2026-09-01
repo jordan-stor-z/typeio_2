@@ -146,13 +146,19 @@ Quick summary:
   check that tests exist and pass, not a substitute for writing them —
   don't skip adding/updating a test for a change because CI will "catch
   it anyway."
-- **Formatting is currently manual**: this codebase hand-aligns `=` in
-  `let`/`where` bindings and record literals (see the style in e.g.
-  `IndexRender.hs`). Match existing alignment in any file you touch, but
-  don't go re-align unrelated lines as a drive-by change. This convention
-  is being retired in favor of automated Fourmolu formatting — see
-  `docs/solution-proposals/haskell-auto-formatting.md` and issue #6. Once
-  that lands, run the formatter instead of hand-aligning.
+- **Formatting is automated via Fourmolu** (`fourmolu.yaml` at the repo
+  root) — see `docs/solution-proposals/haskell-auto-formatting.md` for
+  the rationale, implemented in #6. The old manual `=`/import-column
+  alignment convention is retired; don't hand-align. `make format`
+  formats every `.hs` file in place; `make format-check` checks without
+  modifying anything (non-zero exit on a diff) — the same command
+  CI/pre-commit would run. For a human editor, point HLS's
+  `formattingProvider` setting at `fourmolu` (`.vscode/settings.json`
+  already does this for VS Code; other editors need the equivalent
+  setting) and it formats on save. For an AI agent (Claude Code), a
+  `PostToolUse` hook in `.claude/settings.json` runs
+  `fourmolu --mode inplace` on every `Write`/`Edit` to a `.hs` file
+  automatically — no need to ask for formatting.
 
 ## Ticket & Branching Conventions
 

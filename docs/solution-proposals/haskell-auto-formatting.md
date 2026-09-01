@@ -1,6 +1,6 @@
 # Solution Proposal: Haskell Auto-Formatting
 
-- **Status:** Decided — see §7. Follow-up implementation ticket: #6 (open).
+- **Status:** Decided — see §7. Implemented in #6.
 - **Date:** 2026-08-30
 - **Related:** #3 (this spike), #1 (manual equals-sign alignment fix that motivated it)
 
