@@ -37,11 +37,13 @@ make test-integration
 
 **Needs Docker, nothing else** — no manually-started Postgres, and no
 separately-installed `migrate` CLI (see "How migrations get applied"
-below for why). It is **not** part of CI yet (see
-[`ci.md`](ci.md)); `cabal test spec`/`make test` is what CI runs, which
-is exactly why local commands here use the scoped `integration` target
-rather than a bare `cabal test` — the latter would build and run this
-suite too.
+below for why). It also runs in CI, on every PR into `main` that
+touches Haskell-relevant files, via a separate
+`.github/workflows/integration-test.yml` — but informational only, not
+yet a required check (see [`ci.md`](ci.md) for the full rationale).
+`cabal test spec`/`make test` is the one CI *requires*, which is exactly
+why local commands here use the scoped `integration` target rather than
+a bare `cabal test` — the latter would build and run this suite too.
 
 ## Container lifecycle
 
@@ -110,18 +112,45 @@ itself — worth getting right here too:
 
 ## What's actually covered
 
-Just the pilot flow so far: `Domain.Project.Responder.Api.Node.Post.handlePostNode`
-(`test-integration/Domain/Project/Responder/Api/Node/PostSpec.hs`) —
-chosen because it's a real, multi-table, foreign-key-and-join-driven
-write (`Project`, `NodeStatus`, `NodeType`, `Node`, `Dependency`), the
-exact shape a unit test can't meaningfully exercise (see the proposal's
-§3). It asserts against actual inserted rows after driving the handler
-through `Network.Wai.Test.runSession`/`srequest`, form-encoded the same
-way a real client would submit it — both the success path (a new `Node`
-row plus its `Dependency` edge to the root) and a failure path (404 for
-a nonexistent project).
+All five write/mutate handlers now have integration coverage: the pilot
+plus its four follow-ups (#66–#69), each asserting against actual
+inserted/updated rows after driving the handler through
+`Network.Wai.Test.runSession`/`srequest`, form-encoded the same way a
+real client would submit it.
 
-The rest of the write/mutate handlers (`Node.Description`, `Node.Status`,
-`Node.Title`, `ProjectCreate.Submit`) aren't covered yet — tracked as
-follow-ups in #66–#69, each adding its own `*Spec.hs` under
-`test-integration/` following this same pattern.
+- **`Domain.Project.Responder.Api.Node.Post.handlePostNode`** (the
+  pilot, #65 —
+  `test-integration/Domain/Project/Responder/Api/Node/PostSpec.hs`) —
+  chosen because it's a real, multi-table, foreign-key-and-join-driven
+  write (`Project`, `NodeStatus`, `NodeType`, `Node`, `Dependency`), the
+  exact shape a unit test can't meaningfully exercise (see the
+  proposal's §3). Covers the success path (a new `Node` row plus its
+  `Dependency` edge to the root) and a failure path (404 for a
+  nonexistent project).
+- **`Domain.Project.Responder.Ui.ProjectManage.Node.Description.handlePutDescription`**
+  (#66 —
+  `test-integration/Domain/Project/Responder/Ui/ProjectManage/Node/DescriptionSpec.hs`)
+  — seeds a project/root node via `seedProjectWithRootNode`, then covers
+  the success path (the `Node`'s `description` column is replaced) and a
+  failure path (500 for a nonexistent node).
+- **`Domain.Project.Responder.Ui.ProjectManage.Node.Status.handlePutNodeStatus`**
+  (#67 —
+  `test-integration/Domain/Project/Responder/Ui/ProjectManage/Node/StatusSpec.hs`)
+  — same seeding, covers the success path (the `Node`'s
+  `NodeStatus` foreign key is updated to the seeded `closed` status) and
+  a failure path (404 for a nonexistent node).
+- **`Domain.Project.Responder.Ui.ProjectManage.Node.Title.handlePutTitle`**
+  (#68 —
+  `test-integration/Domain/Project/Responder/Ui/ProjectManage/Node/TitleSpec.hs`)
+  — same seeding, covers the success path (the `Node`'s `title` column
+  is replaced) and a failure path (404 for a nonexistent node).
+- **`Domain.Project.Responder.Ui.ProjectCreate.Submit.handleProjectSubmit`**
+  (#69 —
+  `test-integration/Domain/Project/Responder/Ui/ProjectCreate/SubmitSpec.hs`)
+  — unlike the others, this handler *creates* the `Project`/root `Node`
+  rather than mutating an existing one, so it needs no
+  `seedProjectWithRootNode` fixture, only the reference data
+  `withTestDatabase` already seeds. Covers the success path (a new
+  `Project` and a `project_root` `Node` with the submitted title/
+  description) and a failure path (an invalid payload creates no
+  `Project` at all).
