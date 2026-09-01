@@ -1,6 +1,6 @@
 # CI
 
-There are three GitHub Actions workflows:
+There are four GitHub Actions workflows:
 
 - `.github/workflows/test.yml` — builds the app and runs the unit test
   suite. **Required** to merge into `main`.
@@ -10,6 +10,10 @@ There are three GitHub Actions workflows:
 - `.github/workflows/security-scan.yml` — scans dependencies for known
   vulnerabilities with OSV-Scanner. Informational only, not required —
   see [Security scan workflow](#security-scan-workflow) below.
+- `.github/workflows/release.yml` — tags and creates a GitHub Release
+  once a version bump lands on `main`. Not a check at all (nothing to
+  pass or fail against a PR) — see [Release workflow](#release-workflow)
+  below.
 
 ## What it does
 
@@ -132,6 +136,32 @@ A few ways this deliberately differs from `test.yml` and
   (informational vs. required) than `test.yml`'s `test` job; see the
   proposal's §8.
 
+## Release workflow
+
+`.github/workflows/release.yml` watches for a version bump landing on
+`main` and, when one does, creates a matching git tag + GitHub Release
+with auto-generated notes. See
+[`release-management.md`](release-management.md) for the full cutting-a-
+release workflow and the rationale behind it (`docs/solution-proposals/release-management.md`
+§9 has the original decision); this section just places it among the
+other workflows here.
+
+Unlike the other three, it's not a PR check at all:
+
+- **Triggers on `push` to `main`, not `pull_request`.** It isn't
+  re-checking anything — `main` only changes via already-checked PRs
+  (see [Why pull requests only](#why-pull-requests-only-not-main)
+  below) — it's reacting to a version bump that already landed there.
+- **Not a required check**, for the same structural reason it isn't a
+  check at all: nothing about it can fail a PR.
+- Still uses a plain top-level `paths: ['typeio.cabal']` filter, same as
+  `integration-test.yml` — safe here for the same reason (not required,
+  so nothing gets stuck permanently missing). That's only a cheap
+  pre-filter, though: `typeio.cabal` changes for reasons that have
+  nothing to do with the version, so the actual check — did the
+  `version:` line itself change — happens in the workflow's "Check
+  version bump" step.
+
 ## Why it always runs, and skips internally instead of using `paths`
 
 The first version of this workflow used a top-level `on.pull_request.paths`
@@ -168,6 +198,10 @@ same reason — it's just not part of what branch protection enforces.
 `security-scan.yml` triggers on `pull_request` for the same reason, but
 also adds a weekly `schedule` — see [Security scan
 workflow](#security-scan-workflow) above for why that one's different.
+`release.yml` is the one workflow that deliberately triggers on `push`
+to `main` instead — see [Release workflow](#release-workflow) above for
+why: it isn't re-checking a PR, it's reacting to one that already
+merged.
 
 ## Running the same checks locally
 
@@ -190,8 +224,8 @@ cabal test integration   # or: make test-integration
 
 It needs Docker locally (see [Integration test workflow](#integration-test-workflow)
 above for what it runs in CI — informational only, not required). See
-`docs/solution-proposals/integration-testing.md` for the full rationale
-for now; a `docs/development/` write-up lands with #53.
+[`integration-testing.md`](integration-testing.md) for the full
+write-up of how the suite works and what it covers.
 
 **Running tests locally is now optional; writing/updating them is not.**
 CI catching a missing or broken test after the fact is not a substitute
