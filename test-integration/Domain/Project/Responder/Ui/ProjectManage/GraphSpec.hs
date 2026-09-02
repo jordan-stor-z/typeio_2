@@ -100,17 +100,16 @@ spec = aroundAll withTestDatabase $
             (shouldContainStr body . nodeTextTarget)
             [fromSqlKey rootKey, fromSqlKey workKey]
 
-        it "asks the refresh endpoint to re-wrap labels to the box" $ \pool -> do
+        it "points the refresh hook at the refresh endpoint" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool
 
           body <- serverGraphBody pool (fromSqlKey projectKey)
 
-          -- A title re-wrapped after an edit must wrap to the width it
-          -- was first drawn at. One endpoint serves both graphs, so
-          -- this flag is what tells it which shape is asking -- and it
-          -- has to precede `clientTitle`, which goes in unescaped and
-          -- would otherwise swallow it.
-          body `shouldContainStr` "&amp;layout=server&amp;clientTitle="
+          -- The `layout=server` half of this link went with the flag in
+          -- #181: one renderer, so one wrap width, so nothing left to
+          -- tell the endpoint apart from the node itself.
+          body `shouldContainStr` "/ui/project/node/refresh?nodeId="
+          body `shouldNotContainStr` "layout=server"
 
       describe "viewport (#179)" $ do
         it "emits the natural size the client zooms in multiples of" $ \pool -> do
@@ -155,18 +154,40 @@ spec = aroundAll withTestDatabase $
           -- needing D3 (#182).
           body `shouldNotContainStr` "d3"
 
-      describe "without the layout flag" $
-        it "still renders the D3 path" $ \pool -> do
+      describe "the cutover (#181)" $ do
+        it "serves the computed layout with no query parameter" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool
+
+          -- No flag. This is the assertion the whole effort was for.
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          body `shouldContainStr` "<rect class=\"root\""
+          body `shouldContainStr` "/static/script/graph-viewport.js"
+
+        it "leaves no trace of the D3 path behind" $ \pool -> do
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+          workKey <- seedWorkNode pool projectKey "Build the thing"
+          seedDependency pool rootKey workKey
 
           body <- graphBody pool (fromSqlKey projectKey) []
 
-          -- #178 touches styling both paths share, so this pins the
-          -- unflagged path as still being the D3 one until #181 cuts
-          -- over deliberately.
-          body `shouldContainStr` "<circle"
-          body `shouldContainStr` "nodetree2.js"
-          body `shouldNotContainStr` "<rect"
+          -- The graph no longer leaves the server as data at all: it
+          -- leaves as finished SVG, so there is nothing for a client
+          -- layout script to read.
+          body `shouldNotContainStr` "graph-data"
+          body `shouldNotContainStr` "nodetree"
+          body `shouldNotContainStr` "<circle"
+          body `shouldNotContainStr` "zoom-group"
+
+        it "ignores a leftover ?layout=server rather than branching on it" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+
+          -- A bookmarked URL from while the flag existed must not select
+          -- some other renderer, because there isn't one -- the
+          -- parameter is now just an unread query string.
+          flagged <- serverGraphBody pool (fromSqlKey projectKey)
+          plain <- graphBody pool (fromSqlKey projectKey) []
+          flagged `shouldBe` plain
 
 -- | GET the graph view with @?layout=server@.
 serverGraphBody :: ConnectionPool -> Int64 -> IO String
