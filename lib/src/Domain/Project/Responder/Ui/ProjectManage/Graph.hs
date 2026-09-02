@@ -25,7 +25,10 @@ import Data.Aeson (ToJSON (..), encode, object, (.=))
 import Data.Bifunctor (first)
 import Data.Either (notNullEither)
 import Data.Int (Int64)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text, pack, unpack)
+import qualified Data.Text as T
 import Data.Text.Util (intToText, wrapLabel)
 import Database.Esqueleto.Experimental
   ( from
@@ -41,6 +44,22 @@ import Database.Esqueleto.Experimental
   )
 import Database.Persist (Entity (..))
 import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
+import Domain.Project.Graph.Layout (layout)
+import Domain.Project.Graph.Types
+  ( Bounds (..)
+  , Diagram (..)
+  , EdgeId (..)
+  , LayoutEdge (..)
+  , LayoutNode (..)
+  , NodeId (..)
+  , NodeKind (..)
+  , PlacedEdge (..)
+  , PlacedNode (..)
+  , Point (..)
+  , Size (..)
+  , boundsSize
+  , defaultLayoutConfig
+  )
 import qualified Domain.Project.Model as M
   ( Dependency (..)
   , Node (..)
@@ -124,11 +143,17 @@ handleProjectGraph pl req respond = do
         . queryDependencies
         . fmap (fromSqlKey . entityKey)
         $ ns
-    pure . toGraph ns . fmap entityVal $ ds
+    pure (pid, ns, ds)
   case rslt of
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes -> respondMissingNodes
-    Right graph -> respondSuccess graph
+    Right (pid, ns, ds)
+      -- The server-computed layout is opt-in until #181 cuts over to
+      -- it. Without the flag this handler behaves exactly as it did.
+      | wantsServerLayout qt ->
+          respondSuccess . templateServerGraph $ toServerGraph pid ns ds
+      | otherwise ->
+          respondSuccess . templateGraph . toGraph ns . fmap entityVal $ ds
   where
     respondMissingNodes =
       respond
@@ -152,7 +177,6 @@ handleProjectGraph pl req respond = do
           status200
           [("Content-Type", "text/html")]
         . renderBS
-        . templateGraph
     qt =
       queryToQueryText
         . queryString
@@ -370,3 +394,222 @@ validateProjectId qt = runValidation id $ do
     >>= isThere "Project id must be present"
     >>= isNotEmpty "Project id must have a value"
     >>= valRead "Project id must be valid integer"
+
+-- ---------------------------------------------------------------------
+-- Server-computed layout (#173)
+--
+-- Everything below renders a Diagram that Domain.Project.Graph.Layout
+-- has already placed, rather than shipping the graph's data to the
+-- client for D3 to position. See docs/architecture/graph-rendering.md.
+-- ---------------------------------------------------------------------
+
+{- | Opt in with @?layout=server@ on the graph view. Removed by #181,
+once the server-computed layout is the only one.
+-}
+wantsServerLayout :: QueryText -> Bool
+wantsServerLayout qt = lookupVal "layout" qt == Just "server"
+
+data ServerGraph = ServerGraph
+  { sgProjectId :: Int64
+  , sgLabels :: Map NodeId Text
+  {- ^ Untruncated titles, which 'PlacedNode' deliberately doesn't
+  carry (it holds the label already wrapped to the box). The
+  per-node refresh hook needs the original.
+  -}
+  , sgDiagram :: Diagram
+  }
+
+toServerGraph ::
+  Int64 ->
+  [Entity M.Node] ->
+  [Entity M.Dependency] ->
+  ServerGraph
+toServerGraph pid ns ds =
+  ServerGraph
+    { sgProjectId = pid
+    , sgLabels = Map.fromList [(lnId n, lnLabel n) | n <- lns]
+    , sgDiagram = layout defaultLayoutConfig lns les
+    }
+  where
+    lns = map toLayoutNode ns
+    les = map toLayoutEdge ds
+
+toLayoutNode :: Entity M.Node -> LayoutNode
+toLayoutNode (Entity k e) =
+  LayoutNode
+    { lnId = NodeId (fromSqlKey k)
+    , lnKind =
+        if M.unNodeTypeKey (M.nodeNodeTypeId e) == "project_root"
+          then RootNode
+          else WorkNode
+    , lnLabel = pack (M.nodeTitle e)
+    }
+
+{- | @project.dependency@ stores @node_id@ /depends on/ @to_node_id@
+(see @docs/development/backend/database-schema.md@), so @node_id@ is the
+dependent — the end that carries the arrowhead — and @to_node_id@ is the
+dependency.
+
+This is the opposite of what 'toGraph' builds for the D3 path, whose
+@source@/@target@ naming let the arrowhead end up on the dependency.
+-}
+toLayoutEdge :: Entity M.Dependency -> LayoutEdge
+toLayoutEdge (Entity k e) =
+  LayoutEdge
+    { leId = EdgeId (fromSqlKey k)
+    , leDependency = NodeId (fromSqlKey (M.dependencyToNodeId e))
+    , leDependent = NodeId (fromSqlKey (M.dependencyNodeId e))
+    }
+
+templateServerGraph :: ServerGraph -> Html ()
+templateServerGraph sg =
+  svg_
+    [ id_ "tree-view"
+    , viewBox_ viewBox
+    , -- Natural size, not scaled to fit: a large project is meant to
+      -- overflow its container and be navigated, not shrunk until its
+      -- titles stop being readable. #179 adds the scrolling viewport
+      -- that makes the overflow usable.
+      width_ (dblText (szW size))
+    , height_ (dblText (szH size))
+    , h_ "on load transition my opacity to 1 over 200ms"
+    ]
+    $ do
+      defs_ [] arrowMarker
+      g_ [id_ "graph-links"] $
+        forM_ (diagramEdges d) edgeLine
+      g_ [id_ "graph-nodes"] $
+        forM_ (diagramNodes d) (nodeGroup sg)
+  where
+    d = sgDiagram sg
+    Bounds mn _ = diagramBounds d
+    size = boundsSize (diagramBounds d)
+    viewBox =
+      T.unwords
+        [ dblText (ptX mn)
+        , dblText (ptY mn)
+        , dblText (szW size)
+        , dblText (szH size)
+        ]
+
+arrowMarker :: Html ()
+arrowMarker =
+  marker_
+    [ id_ "arrow"
+    , viewBox_ "0 -5 10 10"
+    , refX_ "10"
+    , refY_ "0"
+    , markerWidth_ "6"
+    , markerHeight_ "6"
+    , orient_ "auto"
+    ]
+    $ path_ [d_ "M0,-5L10,0L0,5", fill_ "#999"] (mempty :: Html ())
+
+{- | The polyline's last point is the dependent end, so @marker-end@
+puts the arrowhead on the node that is waiting — not on the one that
+has to finish first.
+-}
+edgeLine :: PlacedEdge -> Html ()
+edgeLine e =
+  path_
+    [ class_ "link"
+    , d_ (polyline (pePoints e))
+    , markerEnd_ "url(#arrow)"
+    , fill_ "none"
+    ]
+    (mempty :: Html ())
+
+polyline :: [Point] -> Text
+polyline [] = ""
+polyline (p : ps) =
+  "M" <> point p <> mconcat [" L" <> point q | q <- ps]
+  where
+    point (Point x y) = dblText x <> "," <> dblText y
+
+nodeGroup :: ServerGraph -> PlacedNode -> Html ()
+nodeGroup sg n =
+  g_
+    [ id_ ("node-" <> nid)
+    , class_ "node"
+    , transform_ ("translate(" <> dblText (ptX tl) <> "," <> dblText (ptY tl) <> ")")
+    , hxGet_ (nodePanelLink rawId pid)
+    , hxTrigger_ "click"
+    , hxTarget_ "#node-panel"
+    , hxPushUrl'_ (pushUrl rawId pid)
+    , hxSwap_ "innerHTML"
+    ]
+    $ do
+      rect_
+        [ class_ (kindClass (pnKind n))
+        , width_ (dblText (szW sz))
+        , height_ (dblText (szH sz))
+        , rx_ "6"
+        , stroke_ "white"
+        , strokeWidth_ "1.5"
+        ]
+        (mempty :: Html ())
+      nodeLabel sz (pnLines n)
+      -- Same refresh hook the D3 path uses: re-fetch this node's label
+      -- when its detail panel closes after an edit.
+      g_
+        [ class_ "hidden"
+        , hxGet_ (nodeRefreshLink rawId pid rawLabel)
+        , hxTrigger_ $
+            "nodePanel:onEditClosed[event.detail.nodeId=="
+              <> nid
+              <> "] from:#node-panel"
+        , hxTarget_ ("#node-text-" <> nid)
+        , hxSwap_ "innerHTML"
+        , hxPushUrl_ False
+        ]
+        (mempty :: Html ())
+  where
+    NodeId rawId = pnId n
+    nid = intToText rawId
+    pid = sgProjectId sg
+    tl = pnTopLeft n
+    sz = pnSize n
+    rawLabel = Map.findWithDefault "" (pnId n) (sgLabels sg)
+
+kindClass :: NodeKind -> Text
+kindClass RootNode = "root"
+kindClass WorkNode = "work"
+
+{- | SVG has no text wrapping, so each label line is its own @tspan@.
+Lines are pre-wrapped by the layout engine ('pnLines'); this only
+positions them, centred in the box however many there are.
+-}
+nodeLabel :: Size -> [Text] -> Html ()
+nodeLabel (Size w h) ls =
+  text_
+    [ id_ "node-label"
+    , x_ (dblText (w / 2))
+    , y_ (dblText (h / 2))
+    , textAnchor_ "middle"
+    , fontSize_ "12"
+    ]
+    $ forM_ (zip [0 :: Int ..] ls)
+    $ \(i, l) ->
+      tspan_
+        [ x_ (dblText (w / 2))
+        , dy_ (if i == 0 then firstDy else "1.1em")
+        ]
+        (toHtml l)
+  where
+    -- 0.35em centres a single line on the baseline; the rest lifts the
+    -- block by half its own height so it stays centred as it grows.
+    firstDy =
+      (<> "em")
+        . pack
+        . show
+        $ (0.35 - 1.1 * fromIntegral (length ls - 1) / 2 :: Double)
+
+{- | Coordinates render as plain integers where they are whole, which
+most are, rather than as @80.0@.
+-}
+dblText :: Double -> Text
+dblText v
+  | v == fromIntegral rounded = intToText rounded
+  | otherwise = pack (show v)
+  where
+    rounded = round v :: Int

@@ -51,6 +51,11 @@ library src
       -- only sees a library's exposed-modules, never its other-modules
       -- (see CLAUDE.md's notes on this from the unit-testing rollout).
       , Domain.Central.Responder.Api.Seed
+      -- The graph layout engine is exposed so `test-suite spec` can
+      -- import it: a test-suite only sees a library's exposed-modules.
+      , Domain.Project.Graph.Layer
+      , Domain.Project.Graph.Layout
+      , Domain.Project.Graph.Types
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.Ui.ProjectCreate.Submit
@@ -157,6 +162,8 @@ test-suite spec
       , Data.EitherSpec
       , Data.HashTreeSpec
       , Data.Text.UtilSpec
+      , Domain.Project.Graph.LayerSpec
+      , Domain.Project.Graph.LayoutSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
@@ -164,6 +171,7 @@ test-suite spec
       , bytestring
       , case-insensitive
       , hashable
+      , containers
       , hspec
       , mtl
       , QuickCheck

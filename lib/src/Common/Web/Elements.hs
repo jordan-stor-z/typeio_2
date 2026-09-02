@@ -13,6 +13,9 @@ defs_ = term "defs"
 path_ :: Term arg result => arg -> result
 path_ = term "path"
 
+rect_ :: Term arg result => arg -> result
+rect_ = term "rect"
+
 g_ :: Term arg result => arg -> result
 g_ = term "g"
 
