@@ -16,7 +16,7 @@
 | x-coordinate assignment (median/priority) | #174 | ✅ |
 | Orthogonal routing: ports and tracks | #175 | ✅ |
 | Dummy nodes for multi-level edges | #176 | ✅ |
-| Crossing reduction | #177 | ⏳ |
+| Crossing reduction | #177 | ✅ |
 | Node chrome (rects, labels, palette) | #178 | ⏳ |
 | Scroll-and-zoom viewport | #179 | ⏳ |
 | Line jumps at crossings | #180 | ⏳ |
@@ -226,15 +226,30 @@ for one. Their only visible effect is spacing: reserving room in the
 rows an edge crosses is what opens the channel it routes along, and what
 stops a multi-level edge being drawn through a node box.
 
-### 4. Order within layers — `Graph.Order` ⏳ #177
+### 4. Order within layers — `Graph.Order` ✅ #177
 
-DFS-seeded initial ordering, then alternating down/up sweeps placing
-each node at the median position of its neighbours in the adjacent
-layer, for a fixed pass count, keeping the best ordering seen. Crossings
-are counted exactly (inversion count between adjacent layers).
+Seeded in slot order, then alternating down/up sweeps placing each node
+at the median position of its neighbours in the adjacent layer, for a
+fixed pass count, keeping the best ordering seen. A node with no
+neighbours in the reference layer keeps its current place rather than
+being flung to one end.
+
+Sweeping has to alternate: ordering a layer to suit the one above will
+happily make things worse for the one below. After every sweep crossings
+are counted exactly — sorting the edges by where they start in the upper
+layer, the crossings are the inversions in where they end in the lower
+one — and a sweep that makes things worse is discarded rather than built
+upon.
 
 **Guarantees:** each layer's ordering is a permutation of its members.
-Output is deterministic for a given input.
+The result is never worse than the input. Output is deterministic for a
+given input.
+
+Exactness matters here beyond the algorithm: it lets a test assert a
+number rather than a judgement. `OrderSpec` pins two committed
+fixtures — K(2,2), which no ordering can untangle below one crossing,
+and a fully reversed three-layer graph, which the sweeps take from six
+crossings to zero.
 
 ### 5. Assign coordinates — `Graph.Coord` ✅ #174
 
@@ -300,6 +315,12 @@ occupies exactly three columns: the port it leaves, the lane it travels,
 and the port it arrives at. More than two bends on such an edge is
 expected — "at most two bends" is a property of a single segment, not of
 a whole edge.
+
+**Known gap (#190):** two edges that swap ports between the same pair of
+nodes can end up sharing a vertical column over an overlapping stretch,
+so they draw on top of each other. Not a crossing — an overlap, and one
+nothing currently prevents. Narrow enough that the real project graph
+doesn't hit it, but worth closing before #181 makes this the default.
 
 ## Coordinate conventions
 
