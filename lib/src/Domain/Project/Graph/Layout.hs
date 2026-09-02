@@ -4,8 +4,8 @@ out.
 See @docs/architecture/graph-rendering.md@ for the full design. What is
 built so far is cycle breaking and layer assignment (#173), median x
 placement (#174), orthogonal routing (#175) and dummy nodes for
-multi-row edges (#176). Crossing reduction (#177) replaces the row
-ordering below.
+multi-row edges (#176) and crossing reduction (#177). Every phase the
+architecture doc describes is now in place.
 -}
 module Domain.Project.Graph.Layout
   ( layout
@@ -17,6 +17,7 @@ import qualified Data.Map.Strict as M
 import Data.Text.Util (wrapLabel)
 import Domain.Project.Graph.Coord (assignX)
 import Domain.Project.Graph.Layer (assignLayers, breakCycles, insertDummies)
+import Domain.Project.Graph.Order (orderRows)
 import Domain.Project.Graph.Route (Routed (..), routeEdges)
 import Domain.Project.Graph.Types
 
@@ -48,13 +49,12 @@ layout cfg ns es =
     -- ordering, placement and routing can each work a gap at a time.
     (segments, slotLayers, chains) = insertDummies layers arcs
 
-    -- Rows are ordered by slot for now, which puts dummies to the right
-    -- of the real nodes in their row -- the outside lane the reference
-    -- images route long edges along. #177 reorders them to cut
-    -- crossings; 'assignX' leaves whatever order it is given intact, so
-    -- the two compose without fighting.
+    -- Seeded in slot order, then reordered to cut edge crossings.
+    -- 'assignX' leaves whatever order it is given intact, so ordering
+    -- and placement compose rather than fight.
     rows :: Map Int [LNode]
-    rows =
+    rows = orderRows seeded segments
+    seeded =
       M.fromListWith
         (flip (<>))
         [(l, [n]) | (n, l) <- sortOn fst (M.toList slotLayers)]
