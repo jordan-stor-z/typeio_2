@@ -1,8 +1,11 @@
 # Solution Proposal: Rendering the Dependency Graph from Haskell
 
-- **Status:** Proposed — recommendation in §10, delivery plan in §11. Not
-  yet decided, and nothing here has been built. (Per `CLAUDE.md`'s #50
-  note: this document's existence is not evidence any of it landed.)
+- **Status:** Proposed — recommendation in §10, delivery plan in §11.
+  The ticket author has since resolved the design decisions this
+  proposal left open and added a viewing/navigation requirement (§3,
+  §12.1); the go/no-go on the effort itself is still open, and nothing
+  here has been built. (Per `CLAUDE.md`'s #50 note: this document's
+  existence is not evidence any of it landed.)
 - **Date:** 2026-09-02
 - **Related:** #169 (this spike), #162 (replaced the force simulation
   with the current hand-rolled radial layout — see §2, it changes the
@@ -137,30 +140,80 @@ called out rather than averaged.
 
 **Canvas**
 
-- **R15 — The whole graph fits a bounded canvas with margins**, at a
-  consistent scale, with the drawing centred in it. *(all five)*
+- **R15 — The drawing is a single bounded canvas with consistent
+  margins** around its content, at one uniform scale throughout. *(all
+  five)* Note this is about the *drawing's* own bounds, not the
+  viewport's: in every image the graph happens to fit its frame, but R16
+  below establishes that it need not, and a large one deliberately
+  won't.
 
-**Where the images disagree — decisions, not requirements**
+**Where the images disagreed — resolved by the ticket author 2026-09-02**
 
-- **D1 — Flow direction.** Images 1–3 put the project root at the *top*
-  with arrows pointing *up* into it; images 4–5 point arrows *down*
-  (image 5 puts P at the *bottom*). These are opposite conventions for
-  the same relationship. This is a one-line difference in the renderer
-  (which end of the layer range is y=0, and which end of each edge gets
-  the marker), not an algorithmic one. **Recommend images 1–3's
-  convention** — root at top, arrows pointing up from dependency to
-  dependent — since it matches the majority of the images and the app's
-  existing "project root is the anchor" framing.
-- **D2 — Merged trunks vs. per-edge arrowheads.** Images 1 and 2 merge
-  sibling edges into one trunk with a *single* arrowhead into the
-  target; images 4 and 5 give every edge its own arrowhead (R9).
-  **Recommend per-edge (R9)**: it is strictly simpler, and it keeps each
-  edge individually addressable in the DOM, which merged trunks would
-  destroy (no per-dependency hover/highlight later). Merged trunks are
-  listed as an optional refinement in §11.
-- **Not requirements.** The grid backgrounds, the circular selection
-  handles on images 4–5, and image 4/5's title chips are artifacts of the
-  tools the diagrams were drawn in.
+- **D1 — Flow direction. RESOLVED:** the arrowhead always sits at the
+  **dependent** end. `A → B` means "B depends on A being completed
+  first", so an edge points from the thing that must finish to the thing
+  waiting on it.
+
+  This pins the *arrow semantics*, which both image conventions actually
+  satisfy — images 1–3 (root at top, dependencies below, arrows pointing
+  up) and image 5 (root at bottom, dependencies above, arrows pointing
+  down) both draw dependency → dependent. The residual sub-question is
+  only which end of the DAG sits at the top of the canvas. **Proceeding
+  with images 1–3**: project root at top, dependencies below it, arrows
+  pointing up, per this section's original recommendation and the
+  majority of the images. Flipping it later negates one coordinate in
+  the renderer, so it is cheap to revisit (§12.2).
+
+  **Implementation trap.** This is the reverse of what the code draws
+  today. `toGraph` builds `GraphLink { source = node_id, target =
+  to_node_id }`, and `database-schema.md` defines that relationship as
+  "`node_id` depends on `to_node_id`" — so with `marker-end` on the
+  target, today's arrowheads sit on the **dependency**. The new renderer
+  must put the marker at `node_id`, the dependent.
+- **D2 — Merged trunks vs. per-edge arrowheads. RESOLVED: do not merge.**
+  Every dependency draws its own edge and its own arrowhead (R9), as in
+  images 4–5. This is also the simpler option, and it keeps each edge
+  individually addressable in the DOM, which merged trunks would destroy
+  (no per-dependency hover/highlight later). Images 1–2's single-trunk
+  look is not a goal, and the optional issue that would have built it is
+  dropped from §11.
+- **D3 — Background and palette. RESOLVED: keep the application's own.**
+  The grid backgrounds, the circular selection handles on images 4–5 and
+  image 4/5's title chips are all artifacts of the tools the diagrams
+  were drawn in. The graph keeps the app's existing background and
+  colours — `global.css`'s dark `--bg-start`/`--bg-end` gradient, with
+  `--accent-bold` (root) and `--accent-light` (work) node fills and
+  `--text-primary` labels, exactly as `manage-project.css` styles them
+  today.
+
+  So **the images supply shape and layout only, not colour.** R4's
+  rounded rectangle replaces today's circle; the fills, strokes, hover
+  states, `.node-highlight` glow and `.flash` animation all carry over
+  unchanged.
+
+**Viewing and navigation** *(added by the ticket author 2026-09-02; not
+derivable from the images, which are all small enough to fit their own
+frame)*
+
+- **R16 — The initial view opens at a fixed, readable zoom**, not
+  scaled to fit. Node titles must be comfortably legible the moment the
+  graph appears. A large project is explicitly *not* expected to fit the
+  viewport.
+- **R17 — The user can zoom out and back in** from that default.
+- **R18 — The user can pan the view in both axes**, by mouse *and* by
+  touchscreen.
+- **R19 — The initial viewport is anchored somewhere meaningful.** At a
+  readable zoom a large graph starts mostly off-screen, so "top-left
+  corner of the bounding box" is not good enough; the project root is
+  the natural anchor.
+
+**R16 reverses an assumption in this proposal's first draft**, which had
+the SVG's `viewBox` scale the whole drawing to fit its container with no
+script at all. Fit-to-container is precisely what R16 rules out: on a
+large project it shrinks the boxes until the titles are unreadable. §5,
+§6 and §11's issue 7 are written against R16–R19 instead. Fit-to-screen
+stays worth offering as an explicit user action (a "fit" control) — just
+not as the default view.
 
 ## 4. How Haskell would calculate the layout
 
@@ -387,11 +440,16 @@ Four notes on that:
   but R6/R7/R13's multi-bend arrowed polylines and line jumps are
   awkward-to-absurd in CSS, and the app already renders SVG here. SVG
   keeps one primitive for both.
-- **`viewBox` replaces the fit-to-screen JS.** The layout's own bounding
-  box goes straight into `viewBox`, and the SVG scales itself to its
-  container with zero script. The current implementation computes an
-  initial zoom transform in JS to achieve the same thing (§2); that code
-  disappears.
+- **The SVG renders at its natural size, not scaled to fit (R16).** The
+  layout's bounding box sets the `viewBox` *and* an explicit pixel
+  `width`/`height`, so one layout unit is one CSS pixel at the default
+  zoom and the drawing is exactly as large as it needs to be —
+  overflowing its container on a big project, by design. What the
+  container does with that overflow is §6. (This proposal's first draft
+  had `viewBox` alone scale the drawing to fit with no script at all;
+  R16 rules that out.) The initial scroll anchor — the project root's
+  coordinates — is known server-side, so it can be emitted as a data
+  attribute rather than rediscovered on the client.
 - **New Lucid vocabulary goes in the established place.** `rect_`,
   `transform_`, `rx_`, `x_`/`y_`/`width_`/`height_` and `viewBox_` (some
   already present) belong in `Common.Web.Elements`/`Common.Web.Attributes`
@@ -415,18 +473,37 @@ zoom. Selection and transitions go away with the layout code (the
 need settling; a server-rendered diagram is already final when it
 arrives).
 
-Options for pan/zoom, in preference order:
+Options for pan/zoom, reordered against R16–R19 — the first draft ranked
+these before those requirements existed, and a touchscreen requirement
+plus a non-fit-to-screen default changes the answer:
 
-1. **~50 lines of vanilla JS driving `viewBox`.** `wheel` adjusts the
-   viewBox's width/height about the cursor; `pointerdown`/`move`/`up`
-   translates its origin. No dependency, and it is genuinely the whole
-   behaviour — d3-zoom's bulk is in features this page never uses
-   (touch gesture arbitration, transition interpolation, extent
-   constraints, programmatic transforms).
-2. **CSS-only:** an `overflow: auto` container plus a zoom control that
-   sets a `scale()` transform. Less smooth, near-zero code.
+1. **Recommended: a native scroll container, with JS for zoom only.**
+   The SVG renders at natural size (§5) inside `#tree-container` with
+   `overflow: auto`. Panning is then the browser's own scrolling, which
+   already handles mouse drag on scrollbars, wheel, two-finger trackpad,
+   **touch drag with momentum**, keyboard arrows, and the
+   accessibility/screen-reader affordances that come with a real scroll
+   region — none of which have to be written or maintained. That is R18
+   satisfied outright. Zoom (R17) is the only custom part: a scale
+   factor applied to the SVG's `width`/`height`, driven by +/− controls,
+   `ctrl`/`cmd`+wheel (what a trackpad pinch reports as) and a
+   two-pointer pinch handler. R19 is a `scrollTo` on load, centred on
+   the root coordinates the server already emitted.
+2. **~120 lines of vanilla JS driving `viewBox` for both pan and zoom.**
+   Total control and a consistent feel across devices, at the cost of
+   re-implementing drag-panning, touch-panning, momentum and scrollbars
+   that option 1 gets for free — and doing that *well* on touch is most
+   of the work. This proposal's first draft recommended this route at
+   "~50 lines"; that estimate predated R18's touchscreen requirement and
+   was too low.
 3. **Keep D3 for zoom alone.** Rejected: 280KB, loaded app-wide, for one
    behaviour.
+
+Option 1 is the recommendation, with option 2 as the fallback if native
+scrolling turns out to fight the zoom implementation. The known friction
+there: holding the viewport anchored on the same graph point across a
+zoom step takes a little arithmetic, because the scrollable content
+resizes underneath the scroll offset.
 
 Either of 1 or 2 lets `static/script/d3.js` (279,706 bytes),
 `static/script/nodetree2.js` and the dead `nodetree.js` all be deleted,
@@ -486,9 +563,14 @@ coordinate. A 200-node graph is perhaps 60–100KB of SVG — still far less
 than the 280KB of D3 it replaces, and gzip handles repetitive path data
 well. The pipeline itself is linear-ish per phase with bounded sweeps,
 so compute time is not the concern; response size is the thing to keep
-an eye on. **Open question:** whether a node-count threshold should fall
-back to something simpler. Recommend measuring before building anything
-for it.
+an eye on.
+
+**R16 raises the stakes here.** Large projects that overflow the
+viewport are now an explicitly expected case rather than an edge case,
+so the big-graph path is the normal path. **Open question:** whether a
+node-count threshold should fall back to something simpler. Recommend
+measuring real response sizes during issue 1 rather than designing a
+fallback for a number nobody has yet.
 
 ### 8.3 Layout stability
 
@@ -628,19 +710,27 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 `type:feature`, `area:ui`, `run-e2e` — **M** — *needs 1*
 - R4/R5: `rect` + `rx`, `wrapLabel` reused at the new box width, the
   `root`/`work` fill distinction, and `.node-highlight`/`.flash` CSS
-  ported from `circle` to `rect`.
+  ported from `circle` to `rect`. Per D3 in §3 the app's existing dark
+  palette and background carry over unchanged — the reference images
+  supply the box *shape*, not the colours.
 - *Value:* independently visible polish; can land any time after 1.
-- *AC:* nodes match the reference images' box style; highlight and flash
-  behave as they do today; `graph.spec.ts` passes against the flagged
-  path.
+- *AC:* nodes render as rounded rectangles in the app's current palette;
+  highlight and flash behave as they do today; `graph.spec.ts` passes
+  against the flagged path.
 
-**7. `feat: replace d3-zoom with viewBox-based pan and zoom`**
-`type:feature`, `area:frontend`, `run-e2e` — **M** — *independent*
-- §6 option 1, ~50 lines, wired to the new SVG.
-- *Value:* the last functional dependency on D3; can be developed and
-  merged in parallel with 2–6 since it touches no layout code.
-- *AC:* wheel zooms about the cursor and drag pans, on the flagged path;
-  no D3 call remains in the new script.
+**7. `feat: scroll-and-zoom viewport for the graph (mouse + touch)`**
+`type:feature`, `area:frontend`, `area:ui`, `run-e2e` — **L** — *needs 1*
+- §6 option 1: the natural-size SVG in an `overflow: auto` container for
+  panning (R18), a zoom control for R17 (+/− buttons, `ctrl`+wheel,
+  two-pointer pinch), the fixed readable default scale (R16), and an
+  initial scroll anchored on the project root (R19). Replaces d3-zoom.
+- *Value:* R16–R19 in full. Without it a large project is unusable at
+  any zoom — the case the ticket author explicitly called out. Still
+  parallelisable with 2–6: it touches the viewport, not the layout.
+- *AC:* the graph opens at the readable default scale with the project
+  root in view; zoom in and out works from buttons, `ctrl`+wheel and
+  touch pinch; panning works by mouse drag and by touch drag; no D3 call
+  remains in the new script.
 
 **8. `feat: line jumps where edges cross`**
 `type:feature`, `area:backend` — **S** — *needs 3* — **negotiable**
@@ -692,17 +782,12 @@ per edge; swap for §4.5's function if drawings look kinked.
 `area:backend`, **L**. Tighter drawings than longest-path (§4.2); swap
 for one function.
 
-**14. `feat: merged edge trunks for sibling dependencies`** —
-`type:feature`, `area:backend`, **M**. Reference images 1–2's single-
-arrowhead look (decision D2 in §3). Note it trades away per-edge DOM
-identity.
-
 ### How this satisfies INVEST
 
 - **Independent** — the flag (issues 1–8) and the phase-per-module split
   mean any of 2–8 can land in any order after its predecessor; 7 is
   fully parallel.
-- **Negotiable** — 8, 12, 13 and 14 are explicitly droppable, and each
+- **Negotiable** — 8, 12 and 13 are explicitly droppable, and each
   algorithm choice in §4 is stated as "this one first, that one later"
   precisely so scope can be traded without redesign.
 - **Valuable** — each of 1–11 changes something a person can see or
@@ -719,19 +804,37 @@ identity.
 
 ## 12. Decision
 
-**None yet — this is a spike deliverable awaiting a call.** The
-recommendation in §10 is to proceed with §11's sequence, but nothing
-here is settled until that is confirmed, and no code has been written.
+**The design decisions are resolved; the go/no-go on the effort itself
+is still open.** No code has been written.
 
-Three specific things worth deciding before issue 1 is filed:
+### 12.1 Resolved by the ticket author (2026-09-02)
 
-1. **Flow direction (D1 in §3)** — root at top with arrows pointing up
-   (images 1–3, recommended), or root at bottom with arrows pointing
-   down (images 4–5).
-2. **Whether the effort is worth it at all**, given §10's counterweight:
-   this replaces working code with substantially more code, and the
-   user-visible win is a different-looking graph plus a faster page, not
-   a new capability.
-3. **Whether to do it incrementally behind the flag** as proposed, or as
-   a single branch. §11 assumes the flag; a single branch is cheaper in
-   total but gives up every INVEST property above.
+1. **Arrow direction** — the arrowhead sits at the **dependent** end:
+   `A → B` means "B depends on A being completed first" (D1 in §3).
+   Note this is the reverse of what the current code draws — see D1's
+   implementation trap.
+2. **No merged edges** — every dependency draws its own edge and its own
+   arrowhead (D2 in §3). The optional "merged trunks" issue is dropped
+   from §11 accordingly.
+3. **Background and palette** — the images' backgrounds are artifacts;
+   the graph keeps the application's existing background and colours
+   (D3 in §3). The images define shape and layout only.
+4. **New requirement — the graph is a navigable viewport, not a
+   fit-to-screen picture** (R16–R19 in §3): it opens at a readable zoom,
+   zooms out and in, and pans by mouse or touch, with large projects
+   expected to overflow the view. This reversed a fit-to-container
+   assumption in the first draft; §5, §6 and §11's issue 7 are rewritten
+   against it, and issue 7 grew from M to L as a result.
+
+### 12.2 Still open
+
+1. **Whether to proceed at all**, given §10's counterweight: this
+   replaces working code with substantially more code, and the
+   user-visible win is a better-looking, more navigable graph plus a
+   faster page — not a new capability.
+2. **Incrementally behind the `?layout=server` flag, or one branch.**
+   §11 assumes the flag; a single branch is cheaper in total but gives
+   up every INVEST property in §11.
+3. **Root at top or at bottom.** D1 pinned the arrow semantics, and both
+   image conventions satisfy them; §3 proceeds with root-at-top per the
+   images 1–3 majority. Cheap to flip if it reads wrong.
