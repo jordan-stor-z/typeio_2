@@ -84,6 +84,15 @@ strokeWidth_ = makeAttributes "stroke-width"
 viewBox_ :: Text -> Attributes
 viewBox_ = makeAttributes "viewBox"
 
+rx_ :: Text -> Attributes
+rx_ = makeAttributes "rx"
+
+transform_ :: Text -> Attributes
+transform_ = makeAttributes "transform"
+
+y_ :: Text -> Attributes
+y_ = makeAttributes "y"
+
 fontSize_ :: Text -> Attributes
 fontSize_ = makeAttributes "font-size"
 
