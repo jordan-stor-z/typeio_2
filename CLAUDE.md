@@ -230,7 +230,12 @@ Quick summary:
      cancellation (harmless, but produces a confusing transient `fail`
      — see `docs/development/ci.md`'s "E2E test workflow" section,
      #153).
-  7. If the ticket auto-closed from an earlier merge, add a closing
+  7. **If the issue carries `review:pre-approve`, don't stop at the
+     PR** — that label is advance merge authorization for this PR, so
+     wait for required checks and queue it for merge yourself. See the
+     Git Safety & Branch Boundaries section below for the exact
+     conditions and commands.
+  8. If the ticket auto-closed from an earlier merge, add a closing
      comment linking the PR instead of re-closing it.
 - **PR comments come from two separate GitHub APIs — check both, every
   time, or you will miss feedback.** `gh pr view <n> --json comments`
@@ -253,25 +258,53 @@ Quick summary:
   to pick up upstream changes. This is about keeping a feature branch
   current, not landing it; only do this to the branch you're actively
   working on this session, not an arbitrary other branch.
-- **Only merge a PR the user has labeled `review:approved`.** That
-  label is the user's explicit signal they've reviewed the PR and want
-  it merged — it's their call to apply, never something to add
-  unprompted or infer from context. Without it: never merge a feature
-  branch *into* `main` and never merge a PR — no `gh pr merge`, no
+- **Merge a PR only with the user's explicit authorization, which comes
+  as one of exactly two labels** — `review:approved` on the PR, or
+  `review:pre-approve` on the issue that PR closes. Both are the user's
+  call to apply, never something to add unprompted or infer from
+  context (green checks and a finished-looking diff are not
+  authorization). With neither: never merge a feature branch *into*
+  `main` and never merge a PR — no `gh pr merge`, no
   fast-forwarding/merging a branch's work onto `main` by any other
-  means. With it: rebase the branch onto current `main` first if it's
-  behind (the same pull-in-onto-itself mechanism above), push, wait for
-  required checks to pass, then `gh pr merge --merge` (a merge commit,
-  matching this repo's history — not squash/rebase-merge) to land it.
-  See [`labels.md`](docs/development/labels.md)'s `review:approved`
-  section.
+  means. See [`labels.md`](docs/development/labels.md)'s
+  `review:approved` and `review:pre-approve` sections.
+  - **`review:approved` (on a PR)** — after-the-fact: the user has
+    reviewed *that diff* and wants it merged.
+  - **`review:pre-approve` (on an issue)** — ahead-of-time: the user
+    authorizes merging whichever PR closes that issue, before the PR
+    exists. Seeing it on the issue you're working, you are cleared to
+    queue that PR for merge yourself once the conditions below are met;
+    don't wait for a separate `review:approved` on the PR, and don't
+    ask. It authorizes **only** the PR that closes that issue, and only
+    while that PR stays within the issue's scope — if the work grew
+    beyond the ticket, it's no longer pre-approved, so stop at the
+    hand-off and wait for `review:approved` on the PR itself. It is
+    also not a licence to skip anything else: the change is still
+    verified (`cabal build all`), still gets its tests, and out-of-scope
+    findings still get their own issue rather than being folded in.
+  - **How to merge, under either label:** rebase the branch onto
+    current `main` first if it's behind (the same pull-in-onto-itself
+    mechanism above), push, wait for required checks to pass, then
+    `gh pr merge --merge` (a merge commit, matching this repo's history
+    — not squash/rebase-merge). Note that `main` is behind a **merge
+    queue**, so that command *enqueues* the PR rather than merging it
+    on the spot — GitHub re-runs `test` against the merge group and
+    lands it from there. That's the "queue for merge" step, and it's
+    done: don't sit on the queue. If the entry gets dropped (its
+    merge-group `test` failed), report that rather than blindly
+    re-queueing. See [`ci.md`](docs/development/ci.md)'s "Merge queue"
+    section.
 - **NEVER check out `main` to edit it directly.** Only check it out to
   sync (`git checkout main && git pull`) before branching.
 - **NEVER push directly to `main` or `master`.**
 - **Hand-off Rule:** once a feature branch is pushed and verified
   (`cabal build all`, plus migration checks if relevant), open a PR and
   stop — merging is left to the user, unless/until they apply
-  `review:approved` to it (see above).
+  `review:approved` to it (see above). **The one exception is a PR
+  closing an issue already labeled `review:pre-approve`** — there the
+  authorization arrived before the PR did, so instead of stopping you
+  wait for required checks and queue it for merge, then report that it's
+  queued.
 
 ## Known Gotchas
 
