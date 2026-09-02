@@ -21,7 +21,7 @@ import Control.Monad (forM_)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Either (hoistEither, runEitherT)
-import Data.Aeson (ToJSON (..), encode, object, (.=))
+import Data.Aeson (encode, object, (.=))
 import Data.Bifunctor (first)
 import Data.Either (notNullEither)
 import Data.Int (Int64)
@@ -82,51 +82,19 @@ data GetGraphError
   = InvalidParams [ValidationErr]
   | MissingNodes
 
-data Graph = Graph
-  { links :: [GraphLink]
-  , nodes :: [GraphNode]
-  }
+{- | A node, as much of it as the graph's own rendering needs.
 
+What used to be here alongside this was a @Graph@ record with @ToJSON@
+instances, serialised into a @#graph-data@ script tag for D3 to lay out
+in the browser. The server computes the layout now (#181), so the graph
+never leaves the server as data — it leaves as finished SVG.
+-}
 data GraphNode = GraphNode
   { graphNodeId :: Int64
   , label :: Text
   , nodeType :: Text
   , projectId :: Int64
   }
-
-data GraphLink = GraphLink
-  { source :: Int64
-  , target :: Int64
-  }
-
-instance ToJSON Graph where
-  toJSON g =
-    object
-      [ "links" .= links g
-      , "nodes" .= nodes g
-      ]
-
-instance ToJSON GraphLink where
-  toJSON (GraphLink src tgt) =
-    object
-      [ "source" .= src
-      , "target" .= tgt
-      ]
-
-instance ToJSON GraphNode where
-  toJSON nd =
-    object
-      [ "id" .= graphNodeId nd
-      , "projectId" .= projectId nd
-      , "label" .= label nd
-      , "nodeType" .= nodeType nd
-      ]
-
-classNodeType :: GraphNode -> Text
-classNodeType n =
-  if nodeType n == "project_root"
-    then "root"
-    else "work"
 
 handleProjectGraph :: ConnectionPool -> Application
 handleProjectGraph pl req respond = do
@@ -149,13 +117,8 @@ handleProjectGraph pl req respond = do
   case rslt of
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes -> respondMissingNodes
-    Right (pid, ns, ds)
-      -- The server-computed layout is opt-in until #181 cuts over to
-      -- it. Without the flag this handler behaves exactly as it did.
-      | wantsServerLayout qt ->
-          respondSuccess . templateServerGraph $ toServerGraph pid ns ds
-      | otherwise ->
-          respondSuccess . templateGraph . toGraph ns . fmap entityVal $ ds
+    Right (pid, ns, ds) ->
+      respondSuccess . templateServerGraph $ toServerGraph pid ns ds
   where
     respondMissingNodes =
       respond
@@ -211,99 +174,6 @@ queryDependencies nids = do
   where
     nkeys = toSqlKey @M.Node <$> nids
 
-templateGraph :: Graph -> Html ()
-templateGraph g = do
-  script_ [id_ "graph-data", type_ "application/json"] $ encode g
-  script_ [src_ "/static/script/nodetree2.js"] empty
-  svg_
-    [ id_ "tree-view"
-    , height_ "100%"
-    , width_ "100%"
-    , h_ "on load transition my opacity to 1 over 200ms"
-    ]
-    $ do
-      -- `marker-end` on the edges resolves `url(#arrow)` and requires
-      -- that id to be a `<marker>`. It used to be on the `<defs>`
-      -- itself, with the marker's own attributes (viewBox/refX/orient/
-      -- markerWidth) hung off `<defs>` where they mean nothing -- so
-      -- the reference never resolved to a marker and no arrowhead has
-      -- ever actually rendered, leaving the graph showing dependencies
-      -- as undirected lines. `<defs>` is just the container; the
-      -- `<marker>` inside it is what carries the id and the geometry.
-      defs_ []
-        $ marker_
-          [ id_ "arrow"
-          , viewBox_ "0 -5 10 10"
-          , -- The arrowhead's own tip (x=10 in the viewBox above) is
-            -- what should land on the end of the line; nodetree2.js
-            -- already stops each edge at the node's edge rather than
-            -- its centre, so the head needs no extra pulling back.
-            refX_ "10"
-          , refY_ "0"
-          , markerWidth_ "6"
-          , markerHeight_ "6"
-          , orient_ "auto"
-          ]
-        $ path_
-          [ d_ "M0,-5L10,0L0,5"
-          , fill_ "#999"
-          ]
-          empty
-      g_ [class_ "zoom-group"] $ do
-        g_ [id_ "graph-links"] $ do
-          -- A `<path>`, not a `<line>`: nodetree2.js draws each
-          -- dependency edge as a gentle curve bowed around the project
-          -- root rather than a straight chord, which only a path's `d`
-          -- attribute can express. `fill_ "none"` matters here in a way
-          -- it never did for `<line>` (which has no fillable area) --
-          -- an open curved path without it renders as a solid wedge.
-          forM_ (links g) $ \_ ->
-            path_
-              [ class_ "link"
-              , stroke_ "#999"
-              , strokeOpacity_ "0.6"
-              , strokeWidth_ "2"
-              , markerEnd_ "url(#arrow)"
-              , fill_ "none"
-              ]
-              empty
-        g_ [id_ "graph-nodes"] $ do
-          forM_ (nodes g) $ \n -> do
-            g_
-              [ id_ $ "node-" <> (intToText . graphNodeId $ n)
-              , class_ "node"
-              , hxGet_ $
-                  nodePanelLink
-                    (graphNodeId n)
-                    (projectId n)
-              , hxTrigger_ "click"
-              , hxTarget_ "#node-panel"
-              , hxPushUrl'_ $
-                  pushUrl
-                    (graphNodeId n)
-                    (projectId n)
-              , hxSwap_ "innerHTML"
-              ]
-              $ do
-                circle_
-                  [ class_ $ classNodeType n
-                  , stroke_ "white"
-                  , strokeWidth_ "1.5"
-                  ]
-                  empty
-                text_
-                  [ id_ $
-                      "node-text-"
-                        <> (intToText . graphNodeId $ n)
-                  , fontSize_ "10"
-                  , textAnchor_ "middle"
-                  , dy_ "0.35em"
-                  , fill_ "white"
-                  ]
-                  $ nodeContents CircleLabel n
-  where
-    empty = mempty :: Html ()
-
 toGraphNode :: Entity M.Node -> GraphNode
 toGraphNode (Entity k e) =
   GraphNode
@@ -313,50 +183,23 @@ toGraphNode (Entity k e) =
     , nodeType = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
     }
 
--- How wide (in characters) and how tall (in lines) a node's label is
--- allowed to get. Sized to sit inside the node circle's own 45px radius
--- at the label font size, so a long title wraps to the node instead of
--- rendering as one runaway line far wider than the node it belongs to
--- -- which is what previously forced the graph's spacing (and with it
--- the whole layout) to sprawl. The untruncated title is always still
--- one click away in the node's detail panel.
-labelWidth :: Int
-labelWidth = 12
+{- | A node's label, re-wrapped and laid out, for 'Node.Refresh' to swap
+in after an edit.
 
-labelLines :: Int
-labelLines = 3
-
-{- | Which shape a label has to wrap into. The D3 path draws its nodes
-as circles and the server-computed path (#178) as boxes, and a 160px
-box fits half again as many characters per line as a 45px-radius
-circle does -- so the same title wraps differently depending on which
-graph is rendering it.
-
-This exists because the two paths share one refresh endpoint
-(@Node.Refresh@), which re-wraps a title after an edit and therefore
-has to know which shape it is wrapping for. #181 drops the D3 path and
-this distinction with it.
+Wrapping is to the layout engine's own box ('cfgLabelWidth' x
+'cfgLabelLines') — the same dimensions the label was first drawn at, so
+a title re-wraps to what it already fitted. Until #181 this took a
+parameter saying which shape was asking, because the D3 path's circle
+fitted fewer characters per line than the box does; with one renderer
+left there is one answer.
 -}
-data LabelBox
-  = CircleLabel
-  | RectLabel
-
--- | Width in characters, height in lines.
-labelBoxDims :: LabelBox -> (Int, Int)
-labelBoxDims CircleLabel = (labelWidth, labelLines)
-labelBoxDims RectLabel =
-  ( cfgLabelWidth defaultLayoutConfig
-  , cfgLabelLines defaultLayoutConfig
-  )
-
-nodeContents :: LabelBox -> GraphNode -> Html ()
-nodeContents box n = do
-  labelTspans box . label $ n
+nodeContents :: GraphNode -> Html ()
+nodeContents n = do
+  labelTspans . label $ n
   g_
     [ class_ "hidden"
     , hxGet_ $
-        refreshLinkFor
-          box
+        nodeRefreshLink
           (graphNodeId n)
           (projectId n)
           (label n)
@@ -374,9 +217,13 @@ nodeContents box n = do
   where
     empty = mempty :: Html ()
 
--- | Wrap a raw title to the given shape, then lay the lines out.
-labelTspans :: LabelBox -> Text -> Html ()
-labelTspans box = tspanLines . uncurry wrapLabel (labelBoxDims box)
+-- | Wrap a raw title to the node box, then lay the lines out.
+labelTspans :: Text -> Html ()
+labelTspans =
+  tspanLines
+    . wrapLabel
+      (cfgLabelWidth defaultLayoutConfig)
+      (cfgLabelLines defaultLayoutConfig)
 
 -- SVG `<text>` has no wrapping of its own, so a multi-line label has to
 -- be emitted as one `<tspan>` per line. Each line resets `x` to the
@@ -385,12 +232,10 @@ labelTspans box = tspanLines . uncurry wrapLabel (labelBoxDims box)
 -- by half the block's height so the whole label stays vertically
 -- centred on the node however many lines it wraps to.
 --
--- `x="0"` means "the text origin", which both graphs arrange to be the
--- centre of the node: the D3 path translates the node group to the
--- circle's centre, and the server path translates the `<text>` itself
--- to the middle of its box (see 'nodeLabel'). Keeping the origin the
--- same on both is what lets Node.Refresh swap one of these fragments
--- into either graph without knowing which it is drawing into.
+-- `x="0"` means "the text origin", which 'nodeLabel' arranges to be the
+-- centre of the node box by translating the `<text>` there. That is
+-- what lets Node.Refresh return one of these fragments and have it land
+-- correctly without knowing anything about where the node sits.
 tspanLines :: [Text] -> Html ()
 tspanLines ls =
   forM_ (zip [0 :: Int ..] ls) $ \(i, l) ->
@@ -410,29 +255,6 @@ tspanLines ls =
       | blockLift == 0 = "0em"
       | otherwise = (<> "em") . pack . show . negate $ blockLift
 
-{- | The refresh link that re-wraps this node's label to the same shape
-it is currently drawn in.
--}
-refreshLinkFor :: LabelBox -> Int64 -> Int64 -> Text -> Text
-refreshLinkFor CircleLabel = nodeRefreshLink
-refreshLinkFor RectLabel = serverNodeRefreshLink
-
-toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph
-toGraph ns ds = Graph (map toLink ds) (map toGNode ns)
-  where
-    toLink d =
-      GraphLink
-        { source = fromSqlKey . M.dependencyNodeId $ d
-        , target = fromSqlKey . M.dependencyToNodeId $ d
-        }
-    toGNode (Entity k e) =
-      GraphNode
-        { graphNodeId = fromSqlKey k
-        , projectId = fromSqlKey . M.nodeProjectId $ e
-        , label = pack . M.nodeTitle $ e
-        , nodeType = pack . M.unNodeTypeKey . M.nodeNodeTypeId $ e
-        }
-
 validateProjectId :: QueryText -> Either [ValidationErr] Int64
 validateProjectId qt = runValidation id $ do
   lookupVal "projectId" qt
@@ -442,18 +264,14 @@ validateProjectId qt = runValidation id $ do
     >>= valRead "Project id must be valid integer"
 
 -- ---------------------------------------------------------------------
--- Server-computed layout (#173)
+-- Server-computed layout (#173-#181)
 --
 -- Everything below renders a Diagram that Domain.Project.Graph.Layout
--- has already placed, rather than shipping the graph's data to the
--- client for D3 to position. See docs/architecture/graph-rendering.md.
+-- has already placed. It was opt-in behind ?layout=server while it was
+-- being built; #181 made it the only renderer and removed both the flag
+-- and the D3 template it used to sit beside.
+-- See docs/architecture/graph-rendering.md.
 -- ---------------------------------------------------------------------
-
-{- | Opt in with @?layout=server@ on the graph view. Removed by #181,
-once the server-computed layout is the only one.
--}
-wantsServerLayout :: QueryText -> Bool
-wantsServerLayout qt = lookupVal "layout" qt == Just "server"
 
 data ServerGraph = ServerGraph
   { sgProjectId :: Int64
@@ -705,7 +523,7 @@ nodeGroup sg n =
       -- when its detail panel closes after an edit.
       g_
         [ class_ "hidden"
-        , hxGet_ (serverNodeRefreshLink rawId pid rawLabel)
+        , hxGet_ (nodeRefreshLink rawId pid rawLabel)
         , hxTrigger_ $
             "nodePanel:onEditClosed[event.detail.nodeId=="
               <> nid
