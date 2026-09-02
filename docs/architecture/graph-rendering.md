@@ -190,8 +190,16 @@ across runs.
 
 ### 2. Assign layers — `Graph.Layer` ⏳ #173
 
-Longest-path layering over a topological order: a node with no
-dependencies is layer 0; otherwise `1 + max` over its dependencies.
+Longest-path layering over a topological order: a node with **no
+dependents** — nothing waiting on it — is layer 0; any other node sits
+one row below the lowest of its dependents.
+
+Note the direction. Layering runs *dependent to dependency*, so a node
+is drawn above the work it is waiting on. That is what makes the project
+root head the graph in the reference images: the root depends on its
+work, so the work descends from it. Layering by *dependencies* instead
+(a node with no dependencies at layer 0) would invert the drawing and
+put the leaf tasks on top.
 
 **Guarantees:** every edge spans at least one layer, in a consistent
 direction. Layers are contiguous from 0. Disconnected components are
@@ -259,8 +267,12 @@ node box. No two horizontal runs overlap collinearly.
 
 - SVG coordinates: **x right, y down**. One layout unit is one CSS pixel
   at the default zoom.
-- **Layer 0 is at the top**, at `cfgMargin`. The project root is layer 0,
-  and its dependencies descend from it.
+- **Layer 0 is at the top**, at `cfgMargin`, and layer number increases
+  downward into dependencies. The project root heads the graph *because
+  it depends on its work* — not by special-casing it. Nothing guarantees
+  the root is alone in layer 0, or even in it: a dependency row recorded
+  as "task X depends on the project root" puts the root below X, which
+  is the rule working correctly on data that says something unusual.
 - `pnTopLeft` is the box's top-left corner, not its centre. (The current
   D3 code positions by centre; do not carry that habit over.)
 - `diagramBounds` includes `cfgMargin` on all sides.
