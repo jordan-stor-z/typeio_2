@@ -14,6 +14,8 @@ module Integration.Support
   ( withTestDatabase
   , resetBetweenTests
   , seedProjectWithRootNode
+  , seedWorkNode
+  , seedDependency
   ) where
 
 import Config.Db (DbConfig (..))
@@ -25,7 +27,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Time (getCurrentTime)
-import Database.Persist (Entity (..), Key, insert, insertUnique, selectList, (==.))
+import Database.Persist (Entity (..), Key, insert, insertUnique, insert_, selectList, (==.))
 import Database.Persist.Sql (ConnectionPool, rawExecute, runSqlPool)
 import qualified Domain.Central.Responder.Api.Seed as Seed
 import qualified Domain.Project.Model as M
@@ -170,3 +172,50 @@ seedProjectWithRootNode pool = flip runSqlPool pool $ do
       [] ->
         liftIO . throwIO . ErrorCall $
           "seedProjectWithRootNode: expected seeded " <> label <> " but found none"
+
+{- | An ordinary (non-root) 'M.Node' on an existing project: status
+@active@, type @work@. Companion to 'seedProjectWithRootNode' for
+tests that need a graph rather than a single node -- the two node
+types render differently (#178), so a test asserting on either needs
+both present.
+-}
+seedWorkNode :: ConnectionPool -> Key M.Project -> String -> IO (Key M.Node)
+seedWorkNode pool projectKey title = flip runSqlPool pool $ do
+  now <- liftIO getCurrentTime
+  activeStatus <- selectList [M.NodeStatusNodeStatusId ==. "active"] []
+  workType <- selectList [M.NodeTypeNodeTypeId ==. "work"] []
+  statusKey <- keyOrErr "NodeStatus \"active\"" activeStatus
+  typeKey <- keyOrErr "NodeType \"work\"" workType
+  insert
+    M.Node
+      { M.nodeCreated = now
+      , M.nodeDeleted = Nothing
+      , M.nodeDescription = "Work node"
+      , M.nodeNodeStatusId = statusKey
+      , M.nodeNodeTypeId = typeKey
+      , M.nodeProjectId = projectKey
+      , M.nodeTitle = title
+      , M.nodeUpdated = now
+      }
+  where
+    keyOrErr label rows = case rows of
+      (e : _) -> pure (entityKey e)
+      [] ->
+        liftIO . throwIO . ErrorCall $
+          "seedWorkNode: expected seeded " <> label <> " but found none"
+
+{- | Record that @dependent@ is waiting on @dependency@ being completed
+first. Argument order follows the relationship, not the column names:
+@project.dependency@ stores the dependent in @node_id@ and the
+dependency in @to_node_id@ (see
+@docs\/development\/backend\/database-schema.md@), which is easy to
+get backwards from the column names alone.
+-}
+seedDependency :: ConnectionPool -> Key M.Node -> Key M.Node -> IO ()
+seedDependency pool dependent dependency =
+  flip runSqlPool pool
+    . insert_
+    $ M.Dependency
+      { M.dependencyNodeId = dependent
+      , M.dependencyToNodeId = dependency
+      }

@@ -164,28 +164,41 @@ svg {
   fill: var(--accent-light); 
 }
 
-#tree-container .node.node-highlight circle {
+/* The node's shape is a `circle` on the D3 path and a `rect` on the
+   server-computed one (#178), and every rule below is about the shape
+   rather than which shape it is -- so they're written against the
+   `.root`/`.work` classes both carry, not against an element name.
+   #182 deletes D3; nothing here has to change when it does. The one
+   genuinely circle-only rule is `r`, kept separate for that reason. */
+
+#tree-container .node.node-highlight .root,
+#tree-container .node.node-highlight .work {
   stroke-width: 1.7; /* Thinner border */
   filter: drop-shadow(0 0 7px var(--accent-hover-light)); /* Blue glow; adjust color, blur (5px), and opacity */
   pointer-events: none;
 }
 
-#tree-container .node circle.root:hover {
+#tree-container .node .root:hover {
   fill: var(--accent-hover-bold);
 }
 
-#tree-container .node circle.work:hover {
+#tree-container .node .work:hover {
   fill: var(--accent-hover-light);
 }
 
-#tree-container .node circle:hover {
+#tree-container .node .root,
+#tree-container .node .work {
   cursor: pointer;
-}
-
-#tree-container .node circle {
-  r: 45;
   stroke: white;
   stroke-width: 1.5px;
+}
+
+/* Circle-only: the D3 path sizes its nodes here rather than in the
+   markup. The server path's boxes are sized by the layout engine
+   (`cfgNodeSize`), which writes width/height onto the `rect` itself --
+   the server knows the geometry, so CSS doesn't need to. */
+#tree-container .node circle {
+  r: 45;
 }
 
 #tree-container .node text {
@@ -200,7 +213,11 @@ svg {
   flex-direction: row;
 }
 
-.flash circle {
+/* Scoped to the node shape, not to `.flash *`: the keyframe animates
+   `fill`, and the label `<text>` inside the same group has a fill of
+   its own that must not flash with it. */
+.flash .root,
+.flash .work {
   animation: flashAnimation 500ms ease-in-out;
 }
 
