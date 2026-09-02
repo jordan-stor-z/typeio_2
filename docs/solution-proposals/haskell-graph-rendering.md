@@ -1,11 +1,11 @@
 # Solution Proposal: Rendering the Dependency Graph from Haskell
 
-- **Status:** Proposed — recommendation in §10, delivery plan in §11.
-  The ticket author has since resolved the design decisions this
-  proposal left open and added a viewing/navigation requirement (§3,
-  §12.1); the go/no-go on the effort itself is still open, and nothing
-  here has been built. (Per `CLAUDE.md`'s #50 note: this document's
-  existence is not evidence any of it landed.)
+- **Status:** Decided — see §12. Implementation tracked in #172–#183
+  (#172 is the architecture doc, written first and updated throughout;
+  #173–#183 are the sequence in §11). Nothing has been built yet — per
+  `CLAUDE.md`'s #50 note, this document's existence is not evidence any
+  of it landed; check `docs/development/ui/graph-rendering.md` and the
+  issues for what actually has.
 - **Date:** 2026-09-02
 - **Related:** #169 (this spike), #162 (replaced the force simulation
   with the current hand-rolled radial layout — see §2, it changes the
@@ -716,9 +716,34 @@ are worth stating before the list:
 
 Sizes are S (<½ day), M (~1 day), L (multi-day).
 
+### Before and alongside the sequence: the architecture document
+
+**A. `docs: architecture document for the Haskell graph-rendering pipeline`** — #172
+`type:documentation`, `area:backend`, `area:ui` — **M** — *first, then
+updated by every issue below*
+- `docs/development/ui/graph-rendering.md`: the module map, the core
+  types, each phase's input/output contract and the invariants it
+  guarantees, the coordinate conventions, the edge-direction rule and
+  its implementation trap (D1 in §3), the DOM contract issue 9 must not
+  break, the viewport contract (§6), and where the specs live.
+- *Value:* this proposal is a **decision record**, and `docs/README.md`
+  is explicit that a solution proposal is not a live source of truth.
+  Without a development-facing doc, every issue below starts by
+  re-deriving the design from a document that is deliberately frozen.
+  This is the reference each implementation issue works against.
+- *Not a normal `docs/development/` doc while the work is in flight.*
+  That directory documents what the app *actually does today*; this one
+  starts as a build target. It therefore carries an explicit status
+  banner and a per-phase ✅/⏳ table keyed to the issues below, and every
+  issue that lands flips its own row. Issue 11 is the final pass that
+  removes the banner once nothing is ⏳.
+- *AC:* the doc exists with every phase described and marked ⏳; the
+  banner states plainly that it describes intended, not current,
+  behaviour; `docs/README.md` indexes it.
+
 ### Core sequence
 
-**1. `feat: server-computed graph layout behind a ?layout=server flag`**
+**1. `feat: server-computed graph layout behind a ?layout=server flag`** — #173
 `type:feature`, `area:backend`, `area:ui` — **M**
 - The walking skeleton: `Domain.Project.Graph.{Types,Layer}`, cycle
   breaking (§4.1) and longest-path layering (§4.2); naive x (index
@@ -730,7 +755,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   coordinates and no `#graph-data` JSON; without the flag the existing D3
   path is untouched; unit tests cover layering, including a cyclic input.
 
-**2. `feat: median x-coordinate assignment so parents centre over their children`**
+**2. `feat: median x-coordinate assignment so parents centre over their children`** — #174
 `type:feature`, `area:backend` — **M** — *needs 1*
 - `Domain.Project.Graph.Coord`, priority/median method with separation
   enforcement (§4.5).
@@ -739,7 +764,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 - *AC:* a parent with two children is centred between them (image 1); no
   two boxes overlap on any fixture; unit tests assert both.
 
-**3. `feat: orthogonal edge routing with node ports and horizontal tracks`**
+**3. `feat: orthogonal edge routing with node ports and horizontal tracks`** — #175
 `type:feature`, `area:backend` — **L** — *needs 2*
 - `Domain.Project.Graph.Route`: ports per side (R8/R9), track assignment
   in the inter-layer gap (R10), two-bend polylines, arrowheads oriented
@@ -750,7 +775,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   track and an overlapping x-interval; multiple edges into one node land
   on distinct ports; unit tests assert each.
 
-**4. `feat: route multi-level edges through dummy nodes`**
+**4. `feat: route multi-level edges through dummy nodes`** — #176
 `type:feature`, `area:backend` — **M** — *needs 3*
 - Dummy-node insertion and the corresponding polyline reconstruction
   (§4.3), delivering R11.
@@ -759,7 +784,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 - *AC:* an edge spanning ≥2 layers renders as a polyline that intersects
   no node box; unit test asserts the no-intersection property directly.
 
-**5. `feat: crossing reduction via iterated median sweeps`**
+**5. `feat: crossing reduction via iterated median sweeps`** — #177
 `type:feature`, `area:backend` — **L** — *needs 4*
 - `Domain.Project.Graph.Order` (§4.4), plus an exact crossing counter.
 - *Value:* the difference between image 5 being legible and being a
@@ -769,7 +794,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   recorded baseline (regression-tested as a number); output is
   deterministic across runs.
 
-**6. `feat: node chrome — rounded rects, wrapped labels, root vs work styling`**
+**6. `feat: node chrome — rounded rects, wrapped labels, root vs work styling`** — #178
 `type:feature`, `area:ui`, `run-e2e` — **M** — *needs 1*
 - R4/R5: `rect` + `rx`, `wrapLabel` reused at the new box width, the
   `root`/`work` fill distinction, and `.node-highlight`/`.flash` CSS
@@ -781,7 +806,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   highlight and flash behave as they do today; `graph.spec.ts` passes
   against the flagged path.
 
-**7. `feat: scroll-and-zoom viewport for the graph (mouse + touch)`**
+**7. `feat: scroll-and-zoom viewport for the graph (mouse + touch)`** — #179
 `type:feature`, `area:frontend`, `area:ui`, `run-e2e` — **L** — *needs 1*
 - §6 option 1: the natural-size SVG in an `overflow: auto` container for
   panning (R18), a zoom control for R17 (+/− buttons, `ctrl`+wheel,
@@ -799,7 +824,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   scrollbar is visible while keyboard scrolling still works; no D3 call
   remains in the new script.
 
-**8. `feat: line jumps where edges cross`**
+**8. `feat: line jumps where edges cross`** — #180
 `type:feature`, `area:backend` — **S** — *needs 3* — **negotiable**
 - R13's crossing hops (§4.6), pure geometry over the finished polylines.
 - *Value:* readability at crossings; explicitly the first thing to drop
@@ -807,7 +832,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 - *AC:* a fixture with a known crossing renders an arc at it; no arc
   where segments merely touch at a shared port.
 
-**9. `feat: make the server-computed layout the default and remove the flag`**
+**9. `feat: make the server-computed layout the default and remove the flag`** — #181
 `type:feature`, `area:backend`, `area:ui`, `run-e2e` — **S** — *needs 2–7*
 - Flip the default, delete the flag and the old template branch, update
   `graph.spec.ts` for `rect`.
@@ -815,7 +840,7 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 - *AC:* the graph renders server-side with no query parameter; the full
   e2e suite passes; no `#graph-data` element remains in the response.
 
-**10. `chore: delete D3 and the nodetree scripts`**
+**10. `chore: delete D3 and the nodetree scripts`** — #182
 `type:chore`, `area:frontend` — **S** — *needs 9*
 - Remove `static/script/d3.js`, `nodetree2.js`, the dead `nodetree.js`,
   and the `<script>` tag in `IndexView.hs`.
@@ -825,19 +850,23 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 - *AC:* no D3 reference remains anywhere in the repo; every page still
   works; e2e passes.
 
-**11. `docs: document the Haskell graph-rendering pipeline`**
-`type:documentation` — **M** — *needs 9*
-- New `docs/development/ui/graph-rendering.md` (the pipeline as built),
-  plus corrections to `docs/development/frontend/index.md` (which
-  currently documents D3 as what renders the graph),
-  `docs/development/ui/haskell-rendering.md`'s "Passing server data to
-  client JS" section (the `#graph-data` pattern it describes would no
-  longer exist), and `docs/development/e2e-testing.md`'s "the D3-rendered
-  dependency graph" phrasing.
-- *Value:* three existing docs become actively wrong at issue 9; this is
-  what stops that.
-- *AC:* the new doc describes each phase and where it lives; no doc still
-  claims D3 renders the graph.
+**11. `docs: reconcile the architecture document with what shipped`** — #183
+`type:documentation` — **M** — *needs 9, 10*
+- Final pass over issue A's `docs/development/ui/graph-rendering.md`:
+  correct anything the implementation did differently, flip the last
+  rows to ✅ and delete the "target architecture" banner, so it becomes
+  an ordinary `docs/development/` doc describing what the app does.
+- Plus the docs that go stale at issues 9–10:
+  `docs/development/frontend/index.md` (documents D3 as what renders the
+  graph), `docs/development/ui/haskell-rendering.md`'s "Passing server
+  data to client JS" section (the `#graph-data` pattern it describes
+  stops existing), and `docs/development/e2e-testing.md`'s "the
+  D3-rendered dependency graph" phrasing.
+- *Value:* three existing docs become actively wrong at issue 9, and the
+  architecture doc stops being trustworthy the moment reality diverges
+  from it. This is what closes both.
+- *AC:* no ⏳ rows and no banner remain in the architecture doc; no doc
+  anywhere still claims D3 renders the graph.
 
 ### Optional refinements (file only if wanted; none block the effort)
 
@@ -871,8 +900,8 @@ for one function.
 
 ## 12. Decision
 
-**The design decisions are resolved; the go/no-go on the effort itself
-is still open.** No code has been written.
+**Decided: build it, incrementally, as §11 lays out.** Issues #172–#183
+are filed. No code has been written yet.
 
 ### 12.1 Resolved by the ticket author (2026-09-02)
 
@@ -892,7 +921,6 @@ is still open.** No code has been written.
    expected to overflow the view. This reversed a fit-to-container
    assumption in the first draft; §5, §6 and §11's issue 7 are rewritten
    against it, and issue 7 grew from M to L as a result.
-
 5. **Cycles: break them, never error.** Refusing to render on a
    detected cycle was considered and rejected (§4.1). Application-level
    validation that stops cycles being created at all is planned as a
@@ -901,16 +929,22 @@ is still open.** No code has been written.
    pulls pointer-drag panning and a fit/recenter control into §11's
    issue 7, since hiding the bars removes both the drag-to-pan
    affordance and the "where am I" cue they provided.
+7. **Proceed with the effort**, accepting §10's counterweight (this
+   replaces working code with substantially more code, for a
+   better-looking and more navigable graph plus a faster page rather
+   than a new capability).
+8. **Incrementally, behind the `?layout=server` flag**, as §11 assumes —
+   not as a single branch. `main` keeps a working graph throughout, and
+   each issue stays independently mergeable and revertable.
+9. **The architecture document comes first** (#172) and is updated by
+   every issue that lands, so implementation work has a live reference
+   rather than re-deriving the design from this frozen decision record.
 
 ### 12.2 Still open
 
-1. **Whether to proceed at all**, given §10's counterweight: this
-   replaces working code with substantially more code, and the
-   user-visible win is a better-looking, more navigable graph plus a
-   faster page — not a new capability.
-2. **Incrementally behind the `?layout=server` flag, or one branch.**
-   §11 assumes the flag; a single branch is cheaper in total but gives
-   up every INVEST property in §11.
-3. **Root at top or at bottom.** D1 pinned the arrow semantics, and both
+1. **Root at top or at bottom.** D1 pinned the arrow semantics, and both
    image conventions satisfy them; §3 proceeds with root-at-top per the
    images 1–3 majority. Cheap to flip if it reads wrong.
+2. **Application-level cycle prevention** — deliberately *not* filed
+   yet, pending the ticket author's wider feature planning. §4.1's
+   cycle-breaking stands on its own regardless.
