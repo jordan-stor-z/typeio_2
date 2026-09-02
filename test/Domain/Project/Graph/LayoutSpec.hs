@@ -32,6 +32,9 @@ placed d n =
 topOf :: PlacedNode -> Double
 topOf = ptY . pnTopLeft
 
+centreX :: PlacedNode -> Double
+centreX p = ptX (pnTopLeft p) + szW (pnSize p) / 2
+
 -- | Do two placed boxes overlap in both axes?
 overlaps :: PlacedNode -> PlacedNode -> Bool
 overlaps a b = ov ptX szW && ov ptY szH
@@ -80,6 +83,17 @@ spec = do
     it "gives every edge a polyline" $ do
       let d = layout cfg [node 1, node 2, node 3] [dep 10 2 1, dep 11 3 1]
       map (length . pePoints) (diagramEdges d) `shouldBe` [2, 2]
+
+    it "centres a node over the two it depends on (reference image 1)" $ do
+      -- 1 depends on 2 and 3, so 1 is drawn above both and centred.
+      let d = layout cfg [node 1, node 2, node 3] [dep 10 2 1, dep 11 3 1]
+      centreX (placed d 1)
+        `shouldBe` (centreX (placed d 2) + centreX (placed d 3)) / 2
+
+    it "keeps a single-dependency chain colinear (reference image 2)" $ do
+      let d = layout cfg [node 1, node 2, node 3] [dep 10 2 1, dep 11 3 2]
+      map (centreX . placed d) [1, 2, 3]
+        `shouldSatisfy` \[a, b, c] -> a == b && b == c
 
     it "reports bounds that contain every node box" $ do
       let d = layout cfg (map node [1 .. 4]) [dep 10 2 1, dep 11 3 1, dep 12 4 3]

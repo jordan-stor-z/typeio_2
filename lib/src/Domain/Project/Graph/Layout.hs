@@ -2,10 +2,10 @@
 out.
 
 See @docs/architecture/graph-rendering.md@ for the full design. What is
-built so far (#173) is cycle breaking, layer assignment, a naive
-within-row ordering, and straight edges. Median x placement (#174),
-orthogonal routing (#175), dummy nodes for multi-row edges (#176) and
-crossing reduction (#177) each replace one step below.
+built so far is cycle breaking and layer assignment (#173) and median
+x placement (#174). Orthogonal routing (#175), dummy nodes for
+multi-row edges (#176) and crossing reduction (#177) each replace one
+step below.
 -}
 module Domain.Project.Graph.Layout
   ( layout
@@ -15,6 +15,7 @@ import Data.List (sortOn)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text.Util (wrapLabel)
+import Domain.Project.Graph.Coord (assignX)
 import Domain.Project.Graph.Layer (Arc (..), assignLayers, breakCycles)
 import Domain.Project.Graph.Types
 
@@ -41,9 +42,9 @@ layout cfg ns es =
     arcs = breakCycles ns es
     layers = assignLayers ns arcs
 
-    -- Naive placement: order each row by node id and space the boxes
-    -- evenly. #174 replaces this with median placement, which is what
-    -- centres a node over the ones it depends on.
+    -- Rows are ordered by node id for now. #177 reorders them to cut
+    -- edge crossings; 'assignX' below is written to leave whatever
+    -- order it is given intact, so the two compose without fighting.
     rows :: Map Int [NodeId]
     rows =
       M.fromListWith
@@ -54,13 +55,15 @@ layout cfg ns es =
     Size nodeW nodeH = cfgNodeSize cfg
     margin = cfgMargin cfg
 
-    columnOf n =
-      let row = M.findWithDefault [] (layerOf n) rows
-       in length (takeWhile (/= n) row)
+    -- Centres, before shifting the whole drawing into positive space.
+    centres = assignX (nodeW + cfgNodeGap cfg) rows arcs
+    leftmost
+      | M.null centres = 0
+      | otherwise = minimum (M.elems centres)
 
     topLeftOf n =
       Point
-        (margin + fromIntegral (columnOf n) * (nodeW + cfgNodeGap cfg))
+        (margin + M.findWithDefault 0 n centres - leftmost)
         (margin + fromIntegral (layerOf n) * (nodeH + cfgLayerGap cfg))
 
     placed =
