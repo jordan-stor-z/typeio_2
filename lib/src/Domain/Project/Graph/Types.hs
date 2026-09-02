@@ -140,6 +140,17 @@ data PlacedEdge = PlacedEdge
   {- ^ Reversed for layering only, to break a cycle. Does /not/ change
   which end carries the arrowhead.
   -}
+  , peJumps :: [Point]
+  {- ^ Points on this edge's /horizontal/ runs where another edge's
+  vertical run passes underneath, so the renderer can hop over it
+  rather than drawing a junction that looks like a connection.
+
+  Only the horizontal side of a crossing carries the jump — the pair is
+  asymmetric on purpose, since hopping both would just re-create the
+  ambiguity. Points are in the same coordinate space as 'pePoints', and
+  always lie strictly inside a run, never on an endpoint: two edges
+  merely meeting at a shared port is not a crossing.
+  -}
   }
   deriving (Eq, Show)
 
@@ -183,6 +194,12 @@ data LayoutConfig = LayoutConfig
   -- ^ Maximum label lines before truncation.
   , cfgMargin :: Double
   -- ^ Padding around the whole drawing.
+  , cfgJumpRadius :: Double
+  {- ^ Radius of the hop drawn where a horizontal run crosses a vertical
+  one ('peJumps'). Small enough to read as a hop rather than a bend,
+  and it has to stay well under half the smallest gap between two
+  parallel verticals or neighbouring hops would run into each other.
+  -}
   }
   deriving (Eq, Show)
 
@@ -202,6 +219,7 @@ defaultLayoutConfig =
     , cfgLabelWidth = 18
     , cfgLabelLines = 3
     , cfgMargin = 48
+    , cfgJumpRadius = 4
     }
 
 boundsSize :: Bounds -> Size

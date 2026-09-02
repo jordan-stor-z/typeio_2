@@ -25,6 +25,7 @@ import Data.Aeson (ToJSON (..), encode, object, (.=))
 import Data.Bifunctor (first)
 import Data.Either (notNullEither)
 import Data.Int (Int64)
+import Data.List (sort)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text, pack, unpack)
@@ -614,18 +615,65 @@ edgeLine :: PlacedEdge -> Html ()
 edgeLine e =
   path_
     [ class_ "link"
-    , d_ (polyline (pePoints e))
+    , d_ (polyline (peJumps e) (pePoints e))
     , markerEnd_ "url(#arrow)"
     , fill_ "none"
     ]
     (mempty :: Html ())
 
-polyline :: [Point] -> Text
-polyline [] = ""
-polyline (p : ps) =
-  "M" <> point p <> mconcat [" L" <> point q | q <- ps]
+{- | The edge's path, hopping over each of its 'peJumps' (#180).
+
+Which crossings get a hop is decided by the layout engine; this only
+draws them. A hop is a semicircular arc of 'cfgJumpRadius' replacing
+the middle of the run, always bulging towards the top of the page so a
+row of them reads as one convention rather than a wobble.
+-}
+polyline :: [Point] -> [Point] -> Text
+polyline _ [] = ""
+polyline jumps (p : ps) =
+  "M" <> point p <> mconcat (zipWith run (p : ps) ps)
   where
     point (Point x y) = dblText x <> "," <> dblText y
+
+    run (Point x0 y0) q@(Point x1 y1)
+      -- Vertical runs are drawn straight through: only the horizontal
+      -- side of a crossing hops (see 'addJumps').
+      | y0 /= y1 || null hops = " L" <> point q
+      | otherwise = mconcat (map hop hops) <> " L" <> point q
+      where
+        rightward = x1 > x0
+        -- In travel order, so the arcs come out along the run rather
+        -- than doubling back to an earlier one.
+        hops =
+          (if rightward then id else reverse)
+            . sort
+            $ [ jx
+              | Point jx jy <- jumps
+              , jy == y0
+              , jx > min x0 x1
+              , jx < max x0 x1
+              ]
+
+        hop jx =
+          " L"
+            <> point (Point (jx - dir * r) y0)
+            <> " A"
+            <> dblText r
+            <> ","
+            <> dblText r
+            <> " 0 0 "
+            -- The sweep flag has to flip with direction of travel to
+            -- keep every hop bulging the same way. 1 is the
+            -- positive-angle direction, which reads as clockwise in
+            -- SVG's y-down space: clockwise from the left end goes over
+            -- the top, and so does counter-clockwise from the right
+            -- end. Both arcs below therefore bulge upward.
+            <> (if rightward then "1 " else "0 ")
+            <> point (Point (jx + dir * r) y0)
+          where
+            dir = if rightward then 1 else -1
+
+    r = cfgJumpRadius defaultLayoutConfig
 
 nodeGroup :: ServerGraph -> PlacedNode -> Html ()
 nodeGroup sg n =
