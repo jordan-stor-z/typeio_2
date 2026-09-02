@@ -1,6 +1,6 @@
 module Domain.Project.Graph.LayoutSpec (spec) where
 
-import Data.List (find)
+import Data.List (find, nub)
 import Data.Maybe (fromJust, isJust, mapMaybe)
 import qualified Data.Text as T
 import Domain.Project.Graph.Layout (layout)
@@ -42,6 +42,22 @@ overlaps a b = ov ptX szW && ov ptY szH
     ov coord dim =
       coord (pnTopLeft a) < coord (pnTopLeft b) + dim (pnSize b)
         && coord (pnTopLeft b) < coord (pnTopLeft a) + dim (pnSize a)
+
+{- | Every segment of an edge that passes through the interior of some
+node's box.
+-}
+crossings :: Diagram -> PlacedEdge -> [(NodeId, Point, Point)]
+crossings d e =
+  [ (pnId n, a, b)
+  | (a, b) <- zip (pePoints e) (drop 1 (pePoints e))
+  , n <- diagramNodes d
+  , let Point nx ny = pnTopLeft n
+  , let Size nw nh = pnSize n
+  , min (ptX a) (ptX b) < nx + nw
+  , nx < max (ptX a) (ptX b)
+  , min (ptY a) (ptY b) < ny + nh
+  , ny < max (ptY a) (ptY b)
+  ]
 
 pairs :: [a] -> [(a, a)]
 pairs xs = [(a, b) | (i, a) <- zip [0 :: Int ..] xs, (j, b) <- zip [0 ..] xs, i < j]
@@ -133,6 +149,43 @@ spec = do
     it "marks the edge that was reversed to break a cycle" $ do
       let d = layout cfg (map node [1 .. 2]) [dep 10 2 1, dep 11 1 2]
       length (filter peReversed (diagramEdges d)) `shouldBe` 1
+
+    it "never routes an edge through a node box" $ do
+      -- The guarantee dummy nodes exist to provide: a multi-row edge
+      -- travels in its own reserved lane rather than across whatever
+      -- happens to sit in the rows it passes.
+      let ns = map node [1 .. 6]
+          -- A chain 1..5, plus a long edge from 1 straight down to 5.
+          es =
+            [ dep 10 2 1
+            , dep 11 3 2
+            , dep 12 4 3
+            , dep 13 5 4
+            , dep 14 5 1
+            , dep 15 6 1
+            ]
+          d = layout cfg ns es
+      concatMap (crossings d) (diagramEdges d) `shouldBe` []
+
+    it "keeps a multi-row edge in one straight lane" $ do
+      let ns = map node [1 .. 4]
+          es = [dep 10 2 1, dep 11 3 2, dep 12 4 3, dep 13 4 1]
+          d = layout cfg ns es
+          long = head (filter ((== EdgeId 13) . peId) (diagramEdges d))
+          columns = nub (map ptX (pePoints long))
+      -- It spans three rows. A staircase would step across a new x in
+      -- every one of them; holding the dummy chain's line means the
+      -- edge only ever occupies three: the port it leaves, the lane it
+      -- travels down, and the port it arrives at.
+      length columns `shouldSatisfy` (<= 3)
+
+    it "emits no element for a dummy node" $ do
+      let ns = map node [1 .. 4]
+          es = [dep 10 2 1, dep 11 3 2, dep 12 4 3, dep 13 4 1]
+          d = layout cfg ns es
+      -- Four real nodes in, four placed nodes out: the dummies the long
+      -- edge routes through never reach the diagram.
+      length (diagramNodes d) `shouldBe` 4
 
     it "handles an empty graph" $ do
       let d = layout cfg [] []

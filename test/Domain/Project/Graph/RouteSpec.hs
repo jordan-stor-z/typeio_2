@@ -2,7 +2,7 @@ module Domain.Project.Graph.RouteSpec (spec) where
 
 import Data.List (nub, sort)
 import qualified Data.Map.Strict as M
-import Domain.Project.Graph.Layer (Arc (..))
+import Domain.Project.Graph.Layer (Segment (..))
 import Domain.Project.Graph.Route (Routed (..), routeEdges)
 import Domain.Project.Graph.Types
 import Test.Hspec
@@ -10,8 +10,8 @@ import Test.Hspec
 cfg :: LayoutConfig
 cfg = defaultLayoutConfig
 
-nid :: Int -> NodeId
-nid = NodeId . fromIntegral
+nid :: Int -> LNode
+nid = Real . NodeId . fromIntegral
 
 eid :: Int -> EdgeId
 eid = EdgeId . fromIntegral
@@ -20,14 +20,23 @@ eid = EdgeId . fromIntegral
 orients an ordinary edge dependent-above-dependency, @a@ here is the
 dependent and @b@ the dependency.
 -}
-arc :: Int -> Int -> Int -> Arc
-arc i a b = Arc (eid i) (nid a) (nid b) False
+arc :: Int -> Int -> Int -> Segment
+arc i a b = Segment (eid i) (nid a) (nid b) False
 
-layersOf :: [(Int, Int)] -> M.Map NodeId Int
+layersOf :: [(Int, Int)] -> M.Map LNode Int
 layersOf = M.fromList . map (\(n, l) -> (nid n, l))
 
-centresOf :: [(Int, Double)] -> M.Map NodeId Double
+centresOf :: [(Int, Double)] -> M.Map LNode Double
 centresOf = M.fromList . map (\(n, x) -> (nid n, x))
+
+{- | These fixtures are all single-segment edges, so each chain is just
+the segment's two ends.
+-}
+chainsOf :: [Segment] -> M.Map EdgeId [LNode]
+chainsOf ss = M.fromList [(segEdge s, [segFrom s, segTo s]) | s <- ss]
+
+route :: M.Map LNode Int -> M.Map LNode Double -> [Segment] -> Routed
+route ls cs ss = routeEdges cfg ls cs ss (chainsOf ss)
 
 edgeById :: Routed -> Int -> PlacedEdge
 edgeById r i = head (filter ((== eid i) . peId) (routedEdges r))
@@ -57,8 +66,7 @@ spec = do
   describe "routeEdges" $ do
     it "emits only axis-aligned segments" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1), (3, 1)])
               (centresOf [(1, 200), (2, 0), (3, 400)])
               [arc 10 1 2, arc 11 1 3]
@@ -66,8 +74,7 @@ spec = do
 
     it "uses at most two bends per edge" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1)])
               (centresOf [(1, 0), (2, 400)])
               [arc 10 1 2]
@@ -75,8 +82,7 @@ spec = do
 
     it "draws a straight line when the ports already line up" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1)])
               (centresOf [(1, 200), (2, 200)])
               [arc 10 1 2]
@@ -86,8 +92,7 @@ spec = do
       -- Three dependencies feeding one dependent: reference image 5
       -- shows three separate arrowheads on one node's top edge.
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1), (3, 1), (4, 1)])
               (centresOf [(1, 200), (2, 0), (3, 200), (4, 400)])
               [arc 10 1 2, arc 11 1 3, arc 12 1 4]
@@ -96,8 +101,7 @@ spec = do
 
     it "gives edges out of the same node distinct ports" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1), (3, 1)])
               (centresOf [(1, 200), (2, 0), (3, 400)])
               [arc 10 1 2, arc 11 1 3]
@@ -106,8 +110,7 @@ spec = do
 
     it "never overlaps two horizontal runs collinearly" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 0), (3, 1), (4, 1)])
               (centresOf [(1, 0), (2, 600), (3, 600), (4, 0)])
               [arc 10 1 3, arc 11 2 4]
@@ -117,8 +120,7 @@ spec = do
     it "shares one track between runs that do not overlap" $ do
       -- Two edges far apart horizontally have no reason to stack.
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 0), (3, 1), (4, 1)])
               (centresOf [(1, 0), (2, 1000), (3, 200), (4, 1200)])
               [arc 10 1 3, arc 11 2 4]
@@ -128,8 +130,7 @@ spec = do
     it "keeps every horizontal run strictly between the two rows" $ do
       let layers = layersOf [(1, 0), (2, 1), (3, 1)]
           r =
-            routeEdges
-              cfg
+            route
               layers
               (centresOf [(1, 200), (2, 0), (3, 400)])
               [arc 10 1 2, arc 11 1 3]
@@ -152,15 +153,14 @@ spec = do
                   <> [(100 + i, fromIntegral (n - i) * 200) | i <- [1 .. n]]
               )
           gapFor n =
-            let r = routeEdges cfg (layers n) (centres n) (wide n)
+            let r = route (layers n) (centres n) (wide n)
                 tops = routedLayerTops r
              in M.findWithDefault 0 1 tops - M.findWithDefault 0 0 tops
       gapFor 6 `shouldSatisfy` (> gapFor 1)
 
     it "ends an ordinary edge on the dependent, above its dependency" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1)])
               (centresOf [(1, 200), (2, 200)])
               [arc 10 1 2]
@@ -170,18 +170,16 @@ spec = do
 
     it "points a reversed edge the other way, since the arrow follows the data" $ do
       let r =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1)])
               (centresOf [(1, 200), (2, 200)])
-              [(arc 10 1 2) {arcReversed = True}]
+              [(arc 10 1 2) {segReversed = True}]
           e = edgeById r 10
       ptY (last (pePoints e)) `shouldSatisfy` (> ptY (head (pePoints e)))
 
     it "is deterministic" $ do
       let go =
-            routeEdges
-              cfg
+            route
               (layersOf [(1, 0), (2, 1), (3, 1)])
               (centresOf [(1, 200), (2, 0), (3, 400)])
               [arc 10 1 2, arc 11 1 3]
@@ -189,6 +187,6 @@ spec = do
       routedLayerTops go `shouldBe` routedLayerTops go
 
     it "handles a graph with no edges" $ do
-      let r = routeEdges cfg (layersOf [(1, 0)]) (centresOf [(1, 0)]) []
+      let r = route (layersOf [(1, 0)]) (centresOf [(1, 0)]) []
       routedEdges r `shouldBe` []
       sort (M.keys (routedLayerTops r)) `shouldBe` [0]

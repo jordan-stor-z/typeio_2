@@ -16,6 +16,8 @@ module Domain.Project.Graph.Types
   ( NodeId (..)
   , EdgeId (..)
   , NodeKind (..)
+  , LNode (..)
+  , isDummy
   , LayoutNode (..)
   , LayoutEdge (..)
   , Point (..)
@@ -74,6 +76,27 @@ data LayoutEdge = LayoutEdge
   -- ^ Waits on it; carries the arrowhead. @project.dependency.node_id@.
   }
   deriving (Eq, Show)
+
+{- | A slot in a row: either a real node, or a bend point standing in
+for one row of a multi-row edge.
+
+Dummies exist only inside the pipeline. They take a place in their row's
+ordering and get coordinates like anything else, and then routing
+consumes each one as a bend in its edge's polyline — nothing is ever
+emitted for one, and 'diagramNodes' holds real nodes exclusively. Their
+only visible effect is spacing: reserving room in the rows an edge
+crosses is what opens the lane it travels along, and what stops a
+multi-row edge being drawn straight through a node box.
+-}
+data LNode
+  = Real NodeId
+  | -- | Which edge is passing through, and which row it is passing.
+    Dummy EdgeId Int
+  deriving (Eq, Ord, Show)
+
+isDummy :: LNode -> Bool
+isDummy (Dummy _ _) = True
+isDummy (Real _) = False
 
 data Point = Point
   { ptX :: Double
@@ -142,6 +165,12 @@ data LayoutConfig = LayoutConfig
   -}
   , cfgNodeGap :: Double
   -- ^ Minimum horizontal space between two boxes in the same row.
+  , cfgDummyWidth :: Double
+  {- ^ How much horizontal room a dummy reserves in the row it crosses.
+  Narrow on purpose: a passing edge needs a lane, not a node's worth
+  of space, and charging it full width would balloon any graph with
+  long edges in it.
+  -}
   , cfgTrackGap :: Double
   {- ^ Vertical space between two routing tracks in the same gap. A gap
   carrying more horizontal runs than 'cfgLayerGap' has room for grows
@@ -168,6 +197,7 @@ defaultLayoutConfig =
     { cfgNodeSize = Size 160 64
     , cfgLayerGap = 90
     , cfgNodeGap = 40
+    , cfgDummyWidth = 12
     , cfgTrackGap = 18
     , cfgLabelWidth = 18
     , cfgLabelLines = 3

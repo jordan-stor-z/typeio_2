@@ -3,9 +3,9 @@ out.
 
 See @docs/architecture/graph-rendering.md@ for the full design. What is
 built so far is cycle breaking and layer assignment (#173), median x
-placement (#174) and orthogonal routing (#175). Dummy nodes for
-multi-row edges (#176) and crossing reduction (#177) each replace one
-step below.
+placement (#174), orthogonal routing (#175) and dummy nodes for
+multi-row edges (#176). Crossing reduction (#177) replaces the row
+ordering below.
 -}
 module Domain.Project.Graph.Layout
   ( layout
@@ -16,7 +16,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text.Util (wrapLabel)
 import Domain.Project.Graph.Coord (assignX)
-import Domain.Project.Graph.Layer (assignLayers, breakCycles)
+import Domain.Project.Graph.Layer (assignLayers, breakCycles, insertDummies)
 import Domain.Project.Graph.Route (Routed (..), routeEdges)
 import Domain.Project.Graph.Types
 
@@ -43,35 +43,47 @@ layout cfg ns es =
     arcs = breakCycles ns es
     layers = assignLayers ns arcs
 
-    -- Rows are ordered by node id for now. #177 reorders them to cut
-    -- edge crossings; 'assignX' below is written to leave whatever
-    -- order it is given intact, so the two compose without fighting.
-    rows :: Map Int [NodeId]
+    -- Every multi-row edge becomes a chain through one dummy per row it
+    -- crosses, so from here on every segment spans exactly one gap and
+    -- ordering, placement and routing can each work a gap at a time.
+    (segments, slotLayers, chains) = insertDummies layers arcs
+
+    -- Rows are ordered by slot for now, which puts dummies to the right
+    -- of the real nodes in their row -- the outside lane the reference
+    -- images route long edges along. #177 reorders them to cut
+    -- crossings; 'assignX' leaves whatever order it is given intact, so
+    -- the two compose without fighting.
+    rows :: Map Int [LNode]
     rows =
       M.fromListWith
-        (flip (++))
-        [(layerOf (lnId n), [lnId n]) | n <- sortOn lnId ns]
-    layerOf n = M.findWithDefault 0 n layers
+        (flip (<>))
+        [(l, [n]) | (n, l) <- sortOn fst (M.toList slotLayers)]
+    layerOf n = M.findWithDefault 0 (Real n) slotLayers
 
     Size nodeW _ = cfgNodeSize cfg
     margin = cfgMargin cfg
 
+    widthOf n
+      | isDummy n = cfgDummyWidth cfg
+      | otherwise = nodeW
+
     -- 'assignX' works in its own coordinate space, which can run
     -- negative. Shift the whole drawing so the leftmost box's left edge
     -- lands on the margin, and hand the shifted centres to routing --
-    -- both node boxes and edge ports have to be measured from the same
+    -- node boxes and edge ports have to be measured from the same
     -- origin, or the edges draw somewhere the nodes are not.
-    rawCentres = assignX (nodeW + cfgNodeGap cfg) rows arcs
+    rawCentres = assignX widthOf (cfgNodeGap cfg) rows segments
+    realCentres = [x | (n, x) <- M.toList rawCentres, not (isDummy n)]
     shift
-      | M.null rawCentres = 0
-      | otherwise = margin + nodeW / 2 - minimum (M.elems rawCentres)
+      | null realCentres = 0
+      | otherwise = margin + nodeW / 2 - minimum realCentres
     centres = M.map (+ shift) rawCentres
-    centreXOf n = M.findWithDefault (margin + nodeW / 2) n centres
+    centreXOf n = M.findWithDefault (margin + nodeW / 2) (Real n) centres
 
     -- Routing owns vertical spacing: how tall a gap must be is a
     -- function of how many horizontal runs cross it, so rows cannot be
     -- positioned before the edges through them are known.
-    routed = routeEdges cfg layers centres arcs
+    routed = routeEdges cfg slotLayers centres segments chains
 
     topLeftOf n =
       Point
