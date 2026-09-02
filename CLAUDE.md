@@ -181,6 +181,23 @@ Quick summary:
   [`docs/development/ci.md`](docs/development/ci.md)'s "E2E test
   workflow" section for the full mechanics. If it's unclear at
   creation time, skip it — a PR can still be labeled directly later.
+- **File a new issue for an out-of-scope finding, rather than fixing it
+  inline or silently dropping it.** When work on one issue surfaces a
+  distinct problem outside that issue's scope (a bug, inconsistency,
+  stale doc, missing test, etc.), open a new GitHub issue for it with the
+  correct `type:*`/`area:*` labels (per
+  [`docs/development/labels.md`](docs/development/labels.md)) instead of
+  folding an unrelated fix into the current PR (scope creep) or just
+  letting the finding evaporate because it was only ever mentioned in
+  conversation.
+  - **Before filing, check for an existing issue** —
+    `gh issue list --search "<keywords>"` (try a couple of related-term
+    variants too, since exact wording won't always match) across *both*
+    open and closed issues — to avoid duplicate bookkeeping. Only file if
+    nothing already covers it.
+  - This is about *out-of-scope* findings specifically. A small fix
+    squarely inside the current PR's own diff (e.g. a typo on a line
+    already being touched) is still fine to just fix inline.
 - Branch naming: `feature/issue-$N-<short-description>` for issue `$N`.
 - Workflow:
   1. `gh issue view <n> --comments` to read the ticket — **`--comments`
