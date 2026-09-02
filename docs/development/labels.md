@@ -82,12 +82,52 @@ mechanics.
 Another special-purpose label outside the `type:*`/`area:*` taxonomy —
 same bucket as `run-e2e` above, not a `type:*`/`area:*` label itself.
 
-Applied by the user to a PR they've reviewed and want merged. It's the
-merge-authorization signal `CLAUDE.md`'s Git Safety & Branch Boundaries
-section requires before merging any PR is allowed — without it, a PR
-sits open regardless of how ready its checks/diff look. Applying it is
-the user's call to make, not something to add unprompted or infer from
-a PR just having green checks or looking finished.
+Applied by the user to a PR they've reviewed and want merged. It's one
+of the two merge-authorization signals `CLAUDE.md`'s Git Safety & Branch
+Boundaries section accepts before merging any PR is allowed (the other
+is `review:pre-approve`, below) — with neither, a PR sits open
+regardless of how ready its checks/diff look. Applying it is the user's
+call to make, not something to add unprompted or infer from a PR just
+having green checks or looking finished.
+
+This one is *after-the-fact*: it says "I have looked at this diff."
+
+## `review:pre-approve`
+
+The issue-side counterpart to `review:approved`, and the other
+merge-authorization signal — same special-purpose bucket, not a
+`type:*`/`area:*` label.
+
+Applied by the user to an **issue**, ahead of the work: it authorizes
+merging whichever PR closes that issue, before that PR exists. On a
+pre-approved issue, the Hand-off Rule's "open a PR and stop" doesn't
+apply — the PR is opened, required checks are waited on, and then it's
+queued for merge (`gh pr merge --merge`, which enqueues into this
+repo's [merge queue](ci.md#merge-queue)) without waiting for a separate
+`review:approved` on the PR.
+
+The point is latency: for work whose shape the user already agreed to
+when filing the ticket, a second round-trip to label the PR adds a wait
+without adding review. It's the same authorization, just given earlier.
+
+Boundaries, since it's granted sight-unseen:
+
+- **It covers exactly one PR** — the one that closes that issue, via
+  GitHub's closing-issue-references (`Closes #N`), the same linkage
+  `run-e2e` uses. It doesn't carry to sibling PRs, follow-ups, or a
+  later PR reopening the same ground.
+- **It lapses if the PR outgrows the issue.** Pre-approval was granted
+  against the ticket's scope; a PR that picked up unrelated changes
+  isn't what was approved, so it falls back to needing
+  `review:approved` on the PR itself. (Out-of-scope findings should be
+  getting their own issue anyway — see `CLAUDE.md`'s Ticket & Branching
+  Conventions.)
+- **It authorizes the merge, not a shortcut to it.** Required checks
+  still have to pass, the change is still verified and still gets its
+  tests, and unresolved review feedback on the PR still blocks.
+- **It's the user's call to apply**, like `review:approved` — never
+  self-applied to an issue, and never inferred from the user sounding
+  enthusiastic about the ticket.
 
 ## When to apply labels
 
@@ -96,3 +136,8 @@ Per `CLAUDE.md`'s Ticket & Branching Conventions: apply the appropriate
 afterthought — `gh issue create` accepts `--label` directly. Also apply
 `run-e2e` at issue-creation time when the work will need E2E coverage —
 see the `run-e2e` section above.
+
+`review:pre-approve` is the user's to apply, at issue-creation or
+triage time, on tickets whose outcome they're willing to authorize in
+advance. `review:approved` goes on a PR, after review. Neither is ever
+applied by an agent.

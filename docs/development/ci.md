@@ -70,6 +70,15 @@ re-runs `test` against *that*, and only merges for real once it passes.
 If it fails, that entry is dropped from the queue (not merged) without
 blocking whatever's queued behind it.
 
+**Who may enqueue**: queueing a PR is a merge, so it needs the same
+authorization any merge does — `review:approved` on the PR, or
+`review:pre-approve` on the issue it closes. See
+[`labels.md`](labels.md)'s sections on those two labels, and
+`CLAUDE.md`'s Git Safety & Branch Boundaries section. Once a PR is
+queued the work is handed to GitHub; there's nothing further to do but
+report it, and a dropped entry (its merge-group `test` failed) is a
+result to investigate, not to blindly re-queue.
+
 **Why**: without this, `main`'s branch protection needing `test` to
 pass "up to date" (`required_status_checks.strict`) meant *any* PR
 merging into `main` flipped every other open PR to "out of date,"
