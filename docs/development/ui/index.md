@@ -17,6 +17,11 @@ page.
   a per-view one.
 - [**Design system**](design-system.md) — the actual color/theme tokens,
   and the indicator/loading-state patterns built on top of them.
+- [**Graph rendering**](graph-rendering.md) — how the project dependency
+  graph is laid out and drawn. ⚠️ Currently describes *target*
+  architecture for work in progress (#172): the graph is still
+  D3-rendered on the client today, and that doc's status table says what
+  has actually landed.
 
 See also [`docs/development/frontend/`](../frontend/) for how htmx and
 hyperscript — the client-side libraries doing the swapping and the small
