@@ -176,6 +176,13 @@ backgrounding `cabal run server`, seeding via
 `POST /api/central/seed-database`, then `npm test`); this section covers
 when it runs.
 
+**Retries (#152):** `playwright.config.ts` sets `retries: process.env.CI
+? 2 : 0` — a transient timing flake in CI (htmx's debounce/indicator-box
+timing, the kind `edit-node.spec.ts`'s own comments call out) gets a
+couple of automatic reruns instead of failing the whole check outright.
+Locally (`CI` unset) a failure gets zero retries, on purpose — it should
+be investigated immediately, not silently retried away.
+
 Three triggers, matched to three different needs:
 
 - **`workflow_dispatch`** — run it right now, on demand, against any
