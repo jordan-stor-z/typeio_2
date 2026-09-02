@@ -15,7 +15,7 @@
 | Types, cycle breaking, layer assignment, flagged SVG render | #173 | ✅ |
 | x-coordinate assignment (median/priority) | #174 | ✅ |
 | Orthogonal routing: ports and tracks | #175 | ✅ |
-| Dummy nodes for multi-level edges | #176 | ⏳ |
+| Dummy nodes for multi-level edges | #176 | ✅ |
 | Crossing reduction | #177 | ⏳ |
 | Node chrome (rects, labels, palette) | #178 | ⏳ |
 | Scroll-and-zoom viewport | #179 | ⏳ |
@@ -205,10 +205,16 @@ put the leaf tasks on top.
 direction. Layers are contiguous from 0. Disconnected components are
 layered independently.
 
-### 3. Insert dummies — `Graph.Layer` ⏳ #176
+### 3. Insert dummies — `Graph.Layer` ✅ #176
 
 An edge spanning layers 2→5 becomes a chain through one dummy per
 intervening layer.
+
+A dummy reserves `cfgDummyWidth` of horizontal room, not a full node's
+worth — a passing edge needs a lane, and charging it a whole box would
+balloon any graph with long edges in it. Dummies also outrank real nodes
+in phase 5's priority order, so a chain of them holds its line and the
+edge travels straight down instead of zig-zagging around what it passes.
 
 **Guarantees:** every edge connects *adjacent* layers, which is what
 lets phases 4–6 stay simple.
@@ -259,11 +265,14 @@ separate is what lets this run without undoing that.
   cross at the boundary. Multiple edges into one node get **distinct,
   spread** ports — never merged into a shared trunk.
 
-  Only the top and bottom sides are in use today. That is correct for
-  an edge between adjacent rows, which is what the reference images show
-  entering a node's top edge even when it comes from another column.
-  Left and right ports are what an edge routed *around* the drawing
-  needs, and those arrive with #176.
+  **Only the top and bottom sides are used, and that turned out to be
+  enough.** R8 in the proposal reads the reference images as needing
+  left and right ports too, for the edges that travel around the
+  drawing. In practice a multi-row edge gets its own reserved lane
+  (phase 3) and enters its target from above like any other, so the
+  "routes around rather than through" requirement is met without side
+  entry. Left/right ports would be a cosmetic change, not a structural
+  one — don't add them expecting to fix a routing problem.
 - **Tracks.** The inter-layer gap divides into horizontal tracks. Each
   horizontal run gets a track such that no two edges share a track *and*
   an overlapping x-interval (greedy interval colouring by span). The
@@ -282,11 +291,15 @@ separate is what lets this run without undoing that.
   owns y.
 
 **Guarantees:** every segment is axis-aligned. No two horizontal runs
-overlap collinearly. No polyline intersects a node box — **for edges
-between adjacent rows**. An edge spanning more than one row currently
-runs straight up past the rows in between, and only misses their boxes
-by luck of where placement happened to put them; #176's dummy nodes are
-what reserve it a lane and make the guarantee unconditional.
+overlap collinearly. **No polyline intersects a node box** — now
+unconditional, including multi-row edges, since #176 gives each one a
+reserved lane rather than leaving it to miss the rows it passes by luck.
+
+A multi-row edge bends at each end and runs straight in between, so it
+occupies exactly three columns: the port it leaves, the lane it travels,
+and the port it arrives at. More than two bends on such an edge is
+expected — "at most two bends" is a property of a single segment, not of
+a whole edge.
 
 ## Coordinate conventions
 

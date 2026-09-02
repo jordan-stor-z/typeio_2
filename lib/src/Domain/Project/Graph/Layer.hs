@@ -5,8 +5,10 @@ See @docs/architecture/graph-rendering.md@.
 -}
 module Domain.Project.Graph.Layer
   ( Arc (..)
+  , Segment (..)
   , breakCycles
   , assignLayers
+  , insertDummies
   ) where
 
 import Data.Foldable (foldl')
@@ -18,6 +20,7 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Domain.Project.Graph.Types
   ( EdgeId
+  , LNode (..)
   , LayoutEdge (..)
   , LayoutNode (..)
   , NodeId
@@ -144,3 +147,63 @@ assignLayers ns arcs = snd (foldl' go (S.empty, M.empty) (sort (map lnId ns)))
                 [] -> 0
                 ls -> 1 + maximum ls
            in (S.delete n active', M.insert n lvl memo')
+
+{- | One step of an edge's route: from a slot in one row to a slot in
+the row directly below it.
+
+After 'insertDummies' every edge is a chain of these, so no segment ever
+spans more than one gap — which is what lets ordering, placement and
+routing all work one gap at a time.
+-}
+data Segment = Segment
+  { segEdge :: EdgeId
+  , segFrom :: LNode
+  -- ^ In the upper row.
+  , segTo :: LNode
+  -- ^ In the row directly below.
+  , segReversed :: Bool
+  }
+  deriving (Eq, Show)
+
+{- | Break every multi-row edge into a chain through one dummy per row
+it crosses.
+
+An edge from row 2 to row 5 becomes 2→d3, d3→d4, d4→5. The dummies then
+take part in ordering and placement like any other slot, which is what
+reserves the edge a lane through the rows it passes rather than letting
+it cut across whatever happens to be there.
+
+Returns the segments, each row's slots, and the chain per edge so
+routing can stitch a polyline back together.
+-}
+insertDummies ::
+  Map NodeId Int ->
+  [Arc] ->
+  ([Segment], Map LNode Int, Map EdgeId [LNode])
+insertDummies layers arcs =
+  ( concatMap segmentsOf arcs
+  , M.fromList (realSlots <> dummySlots)
+  , M.fromList (map (\a -> (arcEdge a, chainOf a)) arcs)
+  )
+  where
+    layerOf n = M.findWithDefault 0 n layers
+    realSlots = [(Real n, l) | (n, l) <- M.toList layers]
+    dummySlots =
+      [ (d, l)
+      | a <- arcs
+      , (d, l) <- zip (dummiesOf a) [layerOf (arcFrom a) + 1 ..]
+      ]
+
+    dummiesOf a =
+      [ Dummy (arcEdge a) l
+      | l <- [layerOf (arcFrom a) + 1 .. layerOf (arcTo a) - 1]
+      ]
+
+    chainOf a = [Real (arcFrom a)] <> dummiesOf a <> [Real (arcTo a)]
+
+    segmentsOf a =
+      [ Segment (arcEdge a) u v (arcReversed a)
+      | (u, v) <- zip chain (drop 1 chain)
+      ]
+      where
+        chain = chainOf a
