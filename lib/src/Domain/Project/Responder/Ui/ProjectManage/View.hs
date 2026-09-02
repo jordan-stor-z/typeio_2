@@ -71,6 +71,10 @@ templateProject py = do
   div_ [id_ "view"] $ do
     div_
       [ id_ "tree-container"
+      , -- The graph's scroll container (#179), and scrolling a div with
+        -- the keyboard requires it to be focusable. Hidden scrollbars
+        -- make this the only way to pan without a pointer.
+        tabindex_ "0"
       , hxGet_ (graphLink pid)
       , hxPushUrl_ False
       , hxSwap_ "innerHTML"

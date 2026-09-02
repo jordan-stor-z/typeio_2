@@ -122,3 +122,36 @@ hxVals'_ =
 boolText :: Bool -> Text
 boolText True = "true"
 boolText False = "false"
+
+-- The graph viewport (#179) reads these off the rendered SVG. They are
+-- `data-*` rather than invented attributes so the markup stays valid,
+-- and they exist because only the server knows the values: the natural
+-- size the layout engine produced, and where in it the project root
+-- landed. Both are in the SVG's own pixel space, so the client can use
+-- them directly as scroll offsets without re-deriving anything.
+
+dataBaseWidth_ :: Text -> Attributes
+dataBaseWidth_ = makeAttributes "data-base-width"
+
+dataBaseHeight_ :: Text -> Attributes
+dataBaseHeight_ = makeAttributes "data-base-height"
+
+dataRootX_ :: Text -> Attributes
+dataRootX_ = makeAttributes "data-root-x"
+
+dataRootY_ :: Text -> Attributes
+dataRootY_ = makeAttributes "data-root-y"
+
+{- | The @title@ /attribute/ -- a hover tooltip -- rather than the
+document's title element. Lucid's own @title_@ is that element (see
+@Domain.Central.Responder.Ui.IndexView@), so the attribute needs a name
+of its own here instead of shadowing it.
+-}
+titleAttr_ :: Text -> Attributes
+titleAttr_ = makeAttributes "title"
+
+{- | Accessible name for a control with no visible text of its own,
+such as the graph viewport's icon-only zoom buttons.
+-}
+ariaLabel_ :: Text -> Attributes
+ariaLabel_ = makeAttributes "aria-label"
