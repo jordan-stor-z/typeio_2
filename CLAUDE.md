@@ -59,7 +59,7 @@ cases:
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
-| Anything touching the dependency graph's layout or rendering (#172-#183) | `docs/development/ui/graph-rendering.md` -- **target** architecture while that work is in flight; its status table says what has actually landed |
+| Anything touching the dependency graph's layout or rendering (#172-#183) | `docs/architecture/graph-rendering.md` -- the design being built to; its status table says which phases actually exist yet |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
@@ -68,11 +68,16 @@ cases:
 If you're about to touch code in one of these areas and haven't read its
 doc yet, read it first — that's the point of it existing.
 
-**`docs/development/` vs. `docs/solution-proposals/`:** for "how do I
-build X" or "how does X work," check `docs/development/` first — it
-describes how the app *actually, currently* works, and is the primary
-reference for development decisions. If something isn't reflected there,
-it either isn't built yet or isn't true. `docs/solution-proposals/` is
+**Three doc directories, three different jobs:** for "how do I build X"
+or "how does X work," check `docs/development/` first — it describes how
+the app *actually, currently* works, and is the primary reference for
+development decisions. If something isn't reflected there, it either
+isn't built yet or isn't true. `docs/architecture/` is for "how is this
+designed, and what must I not break" — module structure, contracts and
+invariants; unlike `development/`, a doc there may describe a design
+that is only partly built, so **read its status markers before treating
+any section as current behavior** (`docs/architecture/README.md` has the
+full distinction). `docs/solution-proposals/` is
 for "why was X decided this way" — a point-in-time investigation and
 decision record, not a live source of truth. A proposal's existence,
 even one with a confident "Decision" section, does **not** mean it was

@@ -4,7 +4,7 @@
   (#172 is the architecture doc, written first and updated throughout;
   #173–#183 are the sequence in §11). Nothing has been built yet — per
   `CLAUDE.md`'s #50 note, this document's existence is not evidence any
-  of it landed; check `docs/development/ui/graph-rendering.md` and the
+  of it landed; check `docs/architecture/graph-rendering.md` and the
   issues for what actually has.
 - **Date:** 2026-09-02
 - **Related:** #169 (this spike), #162 (replaced the force simulation
@@ -721,25 +721,31 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
 **A. `docs: architecture document for the Haskell graph-rendering pipeline`** — #172
 `type:documentation`, `area:backend`, `area:ui` — **M** — *first, then
 updated by every issue below*
-- `docs/development/ui/graph-rendering.md`: the module map, the core
+- `docs/architecture/graph-rendering.md`: the module map, the core
   types, each phase's input/output contract and the invariants it
   guarantees, the coordinate conventions, the edge-direction rule and
   its implementation trap (D1 in §3), the DOM contract issue 9 must not
   break, the viewport contract (§6), and where the specs live.
 - *Value:* this proposal is a **decision record**, and `docs/README.md`
   is explicit that a solution proposal is not a live source of truth.
-  Without a development-facing doc, every issue below starts by
-  re-deriving the design from a document that is deliberately frozen.
-  This is the reference each implementation issue works against.
-- *Not a normal `docs/development/` doc while the work is in flight.*
-  That directory documents what the app *actually does today*; this one
-  starts as a build target. It therefore carries an explicit status
-  banner and a per-phase ✅/⏳ table keyed to the issues below, and every
-  issue that lands flips its own row. Issue 11 is the final pass that
-  removes the banner once nothing is ⏳.
-- *AC:* the doc exists with every phase described and marked ⏳; the
-  banner states plainly that it describes intended, not current,
-  behaviour; `docs/README.md` indexes it.
+  Without a live reference, every issue below starts by re-deriving the
+  design from a document that is deliberately frozen. This is the one
+  each implementation issue works against.
+- *It lives in `docs/architecture/`, a directory this issue creates*,
+  rather than in `docs/development/`. The latter documents what the app
+  *actually does today*, and this doc starts as a build target — so
+  putting it there would mean a doc that contradicts its own directory's
+  contract. `architecture/` is for design: structure, contracts and
+  invariants, which may legitimately describe something only partly
+  built so long as it says which parts exist. It carries a status line
+  and a per-phase ✅/⏳ table keyed to the issues below; each issue flips
+  its own row, and issue 11 drops the status line once nothing is ⏳.
+  The doc stays in `architecture/` afterwards — a module map and phase
+  contracts remain useful after shipping, and are a different kind of
+  document from "how to run the E2E suite".
+- *AC:* the doc exists with every phase described and marked ⏳; its
+  status line states plainly which parts are not built; `docs/README.md`
+  and `docs/architecture/README.md` index it.
 
 ### Core sequence
 
@@ -852,7 +858,7 @@ updated by every issue below*
 
 **11. `docs: reconcile the architecture document with what shipped`** — #183
 `type:documentation` — **M** — *needs 9, 10*
-- Final pass over issue A's `docs/development/ui/graph-rendering.md`:
+- Final pass over issue A's `docs/architecture/graph-rendering.md`:
   correct anything the implementation did differently, flip the last
   rows to ✅ and delete the "target architecture" banner, so it becomes
   an ordinary `docs/development/` doc describing what the app does.

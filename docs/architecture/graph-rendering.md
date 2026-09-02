@@ -1,20 +1,14 @@
 # Dependency Graph Rendering
 
-> ## ⚠️ Target architecture — not yet how the app works
+> **Status: in flight.** This describes the design the graph is being
+> built to. Today the graph is still rendered by D3 on the client
+> (`static/script/nodetree2.js`); every phase below marked ⏳ does not
+> exist yet.
 >
-> **Unlike every other doc in `docs/development/`, this one describes
-> intended behaviour rather than current behaviour.** It was written
-> first, on purpose (#172), so that the issues delivering this work have
-> a stable reference instead of re-deriving the design each time.
->
-> Today the dependency graph is still rendered by D3 on the client
-> (`static/script/nodetree2.js`). Every section below marked ⏳ is not
-> built. The status table is the source of truth for what has actually
-> landed; **check it before trusting any section as a description of
-> reality.**
->
-> #183 removes this banner once nothing is ⏳, at which point this
-> becomes an ordinary `docs/development/` doc.
+> The status table is the source of truth for what has landed — check it
+> before reading any section as a description of current behaviour. Each
+> issue flips its own row as it merges, and #183 drops this status line
+> once nothing is ⏳.
 
 | Phase / concern | Issue | Status |
 |---|---|---|
@@ -32,10 +26,15 @@
 
 For *why* any of this was chosen — the options weighed, the algorithms
 rejected, the requirements derived from the reference images — see
-[`../../solution-proposals/haskell-graph-rendering.md`](../../solution-proposals/haskell-graph-rendering.md).
+[`../solution-proposals/haskell-graph-rendering.md`](../solution-proposals/haskell-graph-rendering.md).
 That document is a frozen decision record; **this** one is the live
 reference. When they disagree, this one wins and the other one is
 history.
+
+For how to *work with* the surrounding code — running the app, the
+`#container`/`#view` pattern, Lucid conventions, running the test suites
+— see [`../development/`](../development/). This doc covers the graph's
+design; that directory covers the day-to-day.
 
 ## What the change is, in one paragraph
 
@@ -86,7 +85,7 @@ responder does the I/O on either side of it and nothing else.
 The layout engine takes plain records and returns plain records. This is
 not stylistic: it is what keeps these modules inside the "pure,
 dependency-free" tier that
-[`../unit-testing.md`](../unit-testing.md) says the unit suite covers,
+[`../development/unit-testing.md`](../development/unit-testing.md) says the unit suite covers,
 alongside `Common.Validation` and `Data.Text.Util`. A single `persistent`
 import in `Graph.Coord` would drag the whole pipeline into the
 integration-test tier and cost this effort its main advantage over the
@@ -191,8 +190,16 @@ across runs.
 
 ### 2. Assign layers — `Graph.Layer` ⏳ #173
 
-Longest-path layering over a topological order: a node with no
-dependencies is layer 0; otherwise `1 + max` over its dependencies.
+Longest-path layering over a topological order: a node with **no
+dependents** — nothing waiting on it — is layer 0; any other node sits
+one row below the lowest of its dependents.
+
+Note the direction. Layering runs *dependent to dependency*, so a node
+is drawn above the work it is waiting on. That is what makes the project
+root head the graph in the reference images: the root depends on its
+work, so the work descends from it. Layering by *dependencies* instead
+(a node with no dependencies at layer 0) would invert the drawing and
+put the leaf tasks on top.
 
 **Guarantees:** every edge spans at least one layer, in a consistent
 direction. Layers are contiguous from 0. Disconnected components are
@@ -260,8 +267,12 @@ node box. No two horizontal runs overlap collinearly.
 
 - SVG coordinates: **x right, y down**. One layout unit is one CSS pixel
   at the default zoom.
-- **Layer 0 is at the top**, at `cfgMargin`. The project root is layer 0,
-  and its dependencies descend from it.
+- **Layer 0 is at the top**, at `cfgMargin`, and layer number increases
+  downward into dependencies. The project root heads the graph *because
+  it depends on its work* — not by special-casing it. Nothing guarantees
+  the root is alone in layer 0, or even in it: a dependency row recorded
+  as "task X depends on the project root" puts the root below X, which
+  is the rule working correctly on data that says something unusual.
 - `pnTopLeft` is the box's top-left corner, not its centre. (The current
   D3 code positions by centre; do not carry that habit over.)
 - `diagramBounds` includes `cfgMargin` on all sides.
@@ -272,7 +283,7 @@ node box. No two horizontal runs overlap collinearly.
 arrowhead sits on **B, the dependent** — it points from the work that
 must finish toward the work waiting on it.
 
-Mapping to the database ([`../backend/database-schema.md`](../backend/database-schema.md)):
+Mapping to the database ([`../development/backend/database-schema.md`](../development/backend/database-schema.md)):
 `project.dependency` stores `node_id` **depends on** `to_node_id`.
 Therefore:
 
@@ -308,7 +319,7 @@ coordinates baked in. No `#graph-data` JSON, no layout script.
 - Edges: `<path class="link" d="M… L… L…">` with `marker-end`.
 - New SVG elements/attributes go in `Common.Web.Elements` /
   `Common.Web.Attributes` — the established extension point (see
-  [`haskell-rendering.md`](haskell-rendering.md)). `rect_` and
+  [`../development/ui/haskell-rendering.md`](../development/ui/haskell-rendering.md)). `rect_` and
   `transform_` do not exist yet and belong there, not inline.
 
 ### Labels
@@ -345,7 +356,7 @@ The reference images in #169 supply **shape and layout only, not
 colour**. The graph keeps the app's own theme: `global.css`'s
 `--bg-start`/`--bg-end` background, `--accent-bold` for the root node,
 `--accent-light` for work nodes, `--text-primary` for labels. See
-[`design-system.md`](design-system.md).
+[`../development/ui/design-system.md`](../development/ui/design-system.md).
 
 ## Viewport ⏳ #179
 
@@ -394,7 +405,7 @@ database row can break.
 
 ## Testing
 
-Specs mirror the module path, per [`../unit-testing.md`](../unit-testing.md):
+Specs mirror the module path, per [`../development/unit-testing.md`](../development/unit-testing.md):
 
 ```
 test/Domain/Project/Graph/LayerSpec.hs
