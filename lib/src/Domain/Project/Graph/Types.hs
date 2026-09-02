@@ -137,9 +137,17 @@ data Diagram = Diagram
 data LayoutConfig = LayoutConfig
   { cfgNodeSize :: Size
   , cfgLayerGap :: Double
-  -- ^ Vertical space between one row of nodes and the next.
+  {- ^ Minimum vertical space between one row of nodes and the next. A
+  gap grows past this when routing needs more tracks than it fits.
+  -}
   , cfgNodeGap :: Double
   -- ^ Minimum horizontal space between two boxes in the same row.
+  , cfgTrackGap :: Double
+  {- ^ Vertical space between two routing tracks in the same gap. A gap
+  carrying more horizontal runs than 'cfgLayerGap' has room for grows
+  to fit them, so a busy graph stays legible and a simple one stays
+  tight.
+  -}
   , cfgLabelWidth :: Int
   -- ^ Characters per label line.
   , cfgLabelLines :: Int
@@ -160,6 +168,7 @@ defaultLayoutConfig =
     { cfgNodeSize = Size 160 64
     , cfgLayerGap = 90
     , cfgNodeGap = 40
+    , cfgTrackGap = 18
     , cfgLabelWidth = 18
     , cfgLabelLines = 3
     , cfgMargin = 48

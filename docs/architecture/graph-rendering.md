@@ -14,7 +14,7 @@
 |---|---|---|
 | Types, cycle breaking, layer assignment, flagged SVG render | #173 | ✅ |
 | x-coordinate assignment (median/priority) | #174 | ✅ |
-| Orthogonal routing: ports and tracks | #175 | ⏳ |
+| Orthogonal routing: ports and tracks | #175 | ✅ |
 | Dummy nodes for multi-level edges | #176 | ⏳ |
 | Crossing reduction | #177 | ⏳ |
 | Node chrome (rects, labels, palette) | #178 | ⏳ |
@@ -251,13 +251,19 @@ separate is what lets this run without undoing that.
 **Guarantees:** no two node boxes overlap; every pair is at least
 `cfgNodeGap` apart horizontally.
 
-### 6. Route edges — `Graph.Route` ⏳ #175, #180
+### 6. Route edges — `Graph.Route` ✅ #175 · ⏳ #180
 
 - **Ports.** Each node side carries slots. An edge claims the slot
   matching the direction it arrives from; slots on a side are ordered by
   the opposite endpoint's position, so edges meeting the same side don't
   cross at the boundary. Multiple edges into one node get **distinct,
   spread** ports — never merged into a shared trunk.
+
+  Only the top and bottom sides are in use today. That is correct for
+  an edge between adjacent rows, which is what the reference images show
+  entering a node's top edge even when it comes from another column.
+  Left and right ports are what an edge routed *around* the drawing
+  needs, and those arrive with #176.
 - **Tracks.** The inter-layer gap divides into horizontal tracks. Each
   horizontal run gets a track such that no two edges share a track *and*
   an overlapping x-interval (greedy interval colouring by span). The
@@ -270,13 +276,26 @@ separate is what lets this run without undoing that.
   get a small arc in the horizontal segment so the reader can see the
   lines don't connect.
 
-**Guarantees:** every segment is axis-aligned. No polyline intersects a
-node box. No two horizontal runs overlap collinearly.
+- **Vertical spacing is decided here, not in phase 5.** How tall a gap
+  has to be is a function of how many tracks cross it, so `Graph.Route`
+  returns each row's y alongside the edges. Phase 5 owns x; this phase
+  owns y.
+
+**Guarantees:** every segment is axis-aligned. No two horizontal runs
+overlap collinearly. No polyline intersects a node box — **for edges
+between adjacent rows**. An edge spanning more than one row currently
+runs straight up past the rows in between, and only misses their boxes
+by luck of where placement happened to put them; #176's dummy nodes are
+what reserve it a lane and make the guarantee unconditional.
 
 ## Coordinate conventions
 
 - SVG coordinates: **x right, y down**. One layout unit is one CSS pixel
   at the default zoom.
+- **Row spacing is not uniform.** A gap is at least `cfgLayerGap` tall
+  and grows to fit the routing tracks crossing it, so rows are placed by
+  accumulating gap heights rather than by multiplying an index. Phase 6
+  computes them.
 - **Layer 0 is at the top**, at `cfgMargin`, and layer number increases
   downward into dependencies. The project root heads the graph *because
   it depends on its work* — not by special-casing it. Nothing guarantees
