@@ -3,7 +3,7 @@ name:               typeio
 version:            0.1.0.0
 -- synopsis:
 -- description:
-license:            BSD-3-Clause
+license:            NONE
 license-file:       LICENSE
 author:             jordanstorz
 maintainer:         jm.storz@gmail.com
