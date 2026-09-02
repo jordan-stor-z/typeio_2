@@ -290,6 +290,27 @@ far apart tends to get pushed to the margin by crossing reduction.
 data LNode = Real NodeId | Dummy EdgeId Int   -- which edge, which layer
 ```
 
+**Dummy nodes are never rendered — the user never sees one.** They exist
+only inside the pipeline: a dummy takes a slot in an intermediate
+layer's ordering, gets coordinates like anything else, and is then
+consumed by the routing phase (§4.6), where it becomes a *bend point* in
+its edge's polyline. By the time a `Diagram` (§4.7) exists they are
+gone — `diagramNodes` holds only real nodes, and the long edge is a
+single `PlacedEdge` whose points happen to pass through where its
+dummies sat. Nothing emits an element for them, and no id, label or
+click target is ever generated for one.
+
+What *is* visible is their effect on spacing. Because a dummy occupies
+horizontal room in each row it passes through, the real nodes in those
+rows are pushed slightly apart to leave a lane for the edge. That is the
+whole point of the mechanism — it is what stops a multi-level edge from
+being drawn straight through a node box — and it is why images 3, 4 and
+5 show clear channels where their long edges run.
+
+(The same "internal only" caveat applies to the edge reversals from
+§4.1: reversing a back edge is a layout-time device, and the renderer
+still draws that edge's arrowhead at its true semantic end.)
+
 ### 4.4 Order within layers (crossing reduction)
 
 **Iterated median heuristic:** initialise each layer's order by a DFS
@@ -380,7 +401,7 @@ important property of this design:
 layout :: LayoutConfig -> [LayoutNode] -> [LayoutEdge] -> Diagram
 
 data Diagram = Diagram
-  { diagramNodes  :: [PlacedNode]   -- id, label lines, kind, x, y, w, h
+  { diagramNodes  :: [PlacedNode]   -- real nodes only (§4.3): id, label, kind, x, y, w, h
   , diagramEdges  :: [PlacedEdge]   -- id, polyline points, arrow end, reversed?
   , diagramBounds :: Bounds         -- for the SVG viewBox
   }
