@@ -253,6 +253,23 @@ This is not the minimum feedback arc set (NP-hard); DFS back-edge
 reversal is the standard, linear-time, good-enough answer used by every
 practical implementation.
 
+**Resolved (ticket author, 2026-09-02): break cycles, never refuse to
+draw.** The alternative — detect a cycle and raise an error instead of
+rendering — was considered and rejected. A project whose graph won't
+display at all is a worse failure than one drawn with a single edge
+reversed, not least because the user would then have no way to *see* the
+cycle in order to fix it.
+
+Worth being clear about where the real defence belongs, though.
+Preventing cycles is planned as an **application-level** feature: when a
+user configures a dependency through the UI, that write gets validated
+so the cycle is never created in the first place. That does not exist
+yet and is out of scope here. Once it does, this phase becomes a
+defensive backstop for data that arrived some other way — direct SQL, a
+seed script, rows predating the validation — rather than an expected
+path. It stays either way: a renderer that assumes its input is
+well-formed is a renderer that a single database row can break.
+
 ### 4.2 Assign layers
 
 **Longest-path layering:** `layer n = 0` for a node with no
@@ -501,11 +518,10 @@ plus a non-fit-to-screen default changes the answer:
 1. **Recommended: a native scroll container, with JS for zoom only.**
    The SVG renders at natural size (§5) inside `#tree-container` with
    `overflow: auto`. Panning is then the browser's own scrolling, which
-   already handles mouse drag on scrollbars, wheel, two-finger trackpad,
-   **touch drag with momentum**, keyboard arrows, and the
-   accessibility/screen-reader affordances that come with a real scroll
-   region — none of which have to be written or maintained. That is R18
-   satisfied outright. Zoom (R17) is the only custom part: a scale
+   already handles wheel, two-finger trackpad, **touch drag with
+   momentum**, keyboard arrows, and the accessibility/screen-reader
+   affordances that come with a real scroll region — none of which have
+   to be written or maintained. Zoom (R17) is the only custom part: a scale
    factor applied to the SVG's `width`/`height`, driven by +/− controls,
    `ctrl`/`cmd`+wheel (what a trackpad pinch reports as) and a
    two-pointer pinch handler. R19 is a `scrollTo` on load, centred on
@@ -519,6 +535,29 @@ plus a non-fit-to-screen default changes the answer:
    was too low.
 3. **Keep D3 for zoom alone.** Rejected: 280KB, loaded app-wide, for one
    behaviour.
+
+**Scrollbars are hidden (ticket author, 2026-09-02).** The container
+keeps its scrolling behaviour but loses its visible bars —
+`scrollbar-width: none` plus a `::-webkit-scrollbar { display: none }`
+rule. Two consequences worth building for rather than discovering
+halfway through:
+
+- **Mouse-drag panning has to be added back.** "Drag the scrollbar" was
+  one of the free behaviours option 1 bought; with the bars hidden, a
+  plain mouse with no wheel has no way to pan at all. The fix is small —
+  a pointer drag on the canvas adjusting `scrollLeft`/`scrollTop`, plus
+  a grab cursor, on the order of 15 lines — and it is the better
+  interaction regardless, since dragging the diagram itself is what
+  every map and diagram tool does. Option 1 still comes out well ahead
+  of option 2, which would have to implement this *and* wheel, touch,
+  momentum and keyboard.
+- **The "where am I" cue goes with them.** Scrollbars also signal that
+  there is more canvas and roughly where you are in it, which matters
+  here precisely because R16 means a large graph starts mostly
+  off-screen. Cheap mitigation: the "fit"/recenter control §3 already
+  suggests — one click to see the whole graph, one to return to the
+  root. Keyboard scrolling has to keep working too, so the container
+  stays focusable.
 
 Option 1 is the recommendation, with option 2 as the fallback if native
 scrolling turns out to fight the zoom implementation. The known friction
@@ -569,10 +608,13 @@ assertions once the layout is a pure Haskell function.
 
 ### 8.1 Cycles in the data (must be handled, not assumed away)
 
-Covered in §4.1. Flagged separately here because it is the one input
-condition that can make a layered layout fail outright rather than look
-bad, and because the database explicitly permits it while the current
-layout is accidentally immune to it. Whether reversed edges should be
+Covered in §4.1, and **resolved**: break them, never error out.
+Application-level prevention at write time is planned but unbuilt, so
+this phase stays as a backstop regardless. Flagged separately here
+because it is the one input condition that can make a layered layout
+fail outright rather than merely look bad, and because the database
+explicitly permits it while the current layout is accidentally immune to
+it. Whether reversed edges should be
 *visually* marked (dashed, or a different colour) is an open question —
 recommend not, initially, matching #162's conclusion that marking
 "special" edges added noise readers didn't ask for.
@@ -745,12 +787,16 @@ Sizes are S (<½ day), M (~1 day), L (multi-day).
   panning (R18), a zoom control for R17 (+/− buttons, `ctrl`+wheel,
   two-pointer pinch), the fixed readable default scale (R16), and an
   initial scroll anchored on the project root (R19). Replaces d3-zoom.
+  Scrollbars are hidden (§6), so this also carries pointer-drag panning
+  on the canvas and a fit/recenter control to replace the orientation
+  cue they provided.
 - *Value:* R16–R19 in full. Without it a large project is unusable at
   any zoom — the case the ticket author explicitly called out. Still
   parallelisable with 2–6: it touches the viewport, not the layout.
 - *AC:* the graph opens at the readable default scale with the project
   root in view; zoom in and out works from buttons, `ctrl`+wheel and
-  touch pinch; panning works by mouse drag and by touch drag; no D3 call
+  touch pinch; panning works by mouse drag and by touch drag; no
+  scrollbar is visible while keyboard scrolling still works; no D3 call
   remains in the new script.
 
 **8. `feat: line jumps where edges cross`**
@@ -846,6 +892,15 @@ is still open.** No code has been written.
    expected to overflow the view. This reversed a fit-to-container
    assumption in the first draft; §5, §6 and §11's issue 7 are rewritten
    against it, and issue 7 grew from M to L as a result.
+
+5. **Cycles: break them, never error.** Refusing to render on a
+   detected cycle was considered and rejected (§4.1). Application-level
+   validation that stops cycles being created at all is planned as a
+   future feature, and is not part of this effort.
+6. **Scrollbars are hidden** on the graph's scroll container (§6). This
+   pulls pointer-drag panning and a fit/recenter control into §11's
+   issue 7, since hiding the bars removes both the drag-to-pan
+   affordance and the "where am I" cue they provided.
 
 ### 12.2 Still open
 
