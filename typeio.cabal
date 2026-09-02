@@ -62,6 +62,9 @@ library src
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.Ui.ProjectCreate.Submit
+      -- Exposed for `test-suite integration`'s GraphSpec, which asserts
+      -- on the SVG this renders (#178).
+      , Domain.Project.Responder.Ui.ProjectManage.Graph
       , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Domain.Project.Responder.Ui.ProjectManage.Node.Status
       , Domain.Project.Responder.Ui.ProjectManage.Node.Title
@@ -86,7 +89,6 @@ library src
       , Domain.Project.Responder.Api.Project.Get
       , Domain.Project.Responder.Api.Container
       , Domain.Project.Responder.Ui.Container
-      , Domain.Project.Responder.Ui.ProjectManage.Graph
       , Domain.Project.Responder.Ui.ProjectManage.Link
       , Domain.Project.Responder.Ui.ProjectManage.Node
       , Domain.Project.Responder.Ui.ProjectManage.Node.Detail
@@ -197,6 +199,7 @@ test-suite integration
       Integration.Support
       , Domain.Project.Responder.Api.Node.PostSpec
       , Domain.Project.Responder.Ui.ProjectCreate.SubmitSpec
+      , Domain.Project.Responder.Ui.ProjectManage.GraphSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.DescriptionSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.StatusSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.TitleSpec

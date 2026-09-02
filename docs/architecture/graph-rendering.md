@@ -17,7 +17,7 @@
 | Orthogonal routing: ports and tracks | #175 | ✅ |
 | Dummy nodes for multi-level edges | #176 | ✅ |
 | Crossing reduction | #177 | ✅ |
-| Node chrome (rects, labels, palette) | #178 | ⏳ |
+| Node chrome (rects, labels, palette) | #178 | ✅ |
 | Scroll-and-zoom viewport | #179 | ⏳ |
 | Line jumps at crossings | #180 | ⏳ |
 | Cutover: server layout by default | #181 | ⏳ |
@@ -382,8 +382,14 @@ coordinates baked in. No `#graph-data` JSON, no layout script.
 - Edges: `<path class="link" d="M… L… L…">` with `marker-end`.
 - New SVG elements/attributes go in `Common.Web.Elements` /
   `Common.Web.Attributes` — the established extension point (see
-  [`../development/ui/haskell-rendering.md`](../development/ui/haskell-rendering.md)). `rect_` and
-  `transform_` do not exist yet and belong there, not inline.
+  [`../development/ui/haskell-rendering.md`](../development/ui/haskell-rendering.md)). `rect_`,
+  `rx_` and `transform_` live there now (#173), not inline.
+- **Only geometry is emitted as attributes.** Fill, stroke, hover, the
+  highlight glow and the flash animation are all `manage-project.css`,
+  keyed off the node's `.root`/`.work` class. A `stroke="white"` on the
+  `<rect>` would render fine and still be wrong: it splits one node's
+  appearance across two files and drops silently out of any theme
+  change.
 
 ### Labels
 
@@ -406,12 +412,40 @@ alongside it.
 | `#tree-container` | `manage-project.css` (sizing, and the scroll container in #179) |
 | `#graph-nodes`, `#graph-links` | `graph.spec.ts`, CSS |
 | `#node-<id>` | `graph.spec.ts`, the node-detail refresh hook |
+| `#node-text-<id>` | the per-node label refresh hook (`Node.Refresh`) |
 | `.node`, `.node-highlight`, `.flash` | CSS, `graph.spec.ts` |
+| `.root` / `.work` on the node's shape | CSS (fill, hover, glow, flash) |
 | `.link` | CSS |
 | `hx-get`/`hx-target="#node-panel"`/`hx-push-url` on each node | the whole node-detail interaction |
 
-The one deliberate break is `circle` → `rect`: CSS selectors and one
-e2e assertion change with it (#178, #181).
+The one deliberate break is `circle` → `rect` (#178). It cost less than
+expected: `manage-project.css` now keys the node's fill, hover, glow and
+flash off the `.root`/`.work` class the shape carries on both paths
+rather than off an element name, so only `r: 45` is still circle-only
+and #182 deletes just that rule. The `graph.spec.ts` assertion that
+reads `r=45` as an overlap threshold is still correct while the D3 path
+is the default, and changes at #181 rather than here.
+
+**`#node-text-<id>` is a contract, not an implementation detail.** The
+label element and the hook that refreshes it are written ~40 lines apart
+in `ProjectManage/Graph.hs`, and nothing in the type system ties them
+together. The server path shipped in #173 with a constant `node-label`
+id on every node, which both repeated one id across the document and
+aimed the refresh hook at an element that did not exist; #178 fixed it
+and pinned it with an integration test
+(`test-integration/…/ProjectManage/GraphSpec.hs`).
+
+**Labels are positioned by a `transform` on the `<text>`, not by `x`/`y`
+on it and every `<tspan>`.** That puts the text origin at the centre of
+the node in *both* graphs — the D3 path translates the node group to the
+circle's centre, the server path translates the `<text>` to the middle
+of its box — so `Node.Refresh` can return one label fragment that lands
+correctly in either. It is what lets one refresh endpoint serve two
+renderers, and it is the reason the endpoint takes a `layout=server`
+flag: the two shapes fit different numbers of characters per line
+(`cfgLabelWidth` 18 vs. the circle's 12), so a title re-wrapped after an
+edit has to know which shape asked. #181 removes the flag and leaves the
+box.
 
 ### Palette
 

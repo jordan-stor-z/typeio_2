@@ -49,6 +49,7 @@ import Domain.Project.Graph.Types
   ( Bounds (..)
   , Diagram (..)
   , EdgeId (..)
+  , LayoutConfig (..)
   , LayoutEdge (..)
   , LayoutNode (..)
   , NodeId (..)
@@ -298,7 +299,7 @@ templateGraph g = do
                   , dy_ "0.35em"
                   , fill_ "white"
                   ]
-                  $ nodeContents n
+                  $ nodeContents CircleLabel n
   where
     empty = mempty :: Html ()
 
@@ -324,13 +325,37 @@ labelWidth = 12
 labelLines :: Int
 labelLines = 3
 
-nodeContents :: GraphNode -> Html ()
-nodeContents n = do
-  labelTspans . label $ n
+{- | Which shape a label has to wrap into. The D3 path draws its nodes
+as circles and the server-computed path (#178) as boxes, and a 160px
+box fits half again as many characters per line as a 45px-radius
+circle does -- so the same title wraps differently depending on which
+graph is rendering it.
+
+This exists because the two paths share one refresh endpoint
+(@Node.Refresh@), which re-wraps a title after an edit and therefore
+has to know which shape it is wrapping for. #181 drops the D3 path and
+this distinction with it.
+-}
+data LabelBox
+  = CircleLabel
+  | RectLabel
+
+-- | Width in characters, height in lines.
+labelBoxDims :: LabelBox -> (Int, Int)
+labelBoxDims CircleLabel = (labelWidth, labelLines)
+labelBoxDims RectLabel =
+  ( cfgLabelWidth defaultLayoutConfig
+  , cfgLabelLines defaultLayoutConfig
+  )
+
+nodeContents :: LabelBox -> GraphNode -> Html ()
+nodeContents box n = do
+  labelTspans box . label $ n
   g_
     [ class_ "hidden"
     , hxGet_ $
-        nodeRefreshLink
+        refreshLinkFor
+          box
           (graphNodeId n)
           (projectId n)
           (label n)
@@ -348,14 +373,25 @@ nodeContents n = do
   where
     empty = mempty :: Html ()
 
+-- | Wrap a raw title to the given shape, then lay the lines out.
+labelTspans :: LabelBox -> Text -> Html ()
+labelTspans box = tspanLines . uncurry wrapLabel (labelBoxDims box)
+
 -- SVG `<text>` has no wrapping of its own, so a multi-line label has to
 -- be emitted as one `<tspan>` per line. Each line resets `x` to the
 -- node's own origin (otherwise tspans just continue along the same
 -- line) and steps `dy` by one line height, with the first line lifted
 -- by half the block's height so the whole label stays vertically
 -- centred on the node however many lines it wraps to.
-labelTspans :: Text -> Html ()
-labelTspans lbl =
+--
+-- `x="0"` means "the text origin", which both graphs arrange to be the
+-- centre of the node: the D3 path translates the node group to the
+-- circle's centre, and the server path translates the `<text>` itself
+-- to the middle of its box (see 'nodeLabel'). Keeping the origin the
+-- same on both is what lets Node.Refresh swap one of these fragments
+-- into either graph without knowing which it is drawing into.
+tspanLines :: [Text] -> Html ()
+tspanLines ls =
   forM_ (zip [0 :: Int ..] ls) $ \(i, l) ->
     tspan_
       [ x_ "0"
@@ -363,13 +399,22 @@ labelTspans lbl =
       ]
       $ toHtml l
   where
-    ls = wrapLabel labelWidth labelLines lbl
     lineHeight = "1.1em"
-    firstDy =
-      (<> "em")
-        . pack
-        . show
-        $ (-1.1 * fromIntegral (length ls - 1) / 2 :: Double)
+    -- Half the block's height, which the first line is lifted by. Zero
+    -- is spelt out rather than negated: a one-line label would
+    -- otherwise render as `dy="-0.0em"`, which is the same offset but
+    -- reads like a bug in the markup.
+    blockLift = 1.1 * fromIntegral (length ls - 1) / 2 :: Double
+    firstDy
+      | blockLift == 0 = "0em"
+      | otherwise = (<> "em") . pack . show . negate $ blockLift
+
+{- | The refresh link that re-wraps this node's label to the same shape
+it is currently drawn in.
+-}
+refreshLinkFor :: LabelBox -> Int64 -> Int64 -> Text -> Text
+refreshLinkFor CircleLabel = nodeRefreshLink
+refreshLinkFor RectLabel = serverNodeRefreshLink
 
 toGraph :: [Entity M.Node] -> [M.Dependency] -> Graph
 toGraph ns ds = Graph (map toLink ds) (map toGNode ns)
@@ -539,21 +584,24 @@ nodeGroup sg n =
     , hxSwap_ "innerHTML"
     ]
     $ do
+      -- Only geometry is set here. Fill, stroke, hover, the
+      -- `.node-highlight` glow and the `.flash` animation all live in
+      -- manage-project.css, keyed off the `root`/`work` class -- the
+      -- same rules the D3 path's `circle` picks up, so the two shapes
+      -- stay styled identically for as long as both exist.
       rect_
         [ class_ (kindClass (pnKind n))
         , width_ (dblText (szW sz))
         , height_ (dblText (szH sz))
         , rx_ "6"
-        , stroke_ "white"
-        , strokeWidth_ "1.5"
         ]
         (mempty :: Html ())
-      nodeLabel sz (pnLines n)
+      nodeLabel nid sz (pnLines n)
       -- Same refresh hook the D3 path uses: re-fetch this node's label
       -- when its detail panel closes after an edit.
       g_
         [ class_ "hidden"
-        , hxGet_ (nodeRefreshLink rawId pid rawLabel)
+        , hxGet_ (serverNodeRefreshLink rawId pid rawLabel)
         , hxTrigger_ $
             "nodePanel:onEditClosed[event.detail.nodeId=="
               <> nid
@@ -576,33 +624,40 @@ kindClass RootNode = "root"
 kindClass WorkNode = "work"
 
 {- | SVG has no text wrapping, so each label line is its own @tspan@.
-Lines are pre-wrapped by the layout engine ('pnLines'); this only
+Lines arrive pre-wrapped from the layout engine ('pnLines'); this only
 positions them, centred in the box however many there are.
+
+Two details here are load-bearing rather than stylistic:
+
+* The id is @node-text-<id>@, matching the D3 path. It is what the
+  per-node refresh hook swaps into after an edit, and it has to be
+  unique per node -- this element used to carry a constant
+  @node-label@, which both repeated one id across every node in the
+  document and left the refresh hook aimed at a target that was never
+  there.
+* The centring is a @transform@ on the @text@ element rather than
+  @x@\/@y@ on it and on every @tspan@. That puts the text origin at the
+  middle of the box, so the @tspan@s inside sit relative to a centre
+  exactly as they do on the D3 path (see 'tspanLines') -- which is what
+  lets the shared refresh endpoint return one fragment that lands
+  correctly in either graph.
 -}
-nodeLabel :: Size -> [Text] -> Html ()
-nodeLabel (Size w h) ls =
+nodeLabel :: Text -> Size -> [Text] -> Html ()
+nodeLabel nid (Size w h) ls =
   text_
-    [ id_ "node-label"
-    , x_ (dblText (w / 2))
-    , y_ (dblText (h / 2))
-    , textAnchor_ "middle"
-    , fontSize_ "12"
+    [ id_ ("node-text-" <> nid)
+    , transform_
+        ( "translate("
+            <> dblText (w / 2)
+            <> ","
+            <> dblText (h / 2)
+            <> ")"
+        )
+    , -- Centres a single line on the baseline; 'tspanLines' lifts the
+      -- block up from there as it grows past one line.
+      dy_ "0.35em"
     ]
-    $ forM_ (zip [0 :: Int ..] ls)
-    $ \(i, l) ->
-      tspan_
-        [ x_ (dblText (w / 2))
-        , dy_ (if i == 0 then firstDy else "1.1em")
-        ]
-        (toHtml l)
-  where
-    -- 0.35em centres a single line on the baseline; the rest lifts the
-    -- block by half its own height so it stays centred as it grows.
-    firstDy =
-      (<> "em")
-        . pack
-        . show
-        $ (0.35 - 1.1 * fromIntegral (length ls - 1) / 2 :: Double)
+    $ tspanLines ls
 
 {- | Coordinates render as plain integers where they are whole, which
 most are, rather than as @80.0@.
