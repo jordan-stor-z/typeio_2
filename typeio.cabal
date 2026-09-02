@@ -56,6 +56,7 @@ library src
       , Domain.Project.Graph.Coord
       , Domain.Project.Graph.Layer
       , Domain.Project.Graph.Layout
+      , Domain.Project.Graph.Route
       , Domain.Project.Graph.Types
       , Domain.Project.Model
       , Domain.Project.Responder.Api.Node.Post
@@ -166,6 +167,7 @@ test-suite spec
       , Domain.Project.Graph.CoordSpec
       , Domain.Project.Graph.LayerSpec
       , Domain.Project.Graph.LayoutSpec
+      , Domain.Project.Graph.RouteSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0

@@ -2,8 +2,8 @@
 out.
 
 See @docs/architecture/graph-rendering.md@ for the full design. What is
-built so far is cycle breaking and layer assignment (#173) and median
-x placement (#174). Orthogonal routing (#175), dummy nodes for
+built so far is cycle breaking and layer assignment (#173), median x
+placement (#174) and orthogonal routing (#175). Dummy nodes for
 multi-row edges (#176) and crossing reduction (#177) each replace one
 step below.
 -}
@@ -16,7 +16,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text.Util (wrapLabel)
 import Domain.Project.Graph.Coord (assignX)
-import Domain.Project.Graph.Layer (Arc (..), assignLayers, breakCycles)
+import Domain.Project.Graph.Layer (assignLayers, breakCycles)
+import Domain.Project.Graph.Route (Routed (..), routeEdges)
 import Domain.Project.Graph.Types
 
 {- | Lay a dependency graph out.
@@ -34,7 +35,7 @@ layout :: LayoutConfig -> [LayoutNode] -> [LayoutEdge] -> Diagram
 layout cfg ns es =
   Diagram
     { diagramNodes = placed
-    , diagramEdges = map placeEdge es
+    , diagramEdges = routedEdges routed
     , diagramBounds = bounds
     , diagramRootAnchor = rootAnchor
     }
@@ -52,19 +53,30 @@ layout cfg ns es =
         [(layerOf (lnId n), [lnId n]) | n <- sortOn lnId ns]
     layerOf n = M.findWithDefault 0 n layers
 
-    Size nodeW nodeH = cfgNodeSize cfg
+    Size nodeW _ = cfgNodeSize cfg
     margin = cfgMargin cfg
 
-    -- Centres, before shifting the whole drawing into positive space.
-    centres = assignX (nodeW + cfgNodeGap cfg) rows arcs
-    leftmost
-      | M.null centres = 0
-      | otherwise = minimum (M.elems centres)
+    -- 'assignX' works in its own coordinate space, which can run
+    -- negative. Shift the whole drawing so the leftmost box's left edge
+    -- lands on the margin, and hand the shifted centres to routing --
+    -- both node boxes and edge ports have to be measured from the same
+    -- origin, or the edges draw somewhere the nodes are not.
+    rawCentres = assignX (nodeW + cfgNodeGap cfg) rows arcs
+    shift
+      | M.null rawCentres = 0
+      | otherwise = margin + nodeW / 2 - minimum (M.elems rawCentres)
+    centres = M.map (+ shift) rawCentres
+    centreXOf n = M.findWithDefault (margin + nodeW / 2) n centres
+
+    -- Routing owns vertical spacing: how tall a gap must be is a
+    -- function of how many horizontal runs cross it, so rows cannot be
+    -- positioned before the edges through them are known.
+    routed = routeEdges cfg layers centres arcs
 
     topLeftOf n =
       Point
-        (margin + M.findWithDefault 0 n centres - leftmost)
-        (margin + fromIntegral (layerOf n) * (nodeH + cfgLayerGap cfg))
+        (centreXOf n - nodeW / 2)
+        (M.findWithDefault margin (layerOf n) (routedLayerTops routed))
 
     placed =
       [ PlacedNode
@@ -77,39 +89,10 @@ layout cfg ns es =
       | n <- ns
       ]
 
-    boxes = M.fromList [(pnId p, p) | p <- placed]
     centreOf p =
       Point
         (ptX (pnTopLeft p) + szW (pnSize p) / 2)
         (ptY (pnTopLeft p) + szH (pnSize p) / 2)
-
-    reversedIds = [arcEdge a | a <- arcs, arcReversed a]
-
-    -- A straight line between the two boxes, stopping at each box's
-    -- edge rather than its centre so the arrowhead stays visible.
-    -- #175 replaces this with real orthogonal routing.
-    placeEdge e =
-      PlacedEdge
-        { peId = leId e
-        , pePoints = case (M.lookup (leDependency e) boxes, M.lookup (leDependent e) boxes) of
-            (Just from, Just to) -> [exitPoint from to, exitPoint to from]
-            _ -> []
-        , peReversed = leId e `elem` reversedIds
-        }
-
-    -- Where the line between two boxes meets the first box's edge.
-    -- Vertical when they sit in different rows, horizontal when they
-    -- share one.
-    exitPoint from to
-      | ptY cTo < ptY cFrom - halfH = Point (ptX cFrom) (ptY cFrom - halfH)
-      | ptY cTo > ptY cFrom + halfH = Point (ptX cFrom) (ptY cFrom + halfH)
-      | ptX cTo < ptX cFrom = Point (ptX cFrom - halfW) (ptY cFrom)
-      | otherwise = Point (ptX cFrom + halfW) (ptY cFrom)
-      where
-        cFrom = centreOf from
-        cTo = centreOf to
-        halfW = szW (pnSize from) / 2
-        halfH = szH (pnSize from) / 2
 
     bounds
       | null placed = Bounds (Point 0 0) (Point (2 * margin) (2 * margin))

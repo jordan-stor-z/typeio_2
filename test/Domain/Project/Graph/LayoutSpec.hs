@@ -80,9 +80,12 @@ spec = do
           y >= topOf dependentBox
             && y <= topOf dependentBox + szH (pnSize dependentBox)
 
-    it "gives every edge a polyline" $ do
+    it "routes every edge orthogonally, with at most two bends" $ do
       let d = layout cfg [node 1, node 2, node 3] [dep 10 2 1, dep 11 3 1]
-      map (length . pePoints) (diagramEdges d) `shouldBe` [2, 2]
+          segments e = zip (pePoints e) (drop 1 (pePoints e))
+          axisAligned (a, b) = ptX a == ptX b || ptY a == ptY b
+      all (all axisAligned . segments) (diagramEdges d) `shouldBe` True
+      all ((<= 4) . length . pePoints) (diagramEdges d) `shouldBe` True
 
     it "centres a node over the two it depends on (reference image 1)" $ do
       -- 1 depends on 2 and 3, so 1 is drawn above both and centred.
