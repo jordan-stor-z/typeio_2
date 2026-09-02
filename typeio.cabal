@@ -53,6 +53,7 @@ library src
       , Domain.Central.Responder.Api.Seed
       -- The graph layout engine is exposed so `test-suite spec` can
       -- import it: a test-suite only sees a library's exposed-modules.
+      , Domain.Project.Graph.Coord
       , Domain.Project.Graph.Layer
       , Domain.Project.Graph.Layout
       , Domain.Project.Graph.Types
@@ -162,6 +163,7 @@ test-suite spec
       , Data.EitherSpec
       , Data.HashTreeSpec
       , Data.Text.UtilSpec
+      , Domain.Project.Graph.CoordSpec
       , Domain.Project.Graph.LayerSpec
       , Domain.Project.Graph.LayoutSpec
     build-tool-depends: hspec-discover:hspec-discover

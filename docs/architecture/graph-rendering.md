@@ -12,8 +12,8 @@
 
 | Phase / concern | Issue | Status |
 |---|---|---|
-| Types, cycle breaking, layer assignment, flagged SVG render | #173 | ⏳ |
-| x-coordinate assignment (median/priority) | #174 | ⏳ |
+| Types, cycle breaking, layer assignment, flagged SVG render | #173 | ✅ |
+| x-coordinate assignment (median/priority) | #174 | ✅ |
 | Orthogonal routing: ports and tracks | #175 | ⏳ |
 | Dummy nodes for multi-level edges | #176 | ⏳ |
 | Crossing reduction | #177 | ⏳ |
@@ -179,7 +179,7 @@ Each phase is a function from one representation to the next, and each
 guarantees an invariant the next phase relies on. The invariants are
 what the unit tests assert.
 
-### 1. Break cycles — `Graph.Layer` ⏳ #173
+### 1. Break cycles — `Graph.Layer` ✅ #173
 
 DFS from every unvisited node; an edge pointing back at a node currently
 on the stack is a back edge and gets reversed for layout purposes, with
@@ -188,7 +188,7 @@ across runs.
 
 **Guarantees:** the edge set is acyclic.
 
-### 2. Assign layers — `Graph.Layer` ⏳ #173
+### 2. Assign layers — `Graph.Layer` ✅ #173
 
 Longest-path layering over a topological order: a node with **no
 dependents** — nothing waiting on it — is layer 0; any other node sits
@@ -230,13 +230,23 @@ are counted exactly (inversion count between adjacent layers).
 **Guarantees:** each layer's ordering is a permutation of its members.
 Output is deterministic for a given input.
 
-### 5. Assign coordinates — `Graph.Coord` ⏳ #174
+### 5. Assign coordinates — `Graph.Coord` ✅ #174
 
 `y = layer * (nodeHeight + cfgLayerGap)`. `x` by the priority/median
-method: each node wants the median x of its neighbours in the previous
-layer; conflicts resolved in priority order (dummy chains first, so long
-edges stay straight, then by degree), pushing lower-priority neighbours
-aside to preserve `cfgNodeGap`. Components packed left to right.
+method: each node wants the median x of its neighbours in the adjacent
+layer; conflicts resolved in priority order (by number of connections
+into that layer — and, once #176 lands, dummy chains first so long edges
+stay straight), pushing lower-priority neighbours aside to preserve
+`cfgNodeGap`. Four alternating down/up passes.
+
+An even number of neighbours averages the middle two rather than picking
+one, which is what centres a parent between exactly two children — the
+commonest shape in the reference images, and one an odd-median would
+visibly get wrong by parking the parent directly over one child.
+
+**Row order is never changed here.** A node can be pushed, never swapped
+past a neighbour. Reordering belongs to phase 4, and keeping the two
+separate is what lets this run without undoing that.
 
 **Guarantees:** no two node boxes overlap; every pair is at least
 `cfgNodeGap` apart horizontally.
