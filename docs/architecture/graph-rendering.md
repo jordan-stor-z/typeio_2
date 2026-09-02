@@ -19,7 +19,7 @@
 | Crossing reduction | #177 | ✅ |
 | Node chrome (rects, labels, palette) | #178 | ✅ |
 | Scroll-and-zoom viewport | #179 | ✅ |
-| Line jumps at crossings | #180 | ⏳ |
+| Line jumps at crossings | #180 | ✅ |
 | Cutover: server layout by default | #181 | ⏳ |
 | D3 deleted | #182 | ⏳ |
 | This doc reconciled with reality | #183 | ⏳ |
@@ -272,7 +272,7 @@ separate is what lets this run without undoing that.
 **Guarantees:** no two node boxes overlap; every pair is at least
 `cfgNodeGap` apart horizontally.
 
-### 6. Route edges — `Graph.Route` ✅ #175 · ⏳ #180
+### 6. Route edges — `Graph.Route` ✅ #175 · ✅ #180
 
 - **Ports.** Each node side carries slots. An edge claims the slot
   matching the direction it arrives from; slots on a side are ordered by
@@ -298,7 +298,30 @@ separate is what lets this run without undoing that.
   layer edge.
 - **Line jumps** (#180): after routing, horizontal/vertical crossings
   get a small arc in the horizontal segment so the reader can see the
-  lines don't connect.
+  lines don't connect. In an orthogonal drawing nothing otherwise
+  separates "these cross" from "these meet" — both are a black `+`.
+
+  Three rules make it well-defined, and each is a test:
+  - **Only the horizontal side hops.** Hopping both would put two arcs
+    at one point and restore exactly the ambiguity the hop removes, so
+    which side hops is arbitrary but must be consistent.
+  - **The intersection must be strictly inside both runs.** Two edges
+    meeting at a shared port touch at an endpoint; that is a junction,
+    and a hop there would claim they pass by each other when they join.
+  - **An edge never hops itself.** Its horizontal run meets its own
+    verticals at both ends — those are corners.
+
+  `addJumps` records the points on `peJumps`; the renderer turns each
+  into a `cfgJumpRadius` semicircle, always bulging towards the top of
+  the page (which means the SVG sweep flag flips with direction of
+  travel). Keeping the geometry in `Graph.Route` is what keeps it in the
+  unit-tested tier — `polyline` only draws what it is handed.
+
+  Worth knowing: these fire often. Across 1200 generated graphs, 57%
+  had at least one. What K(2,2) produces is *not* one of them — that
+  shape's conflict comes out as two edges sharing a vertical column
+  (#190), an overlap rather than a crossing, which is why a jump fixture
+  has to be a little larger than the obvious one.
 
 - **Vertical spacing is decided here, not in phase 5.** How tall a gap
   has to be is a function of how many tracks cross it, so `Graph.Route`

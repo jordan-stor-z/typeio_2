@@ -3,7 +3,7 @@ module Domain.Project.Graph.RouteSpec (spec) where
 import Data.List (nub, sort)
 import qualified Data.Map.Strict as M
 import Domain.Project.Graph.Layer (Segment (..))
-import Domain.Project.Graph.Route (Routed (..), routeEdges)
+import Domain.Project.Graph.Route (Routed (..), addJumps, routeEdges)
 import Domain.Project.Graph.Types
 import Test.Hspec
 
@@ -63,6 +63,7 @@ pairs xs = [(a, b) | (i, a) <- zip [0 :: Int ..] xs, (j, b) <- zip [0 ..] xs, i 
 
 spec :: Spec
 spec = do
+  jumpSpec
   describe "routeEdges" $ do
     it "emits only axis-aligned segments" $ do
       let r =
@@ -190,3 +191,88 @@ spec = do
       let r = route (layersOf [(1, 0)]) (centresOf [(1, 0)]) []
       routedEdges r `shouldBe` []
       sort (M.keys (routedLayerTops r)) `shouldBe` [0]
+
+-- Line jumps (#180). These use `addJumps` on hand-built polylines
+-- rather than driving `routeEdges`: the property under test is pure
+-- segment geometry, and a fixture that states its own crossing is a far
+-- clearer statement of intent than a graph contrived to produce one.
+-- The last case checks the wiring through the real router.
+placed :: Int -> [(Double, Double)] -> PlacedEdge
+placed i pts =
+  PlacedEdge
+    { peId = eid i
+    , pePoints = [Point x y | (x, y) <- pts]
+    , peReversed = False
+    , peJumps = []
+    }
+
+jumpsOf :: Int -> [PlacedEdge] -> [Point]
+jumpsOf i es =
+  concat [peJumps e | e <- es, peId e == eid i]
+
+jumpSpec :: Spec
+jumpSpec = describe "addJumps" $ do
+  it "marks a horizontal run where a vertical one crosses it" $ do
+    -- A horizontal run at y=50 from x=0..100, and a vertical run at
+    -- x=50 from y=0..100. They cross at (50,50).
+    let es =
+          addJumps
+            [ placed 10 [(0, 50), (100, 50)]
+            , placed 11 [(50, 0), (50, 100)]
+            ]
+    jumpsOf 10 es `shouldBe` [Point 50 50]
+
+  it "puts the jump on the horizontal side only" $ do
+    let es =
+          addJumps
+            [ placed 10 [(0, 50), (100, 50)]
+            , placed 11 [(50, 0), (50, 100)]
+            ]
+    -- Hopping both would put two arcs at one point and restore the
+    -- ambiguity the hop exists to remove.
+    jumpsOf 11 es `shouldBe` []
+
+  it "draws no jump where two edges merely meet at a shared port" $ do
+    -- Both runs touch (100,50): the horizontal ends there and the
+    -- vertical starts there. That is a junction, not a crossing.
+    let es =
+          addJumps
+            [ placed 10 [(0, 50), (100, 50)]
+            , placed 11 [(100, 50), (100, 150)]
+            ]
+    jumpsOf 10 es `shouldBe` []
+    jumpsOf 11 es `shouldBe` []
+
+  it "draws no jump where a vertical only touches the end of a run" $ do
+    -- Endpoint-on-endpoint is covered above; this is the vertical's own
+    -- endpoint landing partway along the horizontal, which is still a
+    -- T-junction rather than a crossing.
+    let es =
+          addJumps
+            [ placed 10 [(0, 50), (100, 50)]
+            , placed 11 [(50, 50), (50, 150)]
+            ]
+    jumpsOf 10 es `shouldBe` []
+
+  it "ignores an edge's own corners" $ do
+    -- One edge, two bends: its horizontal run meets its own verticals
+    -- at both ends. Those are corners, and an edge never hops itself.
+    let es = addJumps [placed 10 [(0, 0), (0, 50), (100, 50), (100, 100)]]
+    jumpsOf 10 es `shouldBe` []
+
+  it "marks every crossing on a run that is crossed more than once" $ do
+    let es =
+          addJumps
+            [ placed 10 [(0, 50), (200, 50)]
+            , placed 11 [(50, 0), (50, 100)]
+            , placed 12 [(150, 0), (150, 100)]
+            ]
+    sort (map ptX (jumpsOf 10 es)) `shouldBe` [50, 150]
+
+  it "leaves an uncrossed graph with no jumps at all" $ do
+    let r =
+          route
+            (layersOf [(1, 0), (2, 1)])
+            (centresOf [(1, 200), (2, 200)])
+            [arc 10 1 2]
+    concatMap peJumps (routedEdges r) `shouldBe` []

@@ -19,6 +19,7 @@ cannot be decided separately. Horizontal placement stays in
 module Domain.Project.Graph.Route
   ( Routed (..)
   , routeEdges
+  , addJumps
   ) where
 
 import Data.Foldable (foldl')
@@ -58,7 +59,7 @@ routeEdges ::
   Routed
 routeEdges cfg layers centres segments chains =
   Routed
-    { routedEdges = map polyline (M.toAscList chains)
+    { routedEdges = addJumps (map polyline (M.toAscList chains))
     , routedLayerTops = layerTops
     }
   where
@@ -186,6 +187,10 @@ routeEdges cfg layers centres segments chains =
         { peId = e
         , pePoints = orient (simplify (concatMap segmentPoints (segmentsFor e)))
         , peReversed = reversed
+        , -- Filled in by 'withJumps' once every edge has been placed:
+          -- a crossing is a fact about a pair of edges, so it cannot be
+          -- known while routing one of them in isolation.
+          peJumps = []
         }
       where
         reversed = M.findWithDefault False e reversedOf
@@ -196,6 +201,53 @@ routeEdges cfg layers centres segments chains =
         orient ps
           | reversed = ps
           | otherwise = reverse ps
+
+{- | Mark every place a horizontal run passes over a vertical one
+(#180), so the renderer can draw a hop there.
+
+Where two edges cross, nothing in an orthogonal drawing distinguishes
+"these lines cross" from "these lines meet" — both are a black `+`.
+A small hop in one of the two says which it is.
+
+Only the horizontal side of each crossing is marked. Hopping both would
+put two arcs at the same point and restore exactly the ambiguity the
+hop exists to remove, so the choice of which line hops is arbitrary but
+has to be consistent; horizontal is the conventional one.
+
+The intersection must be __strictly inside__ both runs. Two edges
+meeting at a shared port touch at an endpoint, and that is a junction,
+not a crossing — drawing a hop there would claim the lines pass by each
+other when they genuinely join.
+-}
+addJumps :: [PlacedEdge] -> [PlacedEdge]
+addJumps es = map mark es
+  where
+    verticals =
+      [ (peId e, x, min y1 y2, max y1 y2)
+      | e <- es
+      , (Point x y1, Point x' y2) <- runsOf e
+      , x == x'
+      , y1 /= y2
+      ]
+
+    mark e = e {peJumps = jumpsFor e}
+
+    jumpsFor e =
+      [ Point vx hy
+      | (Point x1 hy, Point x2 hy') <- runsOf e
+      , hy == hy'
+      , x1 /= x2
+      , (vid, vx, vTop, vBot) <- verticals
+      , -- An edge crosses itself only where its own bend meets its own
+      -- run, which is a corner rather than a crossing.
+      vid /= peId e
+      , strictlyBetween vx (min x1 x2) (max x1 x2)
+      , strictlyBetween hy vTop vBot
+      ]
+
+    strictlyBetween v lo hi = v > lo && v < hi
+
+    runsOf e = zip (pePoints e) (drop 1 (pePoints e))
 
 {- | Drop repeated points, then fold runs of collinear points into one
 segment — which is what turns an edge's per-row pieces back into a

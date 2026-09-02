@@ -196,3 +196,43 @@ spec = do
       let ns = map node [1 .. 5]
           es = [dep 10 2 1, dep 11 3 1, dep 12 4 2, dep 13 5 3]
       layout cfg ns es `shouldBe` layout cfg ns es
+
+  jumpSpec
+
+{- | Line jumps through the whole pipeline (#180).
+
+"Domain.Project.Graph.RouteSpec" pins the jump geometry itself, on
+hand-built polylines. This pins what that fixture cannot: that a real
+graph, laid out and routed by the actual pipeline, still produces
+crossings for it to mark. Shipping a correct jump-finder that never
+fires would be an easy mistake, and this is what would catch it.
+-}
+jumpSpec :: Spec
+jumpSpec = describe "layout, line jumps" $ do
+  -- The smallest shape found whose routing the crossing-reduction
+  -- sweeps cannot untangle into something planar.
+  let crossing =
+        layout
+          cfg
+          (map node [1 .. 5])
+          [dep 10 3 1, dep 11 4 1, dep 12 4 2, dep 13 5 2, dep 14 5 1]
+
+  it "marks a crossing in a graph whose routing genuinely has one" $
+    sum (map (length . peJumps) (diagramEdges crossing))
+      `shouldSatisfy` (> 0)
+
+  it "leaves a graph that routes cleanly with no jumps" $ do
+    let d = layout cfg (map node [1 .. 3]) [dep 10 2 1, dep 11 3 1]
+    concatMap peJumps (diagramEdges d) `shouldBe` []
+
+  it "puts every jump strictly inside a run of its own edge" $ do
+    let onOwnRun e (Point jx jy) =
+          or
+            [ y0 == y1 && jy == y0 && jx > min x0 x1 && jx < max x0 x1
+            | (Point x0 y0, Point x1 y1) <-
+                zip (pePoints e) (drop 1 (pePoints e))
+            ]
+    all
+      (\e -> all (onOwnRun e) (peJumps e))
+      (diagramEdges crossing)
+      `shouldBe` True
