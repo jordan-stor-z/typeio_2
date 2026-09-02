@@ -136,9 +136,104 @@ svg {
   margin-bottom: 0.5rem;
 }
 
+/* The graph's viewport (#179). Panning is the browser's own scrolling,
+   which brings wheel, trackpad, touch drag with momentum and keyboard
+   scrolling for free -- none of which a hand-rolled pan would get
+   right. The SVG inside is rendered at its natural size and is meant to
+   overflow on a large project.
+
+   `overflow: auto` is inert on the D3 path, whose SVG is sized 100%/100%
+   and so never overflows. */
 #tree-container {
   height: 100%;
   width: 70%;
+  overflow: auto;
+  position: relative;
+  /* Scrollbars are hidden by design. Two things below follow from that
+     rather than being extras: `.graph-control`'s recentre button (the
+     scrollbar was also the "where am I" cue) and pointer-drag panning
+     in graph-viewport.js (a wheel-less mouse would otherwise be stuck
+     with no scrollbar to drag). */
+  scrollbar-width: none;
+}
+
+#tree-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Keyboard scrolling needs the container focusable, and a focus ring on
+   a whole panel is noise -- but removing it outright would leave a
+   keyboard user with no idea where focus is, so it shows only for
+   keyboard focus. */
+#tree-container:focus {
+  outline: none;
+}
+
+#tree-container:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Grab on the canvas, but not over a node -- `.root`/`.work` set
+   `cursor: pointer` and win on specificity, so a node still advertises
+   that it is clickable. */
+#tree-container #tree-view {
+  cursor: grab;
+}
+
+/* Wins over the grab cursor above while a drag is in progress, node or
+   not: `#tree-container.is-panning` is a more specific match than
+   `#tree-container .root`. */
+#tree-container.is-panning,
+#tree-container.is-panning #tree-view,
+#tree-container.is-panning .root,
+#tree-container.is-panning .work {
+  cursor: grabbing;
+}
+
+/* Zero-height sticky box: it pins the controls to the viewport's corner
+   as the graph scrolls under them, without taking a strip of layout
+   space above the drawing the way an ordinary sticky block would. */
+#graph-controls {
+  position: sticky;
+  top: 0;
+  left: 0;
+  height: 0;
+  z-index: 2;
+}
+
+.graph-controls-inner {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.graph-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: var(--bg-end);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: all 0.2s ease;
+}
+
+.graph-control:hover {
+  background: var(--accent);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.graph-control .material-icons {
+  font-size: 1.1rem;
 }
 
 #tree-container .link {

@@ -507,24 +507,35 @@ toLayoutEdge (Entity k e) =
     }
 
 templateServerGraph :: ServerGraph -> Html ()
-templateServerGraph sg =
+templateServerGraph sg = do
+  graphControls
   svg_
-    [ id_ "tree-view"
-    , viewBox_ viewBox
-    , -- Natural size, not scaled to fit: a large project is meant to
-      -- overflow its container and be navigated, not shrunk until its
-      -- titles stop being readable. #179 adds the scrolling viewport
-      -- that makes the overflow usable.
-      width_ (dblText (szW size))
-    , height_ (dblText (szH size))
-    , h_ "on load transition my opacity to 1 over 200ms"
-    ]
+    ( [ id_ "tree-view"
+      , viewBox_ viewBox
+      , -- Natural size, not scaled to fit: a large project is meant to
+        -- overflow its container and be navigated, not shrunk until its
+        -- titles stop being readable. #179's viewport is what makes the
+        -- overflow usable.
+        width_ (dblText (szW size))
+      , height_ (dblText (szH size))
+      , -- The viewport zooms in multiples of the natural size, so it
+        -- still needs that size after it has rewritten width/height.
+        dataBaseWidth_ (dblText (szW size))
+      , dataBaseHeight_ (dblText (szH size))
+      , h_ "on load transition my opacity to 1 over 200ms"
+      ]
+        <> rootAnchorAttrs
+    )
     $ do
       defs_ [] arrowMarker
       g_ [id_ "graph-links"] $
         forM_ (diagramEdges d) edgeLine
       g_ [id_ "graph-nodes"] $
         forM_ (diagramNodes d) (nodeGroup sg)
+  -- Loaded from inside the fragment, the way the D3 path loads
+  -- nodetree2.js: htmx swaps this whole subtree in, so the script has
+  -- to arrive with it rather than once at page load.
+  script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
   where
     d = sgDiagram sg
     Bounds mn _ = diagramBounds d
@@ -536,6 +547,51 @@ templateServerGraph sg =
         , dblText (szW size)
         , dblText (szH size)
         ]
+    {- Where the viewport scrolls to on open. The server placed the
+    root, so the client never has to hunt the DOM for it.
+
+    Emitted relative to the drawing's own top-left rather than in
+    diagram coordinates: the SVG is @szW@ x @szH@ CSS pixels showing a
+    viewBox that starts at @mn@, so subtracting @mn@ is what turns a
+    diagram point into the pixel offset the client can hand straight to
+    @scrollLeft@. A graph with no root node (possible -- 'layout' is
+    total) emits neither attribute, and the client falls back to the
+    middle of the drawing.
+    -}
+    rootAnchorAttrs = case diagramRootAnchor d of
+      Nothing -> []
+      Just (Point ax ay) ->
+        [ dataRootX_ (dblText (ax - ptX mn))
+        , dataRootY_ (dblText (ay - ptY mn))
+        ]
+
+{- | Zoom and recentre controls. They sit inside the swapped fragment so
+they arrive with the graph, but are pinned to the viewport's corner by
+CSS rather than scrolling away with the drawing.
+
+A recentre control is not decoration here: #179 hides the scrollbars,
+and scrollbars were also the "there is more canvas, and here is where
+you are in it" cue. Without them, a user who has panned into empty
+space has no way back.
+-}
+graphControls :: Html ()
+graphControls =
+  div_ [id_ "graph-controls"] $
+    div_ [class_ "graph-controls-inner"] $ do
+      ctl "graph-zoom-out" "Zoom out" "remove"
+      ctl "graph-zoom-reset" "Recentre on the project root" "my_location"
+      ctl "graph-zoom-in" "Zoom in" "add"
+  where
+    ctl :: Text -> Text -> Html () -> Html ()
+    ctl cid lbl icon =
+      button_
+        [ id_ cid
+        , class_ "graph-control"
+        , type_ "button"
+        , titleAttr_ lbl
+        , ariaLabel_ lbl
+        ]
+        $ i_ [class_ "material-icons"] icon
 
 arrowMarker :: Html ()
 arrowMarker =

@@ -112,6 +112,49 @@ spec = aroundAll withTestDatabase $
           -- would otherwise swallow it.
           body `shouldContainStr` "&amp;layout=server&amp;clientTitle="
 
+      describe "viewport (#179)" $ do
+        it "emits the natural size the client zooms in multiples of" $ \pool -> do
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+          workKey <- seedWorkNode pool projectKey "Build the thing"
+          seedDependency pool rootKey workKey
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          -- The client rewrites width/height as it zooms, so it can't
+          -- read the natural size back off them afterwards -- it has to
+          -- be recorded separately or zooming accumulates drift.
+          body `shouldContainStr` "data-base-width="
+          body `shouldContainStr` "data-base-height="
+
+        it "emits where the project root landed, as a scroll offset" $ \pool -> do
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+          workKey <- seedWorkNode pool projectKey "Build the thing"
+          seedDependency pool rootKey workKey
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          -- The server placed the root, so the client never searches
+          -- the DOM for it. Emitted relative to the drawing's top-left
+          -- so it drops straight into `scrollLeft`/`scrollTop`.
+          body `shouldContainStr` "data-root-x="
+          body `shouldContainStr` "data-root-y="
+
+        it "ships the controls and the viewport script with the graph" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          -- All three are inside the swapped fragment: #tree-container
+          -- is replaced wholesale on every graph load, so anything
+          -- bound to the drawing has to arrive with it.
+          body `shouldContainStr` "id=\"graph-zoom-in\""
+          body `shouldContainStr` "id=\"graph-zoom-out\""
+          body `shouldContainStr` "id=\"graph-zoom-reset\""
+          body `shouldContainStr` "/static/script/graph-viewport.js"
+          -- The viewport is hand-rolled precisely so this page stops
+          -- needing D3 (#182).
+          body `shouldNotContainStr` "d3"
+
       describe "without the layout flag" $
         it "still renders the D3 path" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool

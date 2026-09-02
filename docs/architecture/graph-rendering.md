@@ -18,7 +18,7 @@
 | Dummy nodes for multi-level edges | #176 | ✅ |
 | Crossing reduction | #177 | ✅ |
 | Node chrome (rects, labels, palette) | #178 | ✅ |
-| Scroll-and-zoom viewport | #179 | ⏳ |
+| Scroll-and-zoom viewport | #179 | ✅ |
 | Line jumps at crossings | #180 | ⏳ |
 | Cutover: server layout by default | #181 | ⏳ |
 | D3 deleted | #182 | ⏳ |
@@ -455,7 +455,7 @@ colour**. The graph keeps the app's own theme: `global.css`'s
 `--accent-light` for work nodes, `--text-primary` for labels. See
 [`../development/ui/design-system.md`](../development/ui/design-system.md).
 
-## Viewport ⏳ #179
+## Viewport ✅ #179
 
 The graph is a **navigable viewport, not a fit-to-screen picture**. A
 large project is expected to overflow the view.
@@ -480,6 +480,40 @@ large project is expected to overflow the view.
 - **Zoom** is the only genuinely custom behaviour: a scale factor on the
   SVG's `width`/`height`, driven by +/− controls, `ctrl`/`cmd`+wheel
   (what trackpad pinch reports as), and two-pointer touch pinch.
+
+### As built
+
+`static/script/graph-viewport.js`, ~200 lines and no D3. It loads from
+inside the graph fragment (like `nodetree2.js` does) rather than once at
+page load, because htmx replaces `#tree-container`'s contents wholesale
+on every graph load.
+
+Four things in it are less obvious than the feature list above, and are
+the parts to be careful around:
+
+- **Zoom is anchored on a fixed point.** Whatever diagram coordinate is
+  under the pointer (or, for the buttons, under the centre of the view)
+  stays under it across the scale change. Without that the graph walks
+  off-screen as you zoom, which is the single thing that makes a
+  hand-rolled zoom feel broken next to `d3-zoom`.
+- **Every scale is a multiple of the natural size**, carried on
+  `data-base-width`/`data-base-height`, never of the SVG's current
+  width. Zoom rewrites those attributes, so reading them back would
+  compound rounding on every step.
+- **A drag must not read as a click.** Every node is also an htmx click
+  target, so a press only becomes a pan past a 4px threshold, and once
+  it does, the click the browser fires afterwards is swallowed exactly
+  once in the capture phase.
+- **Listeners are torn down on re-entry.** `#tree-container` survives
+  each swap while its contents don't, so listeners bound to it would
+  otherwise accumulate one set per graph load. Each run aborts the
+  previous run's `AbortController`, which drops them all at once.
+
+**Reaching it in a browser is #181's job, not this one's.** Until the
+cutover the server layout sits behind `?layout=server`, which nothing in
+the UI sets (#192) — so #179's behaviours are covered by integration
+assertions on what the server emits, and the browser-level e2e arrives
+with #181.
 
 ## Cycles
 
