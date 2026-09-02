@@ -7,12 +7,7 @@ module Domain.Project.Responder.Ui.ProjectManage.Node.Refresh where
 import Common.Validation
 import Common.Web.Attributes
 import Common.Web.Elements
-import Domain.Project.Responder.Ui.ProjectManage.Graph
-  ( LabelBox (..)
-  , nodeContents
-  , toGraphNode
-  , wantsServerLayout
-  )
+import Domain.Project.Responder.Ui.ProjectManage.Graph (nodeContents, toGraphNode)
 import Domain.Project.Responder.Ui.ProjectManage.Node.Query
 import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
 import Lucid
@@ -93,7 +88,7 @@ handleGetNodeRefresh pl req rspnd = do
           status200
           [("Content-Type", "text/html")]
         . renderBS
-        . templateRefresh labelBox
+        . templateRefresh
         $ nd
     Right (Same, _) ->
       rspnd
@@ -102,19 +97,11 @@ handleGetNodeRefresh pl req rspnd = do
           []
         $ mempty
   where
-    qt =
-      queryToQueryText
+    form =
+      queryTextToForm
+        . queryToQueryText
         . queryString
         $ req
-    form = queryTextToForm qt
-    -- Re-wrapping the title needs to know the shape it is wrapping
-    -- into, and both graphs share this endpoint (#178). The graph that
-    -- asked says which on the link it built -- see
-    -- 'serverNodeRefreshLink'. #181 leaves only the box.
-    labelBox =
-      if wantsServerLayout qt
-        then RectLabel
-        else CircleLabel
 
 queryTextToForm :: QueryText -> GetNodeRefreshForm
 queryTextToForm qt =
@@ -124,9 +111,9 @@ queryTextToForm qt =
     , formClientNodeTitle = lookupVal "clientTitle" qt
     }
 
-templateRefresh :: LabelBox -> Entity M.Node -> Html ()
-templateRefresh box (Entity k e) = do
-  nodeContents box . toGraphNode . Entity k $ e
+templateRefresh :: Entity M.Node -> Html ()
+templateRefresh (Entity k e) = do
+  nodeContents . toGraphNode . Entity k $ e
   g_
     [ class_ "hidden"
     , h_ $
