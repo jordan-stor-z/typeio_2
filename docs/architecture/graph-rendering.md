@@ -1,9 +1,10 @@
 # Dependency Graph Rendering
 
 > **Status: in flight.** This describes the design the graph is being
-> built to. Today the graph is still rendered by D3 on the client
-> (`static/script/nodetree2.js`); every phase below marked ⏳ does not
-> exist yet.
+> built to. Since #181 the graph *is* rendered by this pipeline —
+> server-side, with no query parameter — but the effort isn't finished:
+> D3 is still shipped on the page (#182), and every phase below marked
+> ⏳ does not exist yet.
 >
 > The status table is the source of truth for what has landed — check it
 > before reading any section as a description of current behaviour. Each
@@ -20,7 +21,7 @@
 | Node chrome (rects, labels, palette) | #178 | ✅ |
 | Scroll-and-zoom viewport | #179 | ✅ |
 | Line jumps at crossings | #180 | ⏳ |
-| Cutover: server layout by default | #181 | ⏳ |
+| Cutover: server layout by default | #181 | ✅ |
 | D3 deleted | #182 | ⏳ |
 | This doc reconciled with reality | #183 | ⏳ |
 
@@ -195,11 +196,24 @@ dependents** — nothing waiting on it — is layer 0; any other node sits
 one row below the lowest of its dependents.
 
 Note the direction. Layering runs *dependent to dependency*, so a node
-is drawn above the work it is waiting on. That is what makes the project
-root head the graph in the reference images: the root depends on its
-work, so the work descends from it. Layering by *dependencies* instead
-(a node with no dependencies at layer 0) would invert the drawing and
-put the leaf tasks on top.
+is drawn above the work it is waiting on. Layering by *dependencies*
+instead (a node with no dependencies at layer 0) would invert the
+drawing and put the leaf tasks on top.
+
+> ⚠️ **The paragraph that used to be here was wrong, and it mattered
+> (#198).** It claimed this is what "makes the project root head the
+> graph in the reference images: the root depends on its work, so the
+> work descends from it." The app records the opposite relationship —
+> `POST /api/project/nodes` writes the *new work node* as depending on
+> the project root — so with real data the root is the dependency, lands
+> in the bottom row, and the graph reads upside-down against both the
+> reference images and the D3 layout it replaced.
+>
+> The rule above is implemented correctly; the premise it was written
+> against was not checked against what the API actually writes. Nothing
+> caught it until #181 made the graph reachable in a browser and someone
+> looked at it. #198 has the options and is undecided — **don't build
+> anything on "the root is in layer 0" until it lands.**
 
 **Guarantees:** every edge spans at least one layer, in a consistent
 direction. Layers are contiguous from 0. Disconnected components are
@@ -437,15 +451,14 @@ and pinned it with an integration test
 
 **Labels are positioned by a `transform` on the `<text>`, not by `x`/`y`
 on it and every `<tspan>`.** That puts the text origin at the centre of
-the node in *both* graphs — the D3 path translates the node group to the
-circle's centre, the server path translates the `<text>` to the middle
-of its box — so `Node.Refresh` can return one label fragment that lands
-correctly in either. It is what lets one refresh endpoint serve two
-renderers, and it is the reason the endpoint takes a `layout=server`
-flag: the two shapes fit different numbers of characters per line
-(`cfgLabelWidth` 18 vs. the circle's 12), so a title re-wrapped after an
-edit has to know which shape asked. #181 removes the flag and leaves the
-box.
+the node box, so `Node.Refresh` can return a label fragment that lands
+correctly without knowing where the node sits.
+
+While both renderers existed this had to hold for the circle too, and
+the refresh endpoint carried a `layout=server` flag because the two
+shapes fitted different numbers of characters per line (`cfgLabelWidth`
+18 vs. the circle's 12). #181 removed the flag along with the circle:
+one renderer, one wrap width.
 
 ### Palette
 
@@ -509,11 +522,12 @@ the parts to be careful around:
   otherwise accumulate one set per graph load. Each run aborts the
   previous run's `AbortController`, which drops them all at once.
 
-**Reaching it in a browser is #181's job, not this one's.** Until the
-cutover the server layout sits behind `?layout=server`, which nothing in
-the UI sets (#192) — so #179's behaviours are covered by integration
-assertions on what the server emits, and the browser-level e2e arrives
-with #181.
+**#181 made this reachable.** While the server layout sat behind
+`?layout=server`, which nothing in the UI set (#192), none of the
+viewport could be driven by a browser — its coverage was integration
+assertions on what the server emitted. The cutover removed the flag, and
+`e2e/tests/graph.spec.ts` now drives the zoom controls and a pointer
+pan for real.
 
 ## Cycles
 
