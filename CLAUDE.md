@@ -59,6 +59,7 @@ cases:
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
+| Anything touching the dependency graph's layout or rendering (#172-#183) | `docs/development/ui/graph-rendering.md` -- **target** architecture while that work is in flight; its status table says what has actually landed |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
