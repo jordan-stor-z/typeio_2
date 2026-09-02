@@ -355,6 +355,13 @@ A few ways this deliberately differs from every other workflow here:
   reports quickly — the two-job split keeps that fast precondition
   check separate from ever having to spin up (or skip inside) the full
   GHC+Docker+Postgres+browser job.
+- **`check-e2e-required` writes its reasoning to `$GITHUB_STEP_SUMMARY`**
+  (#139), not just to the step's stdout log — so "why did/didn't e2e run
+  on this PR" is visible at a glance from the PR checks UI's Summary tab,
+  covering all three outcomes: required via the PR's own label, required
+  via a named closing issue's label (the issue number is named
+  explicitly), or not required (naming which closing issues, if any,
+  were checked and found unlabeled).
 - **Not a required check**, same as `integration-test.yml`/
   `security-scan.yml` — doubly so here, since it isn't even part of
   every PR's checks by default.

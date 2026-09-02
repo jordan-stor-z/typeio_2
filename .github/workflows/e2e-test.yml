@@ -88,23 +88,51 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+        # Every branch below writes its reasoning to $GITHUB_STEP_SUMMARY,
+        # not just stdout -- so "why did/didn't e2e run" is visible from
+        # the PR checks UI's Summary tab, not just by opening this step's
+        # raw log. See docs/development/ci.md's "E2E test workflow"
+        # section (#139).
         run: |
           if gh pr view "$PR" -R "$REPO" --json labels -q '.labels[].name' | grep -qx 'run-e2e'; then
-            echo "required=true (PR's own label)"
             echo "required=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### E2E tests: required"
+              echo
+              echo "This PR carries the \`run-e2e\` label directly."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           owner="${REPO%/*}"
           repo="${REPO#*/}"
+          # One line per closing issue, its labels comma-joined -- an
+          # issue with no labels still gets a line (an empty label list),
+          # so it's still visible/nameable in the "not required" summary.
           closing_labels=$(gh api graphql \
             -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){closingIssuesReferences(first:10){nodes{number labels(first:20){nodes{name}}}}}}}' \
             -f owner="$owner" -f repo="$repo" -F pr="$PR" \
-            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[] | "\(.number): \(.labels.nodes[].name)"')
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[] | "\(.number): \(.labels.nodes | map(.name) | join(","))"')
           echo "Closing issues and their labels: ${closing_labels:-<none>}"
-          if echo "$closing_labels" | grep -q ': run-e2e$'; then
+          closing_issue_numbers=$(echo "$closing_labels" | cut -d: -f1 | paste -sd, -)
+          matching_issues=$(echo "$closing_labels" | awk -F': ' '{n = split($2, a, ","); for (i = 1; i <= n; i++) if (a[i] == "run-e2e") print $1}' | paste -sd, -)
+          if [ -n "$matching_issues" ]; then
             echo "required=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### E2E tests: required"
+              echo
+              echo "Closing issue(s) $matching_issues carry the \`run-e2e\` label."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "required=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### E2E tests: not required"
+              echo
+              if [ -n "$closing_issue_numbers" ]; then
+                echo "Neither this PR nor its closing issue(s) ($closing_issue_numbers) carry the \`run-e2e\` label."
+              else
+                echo "This PR carries no \`run-e2e\` label and has no closing issue references to check."
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
   e2e-test:
