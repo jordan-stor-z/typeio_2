@@ -185,20 +185,33 @@ spec = aroundAll withTestDatabase $
           -- `node.project_id`, not from `project.dependency`.
           body `shouldContainStr` "class=\"link link-contains\""
 
-        it "leaves containment edges without an arrowhead" $ \pool -> do
+        it "gives a containment edge an arrowhead too" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool
           _ <- seedWorkNode pool projectKey "Build the thing"
 
           body <- graphBody pool (fromSqlKey projectKey) []
 
-          -- An arrow means "this must finish first". The root is not
-          -- waiting on its own children, and drawing one is what made
-          -- the graph read as a dependency in the first place.
-          --
-          -- This project has containment edges and nothing else, so no
-          -- `marker-end` should appear on any path at all.
+          -- A project's completion depends on its work being complete,
+          -- so the root is waiting on every node under it and the edge
+          -- carries the same arrow as any dependency (#206). Its head
+          -- lands on the root, which `LayoutSpec` pins geometrically.
           body `shouldContainStr` "link-contains"
-          body `shouldNotContainStr` "marker-end"
+          body `shouldContainStr` "marker-end"
+
+        it "gives a real dependency its arrowhead" $ \pool -> do
+          -- The positive case, which nothing pinned before #206: the
+          -- suite only asserted the *absence* of an arrow, so inverting
+          -- the renderer's condition would have gone unnoticed.
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+          workKey <- seedWorkNode pool projectKey "Build the thing"
+          seedDependency pool rootKey workKey
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- One derived edge and one stored one, and both are drawn
+          -- with a head.
+          body `shouldContainStr` "class=\"link\""
+          body `shouldContainStr` "marker-end=\"url(#arrow)\""
 
       describe "the cutover (#181)" $ do
         it "serves the computed layout with no query parameter" $ \pool -> do

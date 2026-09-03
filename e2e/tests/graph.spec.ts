@@ -139,16 +139,17 @@ test("the graph renders server-side, with no client layout script", async ({ pag
   await expect(page.locator('#graph-data')).toHaveCount(0);
 });
 
-// Containment (#198): the project root heads the graph and holds its
-// work, rather than appearing to depend on it.
+// Containment (#198, #206): the project root heads the graph, and the
+// edges to its work carry an arrowhead like any dependency -- a
+// project's completion does depend on its work being complete.
 //
-// This one has to be an e2e test rather than an integration assertion
-// on the markup. The renderer omits `marker-end` on a containment path,
-// but `manage-project.css` sets it on `.link` -- which a containment
-// edge still carries -- so the arrowheads came straight back in the
-// browser while the markup-level test stayed green. Only computed style
-// settles it.
-test("the project root heads the graph, holding its work without arrows", async ({ page, request }) => {
+// The arrow assertion has to be an e2e test rather than a markup one.
+// `marker-end` is set in two places, the path attribute and
+// `manage-project.css`'s `.link` rule, so markup alone doesn't settle
+// what the browser actually draws: #198 removed the attribute and the
+// CSS put it straight back, while the integration test stayed green.
+// Computed style is the only thing that sees the real answer.
+test("the project root heads the graph, with arrows into it from its work", async ({ page, request }) => {
   const project = await createProject(page, 'E2E containment');
   for (const t of ['Containment A', 'Containment B']) {
     await addNode(request, project.id, t);
@@ -172,14 +173,13 @@ test("the project root heads the graph, holding its work without arrows", async 
     expect(y, 'work sits below the root').toBeGreaterThan(rootY!);
   }
 
-  // No arrowhead on a containment edge, as the browser actually
-  // resolves it -- CSS included.
+  // Every edge resolves to a real marker in the browser, CSS included.
   const markers = await page
-    .locator('#graph-links .link-contains')
+    .locator('#graph-links path')
     .evaluateAll((els) => els.map((el) => getComputedStyle(el).markerEnd));
   expect(markers.length).toBeGreaterThan(0);
   for (const m of markers) {
-    expect(m, 'containment edges carry no marker').toBe('none');
+    expect(m, 'every edge carries an arrowhead').not.toBe('none');
   }
 });
 

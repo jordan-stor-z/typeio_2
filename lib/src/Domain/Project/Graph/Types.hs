@@ -58,16 +58,21 @@ data LayoutNode = LayoutNode
   }
   deriving (Eq, Show)
 
-{- | What relationship an edge draws. The graph shows two, and
-conflating them is what put the project root at the bottom of the
-drawing for eight issues (#198).
+{- | Where an edge came from. Both draw the same thing — the lower node
+must be completed before the upper one, arrowhead on the upper end —
+and the difference is provenance, not meaning.
 
-* 'DependsOn' — real work ordering. The lower node must be completed
-  before the upper one can be, and the arrowhead sits on the upper
-  (waiting) end.
-* 'Contains' — structural membership. The project root /holds/ its work;
-  nothing is waiting on anything. No arrowhead, because there is no
-  direction of work to point along.
+* 'DependsOn' — read from a @project.dependency@ row. A dependency
+  somebody recorded between two pieces of work.
+* 'Contains' — derived from @project.node.project_id@, joining the
+  project root to each node under it. A project's completion depends on
+  its work being complete, so this is a real dependency too (#206); it
+  just has no row behind it, which is why it cannot be deleted and why
+  #198 could remove the duplicate rows that used to store it.
+
+Getting the /direction/ right is what this exists for. Both are built
+through 'dependsOn' and 'contains', which take their arguments in the
+relationship's own terms.
 -}
 data EdgeKind
   = DependsOn
@@ -109,13 +114,16 @@ dependsOn :: EdgeId -> NodeId -> NodeId -> LayoutEdge
 dependsOn i dependency dependent =
   LayoutEdge i DependsOn dependent dependency
 
-{- | @contains i container contained@: @container@ holds @contained@, so
-it is drawn above it.
+{- | @contains i container contained@: @container@ holds @contained@,
+so it is drawn above it — and, being drawn above, is understood to be
+waiting on it.
 
-This is how the project root relates to its work. It is /not/ a
-dependency: the root is not waiting on anything, and membership is
-recorded by @project.node.project_id@, not by a @project.dependency@
-row (#198).
+This is how the project root relates to its work. It /is/ a dependency
+in substance — a project is not complete until its work is (#206) — but
+it is never stored as one: membership is recorded by
+@project.node.project_id@, and duplicating it into
+@project.dependency@ is what put the root at the bottom of the graph
+(#198). Derived on the way into layout, every time.
 -}
 contains :: EdgeId -> NodeId -> NodeId -> LayoutEdge
 contains i container contained =
@@ -178,10 +186,9 @@ data PlacedNode = PlacedNode
 data PlacedEdge = PlacedEdge
   { peId :: EdgeId
   , peKind :: EdgeKind
-  {- ^ Carried through from 'leKind' because the renderer needs it: only
-  a 'DependsOn' edge gets an arrowhead. A 'Contains' edge is structure,
-  not work ordering, and an arrow on it would claim the root is waiting
-  on its own children.
+  {- ^ Carried through from 'leKind'. Both kinds draw an arrowhead
+  (#206); the renderer uses this only to class derived edges, which have
+  no @project.dependency@ row behind them.
   -}
   , pePoints :: [Point]
   {- ^ Polyline. The last point sits on the upper node — for a

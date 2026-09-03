@@ -461,26 +461,34 @@ puts the arrowhead on the node that is waiting — not on the one that
 has to finish first.
 -}
 
-{- | Only a dependency gets an arrowhead.
+{- | Every edge gets an arrowhead, including the root's (#206).
 
-A containment edge says the project root holds this node; nothing is
-waiting on anything, so there is no direction of work to point along.
-Drawing an arrow on it is what made the graph read as "the root depends
-on all its work" (#198). It also takes its own class, so the stylesheet
-can distinguish structure from ordering.
+A project's completion depends on its work being complete, so the root
+genuinely is waiting on every node under it — the same thing the arrow
+means anywhere else in this drawing. The polyline already ends at the
+root, so the head lands there: this work feeds the project.
+
+#198 briefly removed it, on the reasoning that membership isn't a
+dependency and nothing is waiting on anything. The first half is right
+and still stands — membership is derived from @project_id@, not stored
+as a duplicate row — but the second half isn't, which is why the arrow
+is back.
+
+'Contains' still earns its own class: these edges are /derived/ rather
+than read from @project.dependency@, and nothing behind them can be
+deleted. The class is the hook for that, not a visual difference.
 -}
 edgeLine :: PlacedEdge -> Html ()
 edgeLine e =
   path_
-    ( [ class_ (if dependency then "link" else "link link-contains")
-      , d_ (polyline (peJumps e) (pePoints e))
-      , fill_ "none"
-      ]
-        <> [markerEnd_ "url(#arrow)" | dependency]
-    )
+    [ class_ (if derived then "link link-contains" else "link")
+    , d_ (polyline (peJumps e) (pePoints e))
+    , fill_ "none"
+    , markerEnd_ "url(#arrow)"
+    ]
     (mempty :: Html ())
   where
-    dependency = peKind e == DependsOn
+    derived = peKind e == Contains
 
 {- | The edge's path, hopping over each of its 'peJumps' (#180).
 

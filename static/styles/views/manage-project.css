@@ -241,20 +241,19 @@ svg {
   fill: none;
 }
 
-/* A containment edge says the project root holds this node. Nothing is
-   waiting on anything, so there is no direction of work to point along
-   and it gets no arrowhead (#198).
+/* `.link-contains` deliberately has no styling of its own, the same way
+   `.link-shared` above doesn't.
 
-   This rule is load-bearing, not belt-and-braces: the renderer already
-   omits the `marker-end` attribute on these paths, but `.link` above
-   sets it in CSS, and a containment edge still carries `.link`. Without
-   this the arrows come back -- pointing *into* the root, which is
-   exactly the "everything depends on the root" reading the fix exists
-   to remove. Markup alone does not settle it. */
-#tree-container .link-contains {
-  marker-end: none;
-  stroke-opacity: 0.4;
-}
+   It marks the root-to-work edges, which the graph derives from
+   `node.project_id` rather than reading from `project.dependency`. That
+   distinction is real -- there is no row behind one, so nothing can
+   delete it -- but it is not a visual one: a project's completion does
+   depend on its work being complete, so these read as dependencies and
+   should look like them (#206).
+
+   The class stays as the hook for when that provenance does need to
+   show, and because #205 will need to tell a derived edge from a
+   user-declared one. */
 
 /* `.link-shared` deliberately has no styling of its own: a shared
    dependency is an ordinary dependency and reads better drawn like any
