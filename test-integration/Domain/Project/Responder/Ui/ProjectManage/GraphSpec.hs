@@ -22,7 +22,7 @@ import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.Int (Int64)
 import Data.List (isInfixOf, isPrefixOf, tails)
 import Database.Persist.Sql (ConnectionPool, fromSqlKey)
-import Domain.Project.Responder.Ui.ProjectManage.Graph (handleProjectGraph)
+import Domain.Project.Visualization.Layered.Responder (handleProjectGraph)
 import Integration.Support
   ( resetBetweenTests
   , seedDependency

@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Domain.Project.Responder.Ui.ProjectManage.Graph where
+module Domain.Project.Visualization.Common where
 
 import Common.Validation
   ( ValidationErr
@@ -45,7 +45,7 @@ import Database.Esqueleto.Experimental
   )
 import Database.Persist (Entity (..))
 import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
-import Domain.Project.Graph.Containment (containmentEdges)
+
 import Domain.Project.Graph.Layout (layout)
 import Domain.Project.Graph.Types
   ( Bounds (..)
@@ -99,8 +99,31 @@ data GraphNode = GraphNode
   , projectId :: Int64
   }
 
-handleProjectGraph :: ConnectionPool -> Application
-handleProjectGraph pl req respond = do
+{- | Build a 'ServerGraph' from a project's rows: which nodes and edges
+the drawing is /of/.
+
+This is the one thing each visualization supplies for itself, and it is
+where they actually differ — whether the project root is drawn at all,
+whether containment edges are derived, what counts as an edge. See
+@docs/architecture/visualization-switching.md@.
+-}
+type BuildGraph =
+  Int64 ->
+  [Entity M.Node] ->
+  [Entity M.Dependency] ->
+  ServerGraph
+
+{- | The request half of a graph endpoint, shared by every
+visualization: parse the project id, fetch the project's nodes and
+dependencies, hand them to the visualization's own 'BuildGraph', render.
+
+Only the middle step varies, so only the middle step is a parameter.
+Validation, the queries and the error responses are identical whichever
+drawing is selected, and duplicating them per visualization would just
+let them drift apart.
+-}
+handleGraphWith :: BuildGraph -> ConnectionPool -> Application
+handleGraphWith build pl req respond = do
   rslt <- flip runSqlPool pl . runEitherT $ do
     pid <-
       hoistEither
@@ -121,7 +144,7 @@ handleProjectGraph pl req respond = do
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes -> respondMissingNodes
     Right (pid, ns, ds) ->
-      respondSuccess . templateServerGraph $ toServerGraph pid ns ds
+      respondSuccess . templateServerGraph $ build pid ns ds
   where
     respondMissingNodes =
       respond
@@ -286,27 +309,20 @@ data ServerGraph = ServerGraph
   , sgDiagram :: Diagram
   }
 
-toServerGraph ::
-  Int64 ->
-  [Entity M.Node] ->
-  [Entity M.Dependency] ->
-  ServerGraph
-toServerGraph pid ns ds =
+{- | Assemble a 'ServerGraph' from nodes and edges a visualization has
+already decided on, laying them out with the shared engine.
+
+The labels map carries the untruncated titles, which 'PlacedNode'
+deliberately doesn't (it holds the label already wrapped to the box) —
+the per-node refresh hook needs the original.
+-}
+serverGraph :: Int64 -> [LayoutNode] -> [LayoutEdge] -> ServerGraph
+serverGraph pid lns les =
   ServerGraph
     { sgProjectId = pid
     , sgLabels = Map.fromList [(lnId n, lnLabel n) | n <- lns]
     , sgDiagram = layout defaultLayoutConfig lns les
     }
-  where
-    lns = map toLayoutNode ns
-    {- The root's edges are derived, not read (#198): membership lives
-    in @project.node.project_id@, and every node here came back from a
-    query on that column. Which nodes it attaches to is a question about
-    the shape of the dependencies, so it is answered in the layout tier
-    where it can be tested as the pure thing it is
-    (@Graph.Containment@, #211) rather than only through rendered SVG. -}
-    deps = map toLayoutEdge ds
-    les = containmentEdges lns deps <> deps
 
 toLayoutNode :: Entity M.Node -> LayoutNode
 toLayoutNode (Entity k e) =

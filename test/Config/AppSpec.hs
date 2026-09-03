@@ -3,6 +3,7 @@
 module Config.AppSpec (spec) where
 
 import Config.App
+import Config.Visualization (Visualization (..))
 import Config.Web (port)
 import System.Environment (setEnv, unsetEnv)
 import Test.Hspec
@@ -28,6 +29,7 @@ setValidEnv = do
   setEnv "WEB_INDEX_REDIRECT" "/ui/projects/vw"
   setEnv "WEB_PORT" "8080"
   setEnv "WEB_REQUEST_ID_HEADER" "X-Request-Id"
+  setEnv "GRAPH_VISUALIZATION" "Layered"
 
 spec :: Spec
 spec = around_ (setValidEnv >>) $
@@ -59,6 +61,28 @@ spec = around_ (setValidEnv >>) $
           , "DB_HOST is missing from environment config"
           , "WEB_INDEX_REDIRECT is missing from environment config"
           ]
+
+    it "reads the configured visualization" $ do
+      setEnv "GRAPH_VISUALIZATION" "Rootless"
+      result <- loadAppConfig
+      case result of
+        Right cfg -> visualization cfg `shouldBe` Rootless
+        Left errs -> expectationFailure ("expected success, got: " ++ show errs)
+
+    it "fails when GRAPH_VISUALIZATION is missing, rather than defaulting" $ do
+      -- Deliberately has no default: a silently defaulted visualization
+      -- surfaces much later as "the graph looks wrong", which is worse
+      -- than refusing to start.
+      unsetEnv "GRAPH_VISUALIZATION"
+      result <- loadAppConfig
+      result
+        `shouldBe` Left
+          ["GRAPH_VISUALIZATION is missing from environment config"]
+
+    it "fails with a distinct message when GRAPH_VISUALIZATION names no visualization" $ do
+      setEnv "GRAPH_VISUALIZATION" "Radial"
+      result <- loadAppConfig
+      result `shouldBe` Left ["Invalid GRAPH_VISUALIZATION value"]
 
     it "succeeds even when WEB_PORT is unset, defaulting to 3000 (see Config.Web.defaultWebPort)" $ do
       unsetEnv "WEB_PORT"
