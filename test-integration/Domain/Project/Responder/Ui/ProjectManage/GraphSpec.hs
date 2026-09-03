@@ -20,7 +20,7 @@ module Domain.Project.Responder.Ui.ProjectManage.GraphSpec (spec) where
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.Int (Int64)
-import Data.List (isInfixOf, isPrefixOf)
+import Data.List (isInfixOf, isPrefixOf, tails)
 import Database.Persist.Sql (ConnectionPool, fromSqlKey)
 import Domain.Project.Responder.Ui.ProjectManage.Graph (handleProjectGraph)
 import Integration.Support
@@ -234,10 +234,47 @@ spec = aroundAll withTestDatabase $
 
           body <- graphBody pool (fromSqlKey projectKey) []
 
-          -- One derived edge and one stored one, and both are drawn
-          -- with a head.
+          -- A stored row recording that the root waits on this work,
+          -- drawn with a head. No containment edge is derived beside
+          -- it: the root already sits above that node, and #211 stopped
+          -- adding a second edge saying so.
           body `shouldContainStr` "class=\"link\""
           body `shouldContainStr` "marker-end=\"url(#arrow)\""
+
+      describe "containment reaches the work through its own shape (#211)" $ do
+        it "attaches the root to a chain's head only" $ \pool -> do
+          -- The bug as reported: on a chain, every node got its own
+          -- root edge on top of the chain that already described the
+          -- work, so the root fanned out to all of them and the real
+          -- shape was buried underneath.
+          (projectKey, _) <- seedProjectWithRootNode pool
+          a <- seedWorkNode pool projectKey "First"
+          b <- seedWorkNode pool projectKey "Second"
+          c <- seedWorkNode pool projectKey "Third"
+          -- b waits on a, c waits on b.
+          seedDependency pool b a
+          seedDependency pool c b
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- One derived edge, to the head, and the two stored ones.
+          countStr "link link-contains" body `shouldBe` 1
+          countStr "class=\"link\"" body `shouldBe` 2
+
+        it "still attaches work that nothing depends on" $ \pool -> do
+          -- The other half of the rule: a node with no dependencies at
+          -- all is its own head, so it keeps its root edge rather than
+          -- floating away from the project.
+          (projectKey, _) <- seedProjectWithRootNode pool
+          a <- seedWorkNode pool projectKey "Chained"
+          b <- seedWorkNode pool projectKey "Chained too"
+          _ <- seedWorkNode pool projectKey "On its own"
+          seedDependency pool b a
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- The chain's head, and the lone node.
+          countStr "link link-contains" body `shouldBe` 2
 
       describe "the cutover (#181)" $ do
         it "serves the computed layout with no query parameter" $ \pool -> do
@@ -307,6 +344,16 @@ shouldNotContainStr :: String -> String -> Expectation
 shouldNotContainStr haystack needle =
   not (needle `isInfixOf` haystack)
     `shouldSatisfyWith` ("expected the rendered graph not to contain " <> show needle)
+
+{- | How many times @needle@ occurs in @haystack@, counting overlaps.
+
+Presence alone is not enough for the containment rule (#211): the bug
+was that the root drew an edge to /every/ node rather than to the heads,
+and a `shouldContainStr` passes just as happily either way. What is
+being asserted is a count.
+-}
+countStr :: String -> String -> Int
+countStr needle = length . filter (needle `isPrefixOf`) . tails
 
 {- | A plain 'shouldBe' on a 'Bool' reports "False /= True", which says
 nothing about which string was missing; this keeps the needle in the

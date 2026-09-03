@@ -8,8 +8,9 @@
 > The one thing most worth understanding here: every edge means "the
 > upper node is waiting on the lower one", but only some are *stored*.
 > The root-to-work edges are derived from `node.project_id` rather than
-> read from `project.dependency`. See
-> [Assign layers](#2-assign-layers--graphlayer).
+> read from `project.dependency`, and the root attaches only to the
+> *heads* of the work, not to every node (#211). See
+> [Stored edges and derived ones](#stored-edges-and-derived-ones-198-206).
 
 Built by #173–#183, from the spike in #169. The graph is rendered
 server-side as finished SVG: there is no client-side layout code, and
@@ -67,6 +68,7 @@ responder does the I/O on either side of it and nothing else.
 | Module | Owns | Issue |
 |---|---|---|
 | `Domain.Project.Graph.Types` | Every type below; no logic | #173 |
+| `Domain.Project.Graph.Containment` | Which work the root attaches to | #211 |
 | `Domain.Project.Graph.Layer` | Cycle breaking, layer assignment, dummy insertion | #173, #176 |
 | `Domain.Project.Graph.Order` | Crossing reduction, crossing counter | #177 |
 | `Domain.Project.Graph.Coord` | x/y assignment, component packing | #174 |
@@ -238,6 +240,36 @@ Build edges with `dependsOn`/`contains` rather than the `LayoutEdge`
 record: the constructors take their arguments in the relationship's own
 terms, which is the only thing that has reliably stopped this being
 written backwards.
+
+#### Which work the root attaches to (#211)
+
+Derived does not mean "one per node". `Graph.Containment` attaches the
+root to the **heads** of the work — nodes nothing else is waiting on —
+and to nothing else. A node further down already hangs below a head and
+reaches the root that way, so the rule a reader can hold onto is: **a
+node is attached to the root, or to other work, never both.**
+
+Attaching the root to every node, which is what #198 did when it first
+derived these, draws the project's real shape and then buries it. On a
+chain of five, the root fanned out to all five on top of the four edges
+that described the actual work, and it got worse the larger the project.
+
+Two cases keep the drawing whole, and both are why this is a function
+with tests rather than a filter inline:
+
+- **A node with no dependencies at all is its own head**, so it keeps
+  its root edge instead of floating away from the project.
+- **A cycle has no head** — every node in it is something else's
+  dependency. Left at the rule above, a wholly cyclic group would attach
+  to nothing and drift off as an island, so anything left unreachable
+  adopts an anchor until every node hangs off the root somewhere. Note
+  this is answered on the recorded edges, *not* by asking `Graph.Layer`
+  which edge it reversed: which edge breaks a cycle is layout's own
+  business, and membership should not depend on that choice.
+
+A stored row that already puts the root above a node (the
+pre-migration-000009 shape) counts as attached, so no second edge is
+derived beside it.
 
 > ⚠️ **This section previously asserted the opposite, and it cost eight
 > issues.** It claimed the root "depends on its work, so the work
