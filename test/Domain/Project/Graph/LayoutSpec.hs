@@ -245,11 +245,25 @@ containmentSpec = describe "layout, containment" $ do
     topOf (placed d 3) `shouldSatisfy` (< topOf (placed d 2))
     topOf (placed d 1) `shouldBe` minimum (map topOf (diagramNodes d))
 
-  it "marks containment edges so the renderer can skip the arrowhead" $ do
+  it "tags each edge with where it came from" $ do
+    -- Both kinds render identically (#206); the tag records provenance,
+    -- which is what tells a derived edge from one with a row behind it.
     let d = layout cfg [rootNode 1, node 2, node 3] [holds 10 1 2, dep 11 2 3]
         kindOf i = peKind (head (filter ((== EdgeId i) . peId) (diagramEdges d)))
     kindOf 10 `shouldBe` Contains
     kindOf 11 `shouldBe` DependsOn
+
+  it "ends a containment edge on the root, where its arrowhead goes" $ do
+    -- The project is what waits on the work, so the head belongs on the
+    -- root end. Geometry has to agree with that or the arrow restored
+    -- in #206 would point the wrong way.
+    let d = layout cfg [rootNode 1, node 2] [holds 10 1 2]
+        e = head (diagramEdges d)
+        rootBox = placed d 1
+        lastY = ptY (last (pePoints e))
+    lastY
+      `shouldSatisfy` \y ->
+        y >= topOf rootBox && y <= topOf rootBox + szH (pnSize rootBox)
 
 {- | No two edges drawn on top of each other (#190).
 

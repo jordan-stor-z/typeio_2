@@ -5,9 +5,10 @@
 > reconciled against the result in #183; the phase-by-phase status table
 > that used to sit here is gone because every row reached ✅.
 >
-> The graph draws two different relationships, and telling them apart
-> is the thing most worth understanding here: a **dependency** is work
-> ordering, and **containment** is a node belonging to its project. See
+> The one thing most worth understanding here: every edge means "the
+> upper node is waiting on the lower one", but only some are *stored*.
+> The root-to-work edges are derived from `node.project_id` rather than
+> read from `project.dependency`. See
 > [Assign layers](#2-assign-layers--graphlayer).
 
 Built by #173–#183, from the spike in #169. The graph is rendered
@@ -119,8 +120,8 @@ contains  :: EdgeId -> NodeId -> NodeId -> LayoutEdge  -- container, contained
 constructors are the guard rail, because they take their arguments in
 the relationship's own terms. Generic field names are what let the
 previous renderer point its arrowheads at the wrong end for as long as
-it did, and an unlabelled edge is what let containment masquerade as a
-dependency for eight issues (#198).
+it did, and writing the root's edge the wrong way round is what sank the
+root to the bottom of the drawing for eight issues (#198).
 
 ```haskell
 data Point = Point { ptX :: Double, ptY :: Double }
@@ -137,8 +138,8 @@ data PlacedNode = PlacedNode
 
 data PlacedEdge = PlacedEdge
   { peId       :: EdgeId
-  , pePoints   :: [Point] -- polyline; head sits on the dependency,
-                          -- last sits on the dependent and carries
+  , pePoints   :: [Point] -- polyline; last point sits on the upper
+                          -- node -- the one waiting -- and carries
                           -- the arrowhead
   , peReversed :: Bool    -- reversed for layering only (see §Cycles);
                           -- does NOT change which end is the arrow
@@ -205,21 +206,32 @@ is drawn above the work it is waiting on. Layering by *dependencies*
 instead (a node with no dependencies at layer 0) would invert the
 drawing and put the leaf tasks on top.
 
-### Two relationships, not one (#198)
+### Stored edges and derived ones (#198, #206)
 
-An edge carries an 'EdgeKind', and which end goes on top follows from
-it:
+An edge carries an `EdgeKind`. **Both kinds draw the same thing** — the
+upper node is waiting on the lower one, arrowhead on the upper end. What
+differs is where the edge came from:
 
-| Kind | Upper end | Arrowhead |
-|---|---|---|
-| `DependsOn` | the dependent — the work that is waiting | yes, on the upper end |
-| `Contains` | the container — the project root | no |
+| Kind | Upper end | Comes from | Deletable |
+|---|---|---|---|
+| `DependsOn` | the dependent | a `project.dependency` row | yes |
+| `Contains` | the project root | derived from `node.project_id` | no — there is no row |
 
-**The project root heads the graph because it *contains* its work**, not
-because it depends on it. Build edges with `dependsOn`/`contains` rather
-than the `LayoutEdge` record: the constructors take their arguments in
-the relationship's own terms, which is the only thing that has reliably
-stopped this being written backwards.
+**The project root heads the graph because it is waiting on its work.**
+A project is not complete until its tasks are, so the root genuinely
+depends on every node under it, and the arrow points into the root:
+this work feeds the project.
+
+What #198 fixed was never that relationship — it was that the app
+*stored* it, as a `project.dependency` row per node pointing at the
+root, duplicating `project_id` and pointing the wrong way. Deriving it
+instead puts the root at the head and leaves `project.dependency`
+meaning only what somebody explicitly recorded.
+
+Build edges with `dependsOn`/`contains` rather than the `LayoutEdge`
+record: the constructors take their arguments in the relationship's own
+terms, which is the only thing that has reliably stopped this being
+written backwards.
 
 > ⚠️ **This section previously asserted the opposite, and it cost eight
 > issues.** It claimed the root "depends on its work, so the work
@@ -406,13 +418,13 @@ generated graphs (2.7%) contained at least one overlap; after, none do.
   accumulating gap heights rather than by multiplying an index. Phase 6
   computes them.
 - **Layer 0 is at the top**, at `cfgMargin`, and layer number increases
-  downward. The project root heads the graph *because it contains its
-  work* (#198) — not by special-casing it. Nothing guarantees the root
-  is alone in layer 0: a real dependency recorded as "task X depends on
-  the project root" would still put the root below X, which is the rule
+  downward. The project root heads the graph *because it is waiting on
+  its work* — not by special-casing it. Nothing guarantees the root is
+  alone in layer 0: a real dependency recorded as "task X depends on
+  the project root" would put the root below X, which is the rule
   working correctly on data that says something unusual. What no longer
   happens is *every* node saying that, which is what sank the root
-  before containment was modelled separately.
+  before the edge was derived rather than stored (#198).
 - `pnTopLeft` is the box's top-left corner, not its centre. (The
   client-side renderer this replaced positioned by centre; that habit
   deliberately did not carry over.)
