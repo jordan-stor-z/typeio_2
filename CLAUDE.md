@@ -34,8 +34,11 @@ graph-based layout for visualizing and managing those dependencies.
 - **Client-side:** htmx (partial-page swaps between a persistent
   `#container` shell and per-page `#view` fragments), hyperscript.org
   (the `h_ "..."` attribute, for small declarative effects like
-  flash-on-update), and D3.js (the dependency-graph visualization). Full
-  write-up: [`docs/development/frontend/`](docs/development/frontend/).
+  flash-on-update), and `graph-viewport.js` (scroll/zoom/pan over the
+  dependency graph — the graph itself is laid out server-side in
+  Haskell and arrives as finished SVG; there is no client-side layout
+  code, and D3 was removed in #182). Full write-up:
+  [`docs/development/frontend/`](docs/development/frontend/).
 - **Database:** PostgreSQL 15 (Docker), accessed via esqueleto/persistent.
 - **Migrations:** SQL files in `migrations/`, managed via the `migrate`
   CLI, paired `.up.sql`/`.down.sql`.
@@ -59,7 +62,7 @@ cases:
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
-| Anything touching the dependency graph's layout or rendering (#172-#183) | `docs/architecture/graph-rendering.md` -- the design being built to; its status table says which phases actually exist yet |
+| Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline: module map, per-phase contracts, and the one known divergence (#198) |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |

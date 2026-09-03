@@ -187,7 +187,7 @@ routeEdges cfg layers centres segments chains =
         { peId = e
         , pePoints = orient (simplify (concatMap segmentPoints (segmentsFor e)))
         , peReversed = reversed
-        , -- Filled in by 'withJumps' once every edge has been placed:
+        , -- Filled in by 'addJumps' once every edge has been placed:
           -- a crossing is a fact about a pair of edges, so it cannot be
           -- known while routing one of them in isolation.
           peJumps = []

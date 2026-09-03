@@ -27,7 +27,7 @@ to whatever path the browser actually asked for (`lnk`, derived from the
 request path + query string), and swaps the response's HTML into itself.
 So **every page load is two round trips**: an empty shell, then the real
 content. This is what makes the app behave like an SPA without being one
-— `<head>` (global stylesheets, htmx/D3/hyperscript scripts) is only ever
+— `<head>` (global stylesheets, htmx and hyperscript) is only ever
 loaded once, and every subsequent navigation targets `#container`
 (`hxTarget_ "#container"`, `hxSwap_ "innerHTML"`) instead of a full page
 load.

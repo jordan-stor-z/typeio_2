@@ -1,29 +1,18 @@
 # Dependency Graph Rendering
 
-> **Status: in flight.** This describes the design the graph is being
-> built to. Since #181 the graph *is* rendered by this pipeline —
-> server-side, with no query parameter — but the effort isn't finished:
-> D3 is still shipped on the page (#182), and every phase below marked
-> ⏳ does not exist yet.
+> **Status: built.** Everything below describes what the app actually
+> does. The pipeline shipped across #173–#182 and this document was
+> reconciled against the result in #183; the phase-by-phase status table
+> that used to sit here is gone because every row reached ✅.
 >
-> The status table is the source of truth for what has landed — check it
-> before reading any section as a description of current behaviour. Each
-> issue flips its own row as it merges, and #183 drops this status line
-> once nothing is ⏳.
+> One known divergence survives, and it is a real one: **the project
+> root draws at the bottom of the graph rather than heading it (#198).**
+> See [Assign layers](#2-assign-layers--graphlayer) before relying on
+> row order meaning what you expect.
 
-| Phase / concern | Issue | Status |
-|---|---|---|
-| Types, cycle breaking, layer assignment, flagged SVG render | #173 | ✅ |
-| x-coordinate assignment (median/priority) | #174 | ✅ |
-| Orthogonal routing: ports and tracks | #175 | ✅ |
-| Dummy nodes for multi-level edges | #176 | ✅ |
-| Crossing reduction | #177 | ✅ |
-| Node chrome (rects, labels, palette) | #178 | ✅ |
-| Scroll-and-zoom viewport | #179 | ✅ |
-| Line jumps at crossings | #180 | ✅ |
-| Cutover: server layout by default | #181 | ✅ |
-| D3 deleted | #182 | ⏳ |
-| This doc reconciled with reality | #183 | ⏳ |
+Built by #173–#183, from the spike in #169. The graph is rendered
+server-side as finished SVG: there is no client-side layout code, and
+no graph data is sent to the browser.
 
 For *why* any of this was chosen — the options weighed, the algorithms
 rejected, the requirements derived from the reference images — see
@@ -37,16 +26,16 @@ For how to *work with* the surrounding code — running the app, the
 — see [`../development/`](../development/). This doc covers the graph's
 design; that directory covers the day-to-day.
 
-## What the change is, in one paragraph
+## What this is, in one paragraph
 
-The project dependency graph moves from "server sends JSON, client
+The project dependency graph went from "server sends JSON, client
 computes positions with D3" to "server computes positions, client
-receives finished SVG". Layout becomes a pure Haskell pipeline of the
+receives finished SVG". Layout is a pure Haskell pipeline of the
 [layered graph drawing](https://en.wikipedia.org/wiki/Layered_graph_drawing)
 family (nodes in rows by dependency depth, edges as right-angle
-polylines), rendered to SVG by the existing Lucid vocabulary. D3 goes
-away entirely, including the 280KB `<script>` that currently loads on
-every page in the app.
+polylines), rendered to SVG by the existing Lucid vocabulary. D3 is
+gone entirely, including the ~280KB `<script>` that used to load on
+every page in the app — not just the one with a graph on it.
 
 ## The pipeline
 
@@ -120,8 +109,8 @@ data LayoutEdge = LayoutEdge
 
 **`leDependency`/`leDependent`, never `source`/`target`.** See
 [Edge direction](#edge-direction-and-the-trap-it-hides) — the field
-names are the guard rail, and generic names are what let the current
-code point its arrowheads the wrong way.
+names are the guard rail, and generic names are what let the previous
+renderer point its arrowheads at the wrong end for as long as it did.
 
 ```haskell
 data Point = Point { ptX :: Double, ptY :: Double }
@@ -143,6 +132,8 @@ data PlacedEdge = PlacedEdge
                           -- the arrowhead
   , peReversed :: Bool    -- reversed for layering only (see §Cycles);
                           -- does NOT change which end is the arrow
+  , peJumps    :: [Point] -- where this edge's horizontal runs hop over
+                          -- another edge's vertical (see §6)
   }
 
 data Diagram = Diagram
@@ -153,13 +144,17 @@ data Diagram = Diagram
   }
 
 data LayoutConfig = LayoutConfig
-  { cfgNodeSize   :: Size
-  , cfgLayerGap   :: Double  -- vertical space between rows
-  , cfgNodeGap    :: Double  -- minimum horizontal space between boxes
-  , cfgTrackGap   :: Double  -- vertical space between routing tracks
-  , cfgLabelWidth :: Int     -- characters per label line
-  , cfgLabelLines :: Int     -- maximum label lines
-  , cfgMargin     :: Double  -- padding around the whole drawing
+  { cfgNodeSize    :: Size
+  , cfgLayerGap    :: Double  -- minimum vertical space between rows;
+                              -- grows to fit the tracks crossing a gap
+  , cfgNodeGap     :: Double  -- minimum horizontal space between boxes
+  , cfgDummyWidth  :: Double  -- room a dummy reserves in a row it
+                              -- crosses; a lane, not a whole box
+  , cfgTrackGap    :: Double  -- vertical space between routing tracks
+  , cfgLabelWidth  :: Int     -- characters per label line
+  , cfgLabelLines  :: Int     -- maximum label lines
+  , cfgMargin      :: Double  -- padding around the whole drawing
+  , cfgJumpRadius  :: Double  -- radius of a line jump's arc
   }
 ```
 
@@ -180,7 +175,7 @@ Each phase is a function from one representation to the next, and each
 guarantees an invariant the next phase relies on. The invariants are
 what the unit tests assert.
 
-### 1. Break cycles — `Graph.Layer` ✅ #173
+### 1. Break cycles — `Graph.Layer`
 
 DFS from every unvisited node; an edge pointing back at a node currently
 on the stack is a back edge and gets reversed for layout purposes, with
@@ -189,7 +184,7 @@ across runs.
 
 **Guarantees:** the edge set is acyclic.
 
-### 2. Assign layers — `Graph.Layer` ✅ #173
+### 2. Assign layers — `Graph.Layer`
 
 Longest-path layering over a topological order: a node with **no
 dependents** — nothing waiting on it — is layer 0; any other node sits
@@ -219,7 +214,7 @@ drawing and put the leaf tasks on top.
 direction. Layers are contiguous from 0. Disconnected components are
 layered independently.
 
-### 3. Insert dummies — `Graph.Layer` ✅ #176
+### 3. Insert dummies — `Graph.Layer`
 
 An edge spanning layers 2→5 becomes a chain through one dummy per
 intervening layer.
@@ -240,7 +235,7 @@ for one. Their only visible effect is spacing: reserving room in the
 rows an edge crosses is what opens the channel it routes along, and what
 stops a multi-level edge being drawn through a node box.
 
-### 4. Order within layers — `Graph.Order` ✅ #177
+### 4. Order within layers — `Graph.Order`
 
 Seeded in slot order, then alternating down/up sweeps placing each node
 at the median position of its neighbours in the adjacent layer, for a
@@ -265,7 +260,7 @@ fixtures — K(2,2), which no ordering can untangle below one crossing,
 and a fully reversed three-layer graph, which the sweeps take from six
 crossings to zero.
 
-### 5. Assign coordinates — `Graph.Coord` ✅ #174
+### 5. Assign coordinates — `Graph.Coord`
 
 `y = layer * (nodeHeight + cfgLayerGap)`. `x` by the priority/median
 method: each node wants the median x of its neighbours in the adjacent
@@ -286,7 +281,7 @@ separate is what lets this run without undoing that.
 **Guarantees:** no two node boxes overlap; every pair is at least
 `cfgNodeGap` apart horizontally.
 
-### 6. Route edges — `Graph.Route` ✅ #175 · ✅ #180
+### 6. Route edges — `Graph.Route`
 
 - **Ports.** Each node side carries slots. An edge claims the slot
   matching the direction it arrives from; slots on a side are ordered by
@@ -353,11 +348,16 @@ and the port it arrives at. More than two bends on such an edge is
 expected — "at most two bends" is a property of a single segment, not of
 a whole edge.
 
-**Known gap (#190):** two edges that swap ports between the same pair of
-nodes can end up sharing a vertical column over an overlapping stretch,
-so they draw on top of each other. Not a crossing — an overlap, and one
-nothing currently prevents. Narrow enough that the real project graph
-doesn't hit it, but worth closing before #181 makes this the default.
+**Known gap (#190), still open:** two edges that swap ports between the
+same pair of nodes can end up sharing a vertical column over an
+overlapping stretch, so they draw on top of each other. Not a crossing —
+an overlap, and one nothing prevents. Narrow enough that the real
+project graph doesn't hit it, and it did not block the cutover, but it
+is live behaviour now rather than a hypothetical.
+
+Worth knowing when reading §6: K(2,2) produces this overlap rather than
+a crossing, which is why it generates no line jumps and why a jump
+fixture has to be larger than the obvious four-node one.
 
 ## Coordinate conventions
 
@@ -373,8 +373,9 @@ doesn't hit it, but worth closing before #181 makes this the default.
   the root is alone in layer 0, or even in it: a dependency row recorded
   as "task X depends on the project root" puts the root below X, which
   is the rule working correctly on data that says something unusual.
-- `pnTopLeft` is the box's top-left corner, not its centre. (The current
-  D3 code positions by centre; do not carry that habit over.)
+- `pnTopLeft` is the box's top-left corner, not its centre. (The
+  client-side renderer this replaced positioned by centre; that habit
+  deliberately did not carry over.)
 - `diagramBounds` includes `cfgMargin` on all sides.
 
 ## Edge direction, and the trap it hides
@@ -392,11 +393,12 @@ Therefore:
 | `leDependency` | `to_node_id` | no — the tail |
 | `leDependent` | `node_id` | **yes — the head** |
 
-**This is the reverse of what the app draws today.** `toGraph` builds
-`GraphLink { source = node_id, target = to_node_id }` and the renderer
-puts `marker-end` on the target — so today's arrowheads sit on the
-*dependency*. Anyone porting the existing conversion function will
-inherit the bug unless they flip it.
+**This was the reverse of what the app used to draw.** The old
+conversion built `GraphLink { source = node_id, target = to_node_id }`
+and the renderer put `marker-end` on the target, so its arrowheads sat
+on the *dependency*. That conversion is gone (#181) and the arrowhead is
+now on the dependent, but the trap is recorded because it is the exact
+mistake a future port of this mapping would repeat.
 
 This is exactly why `LayoutEdge`'s fields are named for the relationship
 rather than `source`/`target`: with semantic names, getting it backwards
@@ -455,13 +457,17 @@ alongside it.
 | `.link` | CSS |
 | `hx-get`/`hx-target="#node-panel"`/`hx-push-url` on each node | the whole node-detail interaction |
 
-The one deliberate break is `circle` → `rect` (#178). It cost less than
-expected: `manage-project.css` now keys the node's fill, hover, glow and
-flash off the `.root`/`.work` class the shape carries on both paths
-rather than off an element name, so only `r: 45` is still circle-only
-and #182 deletes just that rule. The `graph.spec.ts` assertion that
-reads `r=45` as an overlap threshold is still correct while the D3 path
-is the default, and changes at #181 rather than here.
+The one deliberate break was `circle` → `rect` (#178), and it cost less
+than expected. `manage-project.css` keys the node's fill, hover, glow
+and flash off the `.root`/`.work` class the shape carries rather than
+off an element name, so when #182 removed the circle only a single
+`r: 45` rule had to go with it. Element names in selectors are what
+would have made that swap expensive.
+
+`graph.spec.ts`'s overlap assertion changed at #181: it used to compare
+centre distances against a circle's diameter, and now reads each box's
+own width/height off the `rect` and tests real rectangle intersection —
+exact rather than a proxy.
 
 **`#node-text-<id>` is a contract, not an implementation detail.** The
 label element and the hook that refreshes it are written ~40 lines apart
@@ -491,7 +497,7 @@ colour**. The graph keeps the app's own theme: `global.css`'s
 `--accent-light` for work nodes, `--text-primary` for labels. See
 [`../development/ui/design-system.md`](../development/ui/design-system.md).
 
-## Viewport ✅ #179
+## Viewport
 
 The graph is a **navigable viewport, not a fit-to-screen picture**. A
 large project is expected to overflow the view.
@@ -519,10 +525,10 @@ large project is expected to overflow the view.
 
 ### As built
 
-`static/script/graph-viewport.js`, ~200 lines and no D3. It loads from
-inside the graph fragment (like `nodetree2.js` does) rather than once at
-page load, because htmx replaces `#tree-container`'s contents wholesale
-on every graph load.
+`static/script/graph-viewport.js`, ~200 lines and no layout library. It
+loads from inside the graph fragment rather than once at page load,
+because htmx replaces `#tree-container`'s contents wholesale on every
+graph load.
 
 Four things in it are less obvious than the feature list above, and are
 the parts to be careful around:
@@ -531,7 +537,7 @@ the parts to be careful around:
   under the pointer (or, for the buttons, under the centre of the view)
   stays under it across the scale change. Without that the graph walks
   off-screen as you zoom, which is the single thing that makes a
-  hand-rolled zoom feel broken next to `d3-zoom`.
+  hand-rolled zoom feel broken next to a mature one.
 - **Every scale is a multiple of the natural size**, carried on
   `data-base-width`/`data-base-height`, never of the SVG's current
   width. Zoom rewrites those attributes, so reading them back would
@@ -599,11 +605,13 @@ The invariants each phase guarantees are the test suite. At minimum:
   baseline.
 - The same input yields identical output across runs.
 
-This is the point of the whole exercise: none of these are expressible
-against the JS this replaces. Playwright drives the finished page and
-cannot call `nodetree2.js`'s layout code, so today the app's most
-intricate logic is covered by one smoke test asserting four nodes landed
-somewhere without overlapping.
+This was the point of the whole exercise, and it paid off. None of the
+above was expressible against the JS this replaced: Playwright drives
+the finished page and could not call the client's layout code, so the
+app's most intricate logic had exactly one smoke test asserting four
+nodes landed somewhere without overlapping. The layout engine now
+carries ~40 unit examples over committed fixtures, and it runs in
+milliseconds without a browser or a database.
 
 ## Deliberately out of scope
 
