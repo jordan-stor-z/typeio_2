@@ -64,7 +64,8 @@ cases:
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
-| Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline: module map, per-phase contracts, and the dependency-vs-containment distinction (#198) |
+| Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline for the *layered* visualization: module map, per-phase contracts, and the dependency-vs-containment distinction (#198) |
+| How the app holds several graph visualizations and picks one, and what they may share | `docs/architecture/visualization-switching.md` -- designed, not built (#213) |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
@@ -179,6 +180,19 @@ Quick summary:
   per [`docs/development/labels.md`](docs/development/labels.md) —
   `gh issue create` takes `--label` directly. Not optional/an
   afterthought; do it at creation time.
+- **Also apply one `viz:*` label if the issue touches visualization
+  code** — which project visualization it is for. The graph has more
+  than one visualization by design and they share no code, so "fix the
+  graph" is not a well-formed ticket until it says *which* graph.
+  `viz:all` is for work spanning every visualization (the switching
+  mechanism, the shared queries); `viz:tbd` is for visualization work
+  whose target isn't decided yet, and must be resolved before the issue
+  is worked. An issue touching no visualization gets **no** `viz:*`
+  label — that absence is meaningful, which is why `viz:tbd` exists. See
+  [`labels.md`](docs/development/labels.md)'s `viz:*` section for the
+  label set, and
+  [`docs/architecture/visualization-switching.md`](docs/architecture/visualization-switching.md)
+  for what a visualization is.
 - **Also apply `run-e2e` at issue-creation time when the work will need
   E2E coverage** — i.e. its acceptance criteria involve a user-facing
   flow through the UI (the kind of thing `e2e/` tests drive a browser
