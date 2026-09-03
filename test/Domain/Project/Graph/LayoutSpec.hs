@@ -198,6 +198,76 @@ spec = do
       layout cfg ns es `shouldBe` layout cfg ns es
 
   jumpSpec
+  overlapSpec
+
+{- | No two edges drawn on top of each other (#190).
+
+Distinct from the crossing count in "Domain.Project.Graph.OrderSpec":
+a crossing is two edges meeting at a point, which is expected and is
+what line jumps annotate. This is two edges sharing a *stretch* of the
+same line, which renders as one edge and is never correct.
+-}
+overlapSpec :: Spec
+overlapSpec = describe "layout, edge overlap" $ do
+  -- K(2,2): both top nodes depend on both bottom ones. The fixture from
+  -- the ticket, and the shape that proves reordering tracks can't fix
+  -- this -- the two middle edges swap columns, so each would need its
+  -- track above the other's.
+  let k22 =
+        layout
+          cfg
+          (map node [1 .. 4])
+          [dep 10 3 1, dep 11 4 1, dep 12 3 2, dep 13 4 2]
+
+  it "draws no two edges on top of each other on K(2,2)" $
+    collinearOverlaps k22 `shouldBe` []
+
+  it "keeps every segment axis-aligned while separating them" $ do
+    let axisAligned (Point x1 y1, Point x2 y2) = x1 == x2 || y1 == y2
+    all (all axisAligned . runsOf) (diagramEdges k22) `shouldBe` True
+
+  it "still routes no edge through a node box" $
+    concatMap (crossings k22) (diagramEdges k22) `shouldBe` []
+
+  it "leaves a graph with nothing to separate untouched" $ do
+    let d = layout cfg (map node [1 .. 3]) [dep 10 2 1, dep 11 3 1]
+    collinearOverlaps d `shouldBe` []
+
+runsOf :: PlacedEdge -> [(Point, Point)]
+runsOf e = zip (pePoints e) (drop 1 (pePoints e))
+
+{- | Every pair of segments from *different* edges that lie on the same
+line and share more than a point of it.
+
+Touching at a single point is fine — that is two edges meeting, which
+happens legitimately at a shared track. Sharing an interval is the bug.
+-}
+collinearOverlaps :: Diagram -> [(Run, Run)]
+collinearOverlaps d =
+  [ (s1, s2)
+  | (i, e1) <- zip [0 :: Int ..] (diagramEdges d)
+  , (j, e2) <- zip [0 ..] (diagramEdges d)
+  , i < j
+  , s1 <- spans e1
+  , s2 <- spans e2
+  , overlapping s1 s2
+  ]
+  where
+    spans e = concatMap spanOfRun (runsOf e)
+    spanOfRun (Point x1 y1, Point x2 y2)
+      | x1 == x2 && y1 /= y2 = [Run Vertical x1 (min y1 y2) (max y1 y2)]
+      | y1 == y2 && x1 /= x2 = [Run Horizontal y1 (min x1 x2) (max x1 x2)]
+      | otherwise = []
+    -- The axis has to be part of the comparison: without it a vertical
+    -- at x=100 and a horizontal at y=100 would look collinear.
+    overlapping (Run ax a lo1 hi1) (Run bx b lo2 hi2) =
+      ax == bx && a == b && lo1 < hi2 && lo2 < hi1
+
+data Axis = Vertical | Horizontal
+  deriving (Eq, Show)
+
+data Run = Run Axis Double Double Double
+  deriving (Eq, Show)
 
 {- | Line jumps through the whole pipeline (#180).
 
