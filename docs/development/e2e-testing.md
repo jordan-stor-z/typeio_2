@@ -111,9 +111,19 @@ covered:
   comments for a severe app bug found while writing the first of these
   (the graph never positioned any node past the first one — #120, long
   since fixed).
-- **`tests/helpers.ts`** — shared setup (`createProject()`, `addNode()`)
-  every spec above uses, so creating a project/node isn't duplicated
-  across specs that need one but aren't testing its creation.
+- **`tests/project-index-scroll.spec.ts`** — a bug fix's regression
+  test, not one of the four candidate workflows above (#210). Seeds
+  enough projects to overflow the viewport and asserts the project
+  index's last card is unreachable before a real wheel event and
+  reachable after; separately, that the dependency graph page's `#view`
+  stays `overflow: hidden` rather than picking up the scroll behaviour
+  every other page now gets by default. See
+  [`components.md`](ui/components.md) for the `#container`/`#view`
+  design this fix settled on.
+- **`tests/helpers.ts`** — shared setup (`createProject()`, `addNode()`,
+  `createProjectFast()`) every spec above uses, so creating a
+  project/node isn't duplicated across specs that need one but aren't
+  testing its creation.
 
 ### What's not covered
 

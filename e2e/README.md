@@ -85,11 +85,15 @@ fact, action by action, not just pass/fail.
   node-detail panel's status dropdown.
 - `tests/graph.spec.ts` — clicks a node in the D3-rendered dependency
   graph and asserts its detail panel opens/highlights/clears correctly.
-- `tests/helpers.ts` — shared setup (`createProject()`, `addNode()`)
-  every spec above uses.
+- `tests/project-index-scroll.spec.ts` — a project index with more rows
+  than fit on screen can be scrolled to the last one (#210), and the
+  graph page's own viewport doesn't gain a competing scrollbar.
+- `tests/helpers.ts` — shared setup (`createProject()`, `addNode()`,
+  `createProjectFast()`) every spec above uses.
 
 All four candidate workflows from the proposal's §7 are covered, and CI
-wiring landed in #98. See
+wiring landed in #98; `project-index-scroll.spec.ts` is later, separate
+coverage for a bug fix rather than one of those four. See
 [`docs/development/e2e-testing.md`](../docs/development/e2e-testing.md)
 for the full breakdown of each spec, what's deliberately not covered,
 and the app bugs found while writing them (#120 among others) — this
