@@ -136,32 +136,34 @@ svg {
   margin-bottom: 0.5rem;
 }
 
-/* The graph's viewport (#179). Panning is the browser's own scrolling,
-   which brings wheel, trackpad, touch drag with momentum and keyboard
-   scrolling for free -- none of which a hand-rolled pan would get
-   right. The SVG inside is rendered at its natural size and is meant to
-   overflow on a large project. */
+/* The graph's viewport. The container is a fixed window onto the
+   drawing: it does not scroll, because panning and zooming are a
+   transform d3-zoom writes onto #graph-zoom-layer inside the SVG. The
+   SVG fills this box exactly and the drawing moves underneath it. */
 #tree-container {
   height: 100%;
   width: 70%;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
-  /* Scrollbars are hidden by design. Two things below follow from that
-     rather than being extras: `.graph-control`'s recentre button (the
-     scrollbar was also the "where am I" cue) and pointer-drag panning
-     in graph-viewport.js (a wheel-less mouse would otherwise be stuck
-     with no scrollbar to drag). */
-  scrollbar-width: none;
+  /* The drawing extends past this box on a large project and is reached
+     by panning, so anything crossing the edge must be clipped rather
+     than painted over the node panel next to it. */
+  contain: paint;
 }
 
-#tree-container::-webkit-scrollbar {
-  display: none;
+/* Fallback for the one case the viewport cannot recover from on its
+   own: if the d3 bundles fail to load, graph-viewport.js sets this so
+   the graph is at least reachable by scrolling. */
+#tree-container.viewport-fallback {
+  overflow: auto;
 }
 
-/* Keyboard scrolling needs the container focusable, and a focus ring on
+/* Keyboard panning needs the container focusable, and a focus ring on
    a whole panel is noise -- but removing it outright would leave a
    keyboard user with no idea where focus is, so it shows only for
-   keyboard focus. */
+   keyboard focus. With the zoom buttons gone, the arrow/+/-/0 keys
+   graph-viewport.js binds here are the only non-pointer way around the
+   graph, which makes this focus target load-bearing. */
 #tree-container:focus {
   outline: none;
 }
@@ -188,50 +190,11 @@ svg {
   cursor: grabbing;
 }
 
-/* Zero-height sticky box: it pins the controls to the viewport's corner
-   as the graph scrolls under them, without taking a strip of layout
-   space above the drawing the way an ordinary sticky block would. */
-#graph-controls {
-  position: sticky;
-  top: 0;
-  left: 0;
-  height: 0;
-  z-index: 2;
-}
-
-.graph-controls-inner {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  display: flex;
-  gap: 0.35rem;
-}
-
-.graph-control {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  background: var(--bg-end);
-  border: 2px solid var(--accent);
-  border-radius: 999px;
-  color: var(--accent);
-  cursor: pointer;
-  opacity: 0.75;
-  transition: all 0.2s ease;
-}
-
-.graph-control:hover {
-  background: var(--accent);
-  color: var(--text-primary);
-  opacity: 1;
-}
-
-.graph-control .material-icons {
-  font-size: 1.1rem;
-}
+/* The zoom/recentre button cluster that used to sit in the viewport's
+   corner (`#graph-controls`, `.graph-controls-inner`, `.graph-control`)
+   is gone along with the markup that carried it. The d3-zoom viewport
+   recentres on double-click and takes zoom from the wheel, so the
+   drawing is no longer covered by three permanent buttons. */
 
 #tree-container .link {
   stroke: #999;
