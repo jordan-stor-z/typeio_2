@@ -352,9 +352,36 @@ one, which is what centres a parent between exactly two children — the
 commonest shape in the reference images, and one an odd-median would
 visibly get wrong by parking the parent directly over one child.
 
-**Row order is never changed here.** A node can be pushed, never swapped
-past a neighbour. Reordering belongs to phase 4, and keeping the two
-separate is what lets this run without undoing that.
+**Row order is never changed within a component.** A node can be pushed,
+never swapped past a neighbour. Reordering belongs to phase 4, and
+keeping the two separate is what lets this run without undoing that.
+
+**Then components are packed left to right.** A graph with no project
+root — or one whose work falls into unrelated chains — is several
+disconnected components, and placement alone does not keep them apart: a
+component that is narrow at the top and wide further down spreads out
+underneath its neighbour, leaving that neighbour sitting *inside* its
+span rather than beside it. Two independent graphs then read as one
+tangle.
+
+So after placement, each component is translated rigidly, left to right,
+until their bounding boxes are disjoint. Rigid translation is what makes
+this safe to run after phase 4 has already chosen an order:
+
+- **Crossings cannot change.** Edges exist only within a component and
+  every component keeps its internal order, so no pair of edges swaps
+  which side of the other it lies on. The count is invariant.
+- **Boxes cannot start overlapping.** Slots within a component keep
+  their separation exactly; slots in different components end up in
+  disjoint spans at least `cfgNodeGap` apart.
+
+A component is only ever pushed right, never pulled left, so a drawing
+whose components were already clear of each other comes back untouched.
+
+This was scoped in #174 and shipped without it — none of that issue's
+acceptance criteria covered it — while this document recorded it as
+delivered anyway. #214 is the record of that gap and of the fixture that
+exposed it, now pinned by tests in both `CoordSpec` and `LayoutSpec`.
 
 **Guarantees:** no two node boxes overlap; every pair is at least
 `cfgNodeGap` apart horizontally.

@@ -207,6 +207,56 @@ spec = do
   jumpSpec
   overlapSpec
   containmentSpec
+  packingSpec
+
+{- | Disconnected components are drawn side by side, not through each
+other (#214).
+
+#174 scoped "disconnected components packed left to right by bounding
+box" and shipped without it; the architecture doc recorded it as done
+anyway. The fixture below is what that costs: a component one node wide
+at the top and four wide two rows down spreads out underneath its
+neighbour, and the neighbour ends up inside its span — two independent
+graphs drawn as one tangle.
+-}
+packingSpec :: Spec
+packingSpec = describe "layout, component packing" $ do
+  let ns = map node [1 .. 8]
+      es =
+        [ dep 10 3 1
+        , dep 11 5 3
+        , dep 12 6 3
+        , dep 13 7 3
+        , dep 14 8 3
+        , dep 15 4 2
+        ]
+      -- A is the wide one; B is the two-node chain beside it.
+      compA = [1, 3, 5, 6, 7, 8]
+      compB = [2, 4]
+      extentOf d g =
+        ( minimum [ptX (pnTopLeft (placed d n)) | n <- g]
+        , maximum
+            [ ptX (pnTopLeft (placed d n)) + szW (pnSize (placed d n))
+            | n <- g
+            ]
+        )
+
+  it "keeps one component from being drawn inside another's span" $ do
+    let d = layout cfg ns es
+        (aLo, aHi) = extentOf d compA
+        (bLo, bHi) = extentOf d compB
+    (aLo < bHi && bLo < aHi) `shouldBe` False
+
+  it "still overlaps no two node boxes" $ do
+    let d = layout cfg ns es
+    filter (uncurry overlaps) (pairs (diagramNodes d)) `shouldBe` []
+
+  it "leaves a single-component graph alone" $ do
+    -- A project with a root is one component, so packing is a no-op and
+    -- the root stays centred over the work it holds.
+    let d = layout cfg [rootNode 1, node 2, node 3] [holds 10 1 2, holds 11 1 3]
+    centreX (placed d 1)
+      `shouldBe` (centreX (placed d 2) + centreX (placed d 3)) / 2
 
 {- | The project root heads the graph because it /contains/ its work
 (#198).
