@@ -4,7 +4,12 @@ import Data.List (sort)
 import qualified Data.Map.Strict as M
 import Domain.Project.Graph.Layer (Segment (..))
 import Domain.Project.Graph.Order (countCrossings, orderRows)
-import Domain.Project.Graph.Types (EdgeId (..), LNode (..), NodeId (..))
+import Domain.Project.Graph.Types
+  ( EdgeId (..)
+  , EdgeKind (..)
+  , LNode (..)
+  , NodeId (..)
+  )
 import Test.Hspec
 
 nid :: Int -> LNode
@@ -12,7 +17,7 @@ nid = Real . NodeId . fromIntegral
 
 -- | @seg i a b@ puts @a@ in the row above @b@.
 seg :: Int -> Int -> Int -> Segment
-seg i a b = Segment (EdgeId (fromIntegral i)) (nid a) (nid b) False
+seg i a b = Segment (EdgeId (fromIntegral i)) DependsOn (nid a) (nid b) False
 
 rowsOf :: [[Int]] -> M.Map Int [LNode]
 rowsOf rs = M.fromList (zip [0 ..] (map (map nid) rs))

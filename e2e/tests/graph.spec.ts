@@ -139,6 +139,50 @@ test("the graph renders server-side, with no client layout script", async ({ pag
   await expect(page.locator('#graph-data')).toHaveCount(0);
 });
 
+// Containment (#198): the project root heads the graph and holds its
+// work, rather than appearing to depend on it.
+//
+// This one has to be an e2e test rather than an integration assertion
+// on the markup. The renderer omits `marker-end` on a containment path,
+// but `manage-project.css` sets it on `.link` -- which a containment
+// edge still carries -- so the arrowheads came straight back in the
+// browser while the markup-level test stayed green. Only computed style
+// settles it.
+test("the project root heads the graph, holding its work without arrows", async ({ page, request }) => {
+  const project = await createProject(page, 'E2E containment');
+  for (const t of ['Containment A', 'Containment B']) {
+    await addNode(request, project.id, t);
+  }
+
+  await page.goto(`/ui/project/vw?projectId=${project.id}`);
+  await expect(page.locator('#graph-nodes .node')).toHaveCount(3);
+
+  const tops = await page.locator('#graph-nodes .node').evaluateAll((els) =>
+    els.map((el) => {
+      const m = (el.getAttribute('transform') || '').match(/translate\(([-\d.eE]+),([-\d.eE]+)\)/);
+      return { root: !!el.querySelector('rect.root'), y: m ? parseFloat(m[2]) : NaN };
+    })
+  );
+
+  const rootY = tops.find((t) => t.root)?.y;
+  const workYs = tops.filter((t) => !t.root).map((t) => t.y);
+  expect(rootY, 'the root node is present and positioned').not.toBeUndefined();
+  expect(workYs.length).toBe(2);
+  for (const y of workYs) {
+    expect(y, 'work sits below the root').toBeGreaterThan(rootY!);
+  }
+
+  // No arrowhead on a containment edge, as the browser actually
+  // resolves it -- CSS included.
+  const markers = await page
+    .locator('#graph-links .link-contains')
+    .evaluateAll((els) => els.map((el) => getComputedStyle(el).markerEnd));
+  expect(markers.length).toBeGreaterThan(0);
+  for (const m of markers) {
+    expect(m, 'containment edges carry no marker').toBe('none');
+  }
+});
+
 // The viewport (#179), driven for the first time here for the same
 // reason as above.
 test("the graph viewport opens on the project root and zooms", async ({ page, request }) => {

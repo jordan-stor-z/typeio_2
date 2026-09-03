@@ -20,6 +20,7 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Domain.Project.Graph.Types
   ( EdgeId
+  , EdgeKind (..)
   , LNode (..)
   , LayoutEdge (..)
   , LayoutNode (..)
@@ -44,6 +45,8 @@ one.
 -}
 data Arc = Arc
   { arcEdge :: EdgeId
+  , arcKind :: EdgeKind
+  -- ^ Carried through so the renderer can tell the two apart.
   , arcFrom :: NodeId
   -- ^ Drawn above 'arcTo'.
   , arcTo :: NodeId
@@ -73,11 +76,15 @@ breakCycles :: [LayoutNode] -> [LayoutEdge] -> [Arc]
 breakCycles ns es = map orient es
   where
     backs = backEdges ns es
+    -- 'LayoutEdge' already knows which end goes on top -- its smart
+    -- constructors resolve that from the relationship, so both a
+    -- dependency and a containment edge arrive oriented and this only
+    -- has to flip the ones that close a cycle.
     orient e
       | leId e `S.member` backs =
-          Arc (leId e) (leDependency e) (leDependent e) True
+          Arc (leId e) (leKind e) (leLower e) (leUpper e) True
       | otherwise =
-          Arc (leId e) (leDependent e) (leDependency e) False
+          Arc (leId e) (leKind e) (leUpper e) (leLower e) False
 
 data Dfs = Dfs
   { dfsSeen :: Set NodeId
@@ -90,11 +97,11 @@ backEdges :: [LayoutNode] -> [LayoutEdge] -> Set EdgeId
 backEdges ns es = dfsBack (foldl' fromRoot start (sort (map lnId ns)))
   where
     start = Dfs S.empty S.empty S.empty
-    -- Arcs run dependent -> dependency, matching 'Arc'.
+    -- Arcs run upper -> lower, matching 'Arc'.
     outgoing =
       M.fromListWith
         (++)
-        [(leDependent e, [e]) | e <- es]
+        [(leUpper e, [e]) | e <- es]
     outOf n = sortOn leId (M.findWithDefault [] n outgoing)
     fromRoot st n
       | n `S.member` dfsSeen st = st
@@ -116,13 +123,17 @@ backEdges ns es = dfsBack (foldl' fromRoot start (sort (map lnId ns)))
       | tgt `S.member` dfsSeen st = st
       | otherwise = visit st tgt
       where
-        tgt = leDependency e
+        tgt = leLower e
 
-{- | Longest-path layering: a node nothing depends on is row 0, and any
-other node sits one row below the lowest of its dependents.
+{- | Longest-path layering: a node with nothing above it is row 0, and
+any other node sits one row below the lowest node that sits above it.
 
-Row 0 is the top of the drawing, so the project root — the one node with
-no dependents — heads the graph and its dependencies descend from it.
+Row 0 is the top of the drawing. Each edge already knows which of its
+ends belongs on top ('leUpper'), decided by the relationship it records:
+a dependent is drawn above what it waits on, and a container above what
+it holds. The project root therefore heads the graph because it
+/contains/ its work (#198) — not, as this once assumed, because it
+depends on it.
 
 Every node in the input gets a layer, including nodes with no edges at
 all and nodes in components disconnected from the root.
@@ -157,6 +168,7 @@ routing all work one gap at a time.
 -}
 data Segment = Segment
   { segEdge :: EdgeId
+  , segKind :: EdgeKind
   , segFrom :: LNode
   -- ^ In the upper row.
   , segTo :: LNode
@@ -202,7 +214,7 @@ insertDummies layers arcs =
     chainOf a = [Real (arcFrom a)] <> dummiesOf a <> [Real (arcTo a)]
 
     segmentsOf a =
-      [ Segment (arcEdge a) u v (arcReversed a)
+      [ Segment (arcEdge a) (arcKind a) u v (arcReversed a)
       | (u, v) <- zip chain (drop 1 chain)
       ]
       where

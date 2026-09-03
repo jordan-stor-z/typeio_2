@@ -9,6 +9,7 @@ import Domain.Project.Graph.Types
   , LayoutNode (..)
   , NodeId (..)
   , NodeKind (..)
+  , dependsOn
   )
 import Test.Hspec
 
@@ -21,11 +22,10 @@ and @a@ is drawn below @b@.
 -}
 dep :: Int -> Int -> Int -> LayoutEdge
 dep i a b =
-  LayoutEdge
-    { leId = EdgeId (fromIntegral i)
-    , leDependency = NodeId (fromIntegral a)
-    , leDependent = NodeId (fromIntegral b)
-    }
+  dependsOn
+    (EdgeId (fromIntegral i))
+    (NodeId (fromIntegral a))
+    (NodeId (fromIntegral b))
 
 layerOf :: M.Map NodeId Int -> Int -> Int
 layerOf m n = M.findWithDefault (-1) (NodeId (fromIntegral n)) m

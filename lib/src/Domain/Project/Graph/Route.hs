@@ -70,6 +70,7 @@ routeEdges cfg layers centres segments chains =
     centreOf n = M.findWithDefault 0 n centres
 
     reversedOf = M.fromList [(segEdge s, segReversed s) | s <- segments]
+    kindOf = M.fromList [(segEdge s, segKind s) | s <- segments]
 
     -- --- Ports -------------------------------------------------------
     --
@@ -239,6 +240,7 @@ routeEdges cfg layers centres segments chains =
     polyline (e, _chain) =
       PlacedEdge
         { peId = e
+        , peKind = M.findWithDefault DependsOn e kindOf
         , pePoints = orient (simplify (concatMap segmentPoints (segmentsFor e)))
         , peReversed = reversed
         , -- Filled in by 'addJumps' once every edge has been placed:

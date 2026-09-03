@@ -20,7 +20,7 @@ module Domain.Project.Responder.Ui.ProjectManage.GraphSpec (spec) where
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.Int (Int64)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, isPrefixOf)
 import Database.Persist.Sql (ConnectionPool, fromSqlKey)
 import Domain.Project.Responder.Ui.ProjectManage.Graph (handleProjectGraph)
 import Integration.Support
@@ -39,6 +39,7 @@ import Network.Wai.Test
   , runSession
   )
 import Test.Hspec
+import Text.Read (readMaybe)
 
 spec :: Spec
 spec = aroundAll withTestDatabase $
@@ -154,6 +155,51 @@ spec = aroundAll withTestDatabase $
           -- from creeping back in unnoticed.
           body `shouldNotContainStr` "d3"
 
+      describe "containment (#198)" $ do
+        it "draws the project root above its work" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+          _ <- seedWorkNode pool projectKey "Build the thing"
+          _ <- seedWorkNode pool projectKey "Build another thing"
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- The root's box must have the smallest y of any node. This
+          -- is the assertion that would have caught #198 for eight
+          -- issues: the layout engine was right, but membership was
+          -- being handed to it as a dependency, so the root sank below
+          -- everything in the project.
+          let rootTops = nodeTops "root" body
+              workTops = nodeTops "work" body
+          length rootTops `shouldBe` 1
+          length workTops `shouldBe` 2
+          all (> maximum rootTops) workTops `shouldBe` True
+
+        it "derives containment rather than reading a dependency row" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+          _ <- seedWorkNode pool projectKey "Build the thing"
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- No dependency rows are seeded here at all, yet the graph
+          -- still connects the root to its work: the edge comes from
+          -- `node.project_id`, not from `project.dependency`.
+          body `shouldContainStr` "class=\"link link-contains\""
+
+        it "leaves containment edges without an arrowhead" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+          _ <- seedWorkNode pool projectKey "Build the thing"
+
+          body <- graphBody pool (fromSqlKey projectKey) []
+
+          -- An arrow means "this must finish first". The root is not
+          -- waiting on its own children, and drawing one is what made
+          -- the graph read as a dependency in the first place.
+          --
+          -- This project has containment edges and nothing else, so no
+          -- `marker-end` should appear on any path at all.
+          body `shouldContainStr` "link-contains"
+          body `shouldNotContainStr` "marker-end"
+
       describe "the cutover (#181)" $ do
         it "serves the computed layout with no query parameter" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool
@@ -236,3 +282,47 @@ nodeTextId nid = "id=\"node-text-" <> show nid <> "\""
 
 nodeTextTarget :: Int64 -> String
 nodeTextTarget nid = "hx-target=\"#node-text-" <> show nid <> "\""
+
+{- | The @y@ of every node group whose rect carries the given kind
+class, read straight out of the rendered SVG.
+
+Deliberately parsing the markup rather than calling @layout@ directly:
+the layout engine's own placement is unit-tested, and what #198 broke
+was the /responder's/ conversion — which relationship it handed the
+engine. That only shows up in the finished document.
+
+Each node renders as
+@\<g id="node-N" class="node" transform="translate(X,Y)"\>\<rect class="KIND"@,
+so splitting on the group and reading forward is enough; no HTML parser
+required for a shape this fixed.
+-}
+nodeTops :: String -> String -> [Double]
+nodeTops kind body =
+  [ y
+  | chunk <- drop 1 (splitOn "<g id=\"node-" body)
+  , ("class=\"" <> kind <> "\"") `isInfixOf` takeWhile (/= '>') (dropToRect chunk)
+  , Just y <- [translateY chunk]
+  ]
+  where
+    dropToRect = afterFirst "<rect "
+    translateY chunk = case afterFirst "transform=\"translate(" chunk of
+      "" -> Nothing
+      rest -> case break (== ',') (takeWhile (/= ')') rest) of
+        (_, ',' : ys) -> readMaybe ys
+        _ -> Nothing
+
+-- | Everything after the first occurrence of @needle@, or @""@.
+afterFirst :: String -> String -> String
+afterFirst needle hay = case splitOn needle hay of
+  (_ : rest : _) -> rest
+  _ -> ""
+
+splitOn :: String -> String -> [String]
+splitOn needle = go
+  where
+    go hay
+      | null hay = [""]
+      | needle `isPrefixOf` hay = "" : go (drop (length needle) hay)
+      | otherwise = case go (drop 1 hay) of
+          (c : cs) -> (head hay : c) : cs
+          [] -> [[head hay]]

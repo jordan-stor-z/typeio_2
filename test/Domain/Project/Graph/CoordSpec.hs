@@ -3,7 +3,13 @@ module Domain.Project.Graph.CoordSpec (spec) where
 import qualified Data.Map.Strict as M
 import Domain.Project.Graph.Coord (assignX)
 import Domain.Project.Graph.Layer (Segment (..))
-import Domain.Project.Graph.Types (EdgeId (..), LNode (..), NodeId (..), isDummy)
+import Domain.Project.Graph.Types
+  ( EdgeId (..)
+  , EdgeKind (..)
+  , LNode (..)
+  , NodeId (..)
+  , isDummy
+  )
 import Test.Hspec
 
 {- | Uniform node width, so a "separation" in these tests is just
@@ -22,7 +28,7 @@ nid = Real . NodeId . fromIntegral
 
 -- | @arc a b@ puts @a@ in the row above @b@.
 arc :: Int -> Int -> Int -> Segment
-arc i a b = Segment (EdgeId (fromIntegral i)) (nid a) (nid b) False
+arc i a b = Segment (EdgeId (fromIntegral i)) DependsOn (nid a) (nid b) False
 
 assign :: M.Map Int [LNode] -> [Segment] -> M.Map LNode Double
 assign = assignX widthOf gap

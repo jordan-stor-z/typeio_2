@@ -20,6 +20,9 @@ module Domain.Project.Graph.Types
   , isDummy
   , LayoutNode (..)
   , LayoutEdge (..)
+  , EdgeKind (..)
+  , dependsOn
+  , contains
   , Point (..)
   , Size (..)
   , Bounds (..)
@@ -55,28 +58,68 @@ data LayoutNode = LayoutNode
   }
   deriving (Eq, Show)
 
-{- | One dependency edge.
+{- | What relationship an edge draws. The graph shows two, and
+conflating them is what put the project root at the bottom of the
+drawing for eight issues (#198).
 
-The field names are semantic on purpose. @dependency@ must be completed
-before @dependent@ can be, and the arrowhead is drawn at the
-@dependent@ end — an edge points from the work that must finish toward
-the work waiting on it.
+* 'DependsOn' — real work ordering. The lower node must be completed
+  before the upper one can be, and the arrowhead sits on the upper
+  (waiting) end.
+* 'Contains' — structural membership. The project root /holds/ its work;
+  nothing is waiting on anything. No arrowhead, because there is no
+  direction of work to point along.
+-}
+data EdgeKind
+  = DependsOn
+  | Contains
+  deriving (Eq, Show)
 
-Calling these @source@/@target@ is exactly how the old client-side
-renderer ended up drawing its arrowheads on the dependency:
-@project.dependency@
-stores @node_id@ /depends on/ @to_node_id@, so @node_id@ is the
-'leDependent' and @to_node_id@ is the 'leDependency', which reads
-backwards under generic names.
+{- | One edge, already oriented for drawing.
+
+'leUpper' and 'leLower' say where the ends go, not what they mean —
+which end is which follows from 'leKind', and the smart constructors
+below are how you should build these. Constructing the record directly
+is possible and is exactly how you get it backwards; 'dependsOn' and
+'contains' take their arguments in the relationship's own terms so the
+call site reads as the fact it is recording.
+
+That matters because it is the mistake this codebase has actually made,
+twice. The old client-side renderer named these @source@/@target@ and
+drew its arrowheads on the dependency; and the root-as-dependency
+mix-up (#198) survived eight issues because "the root depends on its
+work" and "the root contains its work" both type-check as an edge.
 -}
 data LayoutEdge = LayoutEdge
   { leId :: EdgeId
-  , leDependency :: NodeId
-  -- ^ Must be completed first. @project.dependency.to_node_id@.
-  , leDependent :: NodeId
-  -- ^ Waits on it; carries the arrowhead. @project.dependency.node_id@.
+  , leKind :: EdgeKind
+  , leUpper :: NodeId
+  -- ^ Drawn above 'leLower'.
+  , leLower :: NodeId
   }
   deriving (Eq, Show)
+
+{- | @dependsOn i dependency dependent@: @dependent@ waits on
+@dependency@, so @dependency@ must be completed first.
+
+Maps from @project.dependency@, which stores @node_id@ /depends on/
+@to_node_id@ — so @node_id@ is the dependent and @to_node_id@ the
+dependency. The dependent is drawn above, and carries the arrowhead.
+-}
+dependsOn :: EdgeId -> NodeId -> NodeId -> LayoutEdge
+dependsOn i dependency dependent =
+  LayoutEdge i DependsOn dependent dependency
+
+{- | @contains i container contained@: @container@ holds @contained@, so
+it is drawn above it.
+
+This is how the project root relates to its work. It is /not/ a
+dependency: the root is not waiting on anything, and membership is
+recorded by @project.node.project_id@, not by a @project.dependency@
+row (#198).
+-}
+contains :: EdgeId -> NodeId -> NodeId -> LayoutEdge
+contains i container contained =
+  LayoutEdge i Contains container contained
 
 {- | A slot in a row: either a real node, or a bend point standing in
 for one row of a multi-row edge.
@@ -134,9 +177,16 @@ data PlacedNode = PlacedNode
 
 data PlacedEdge = PlacedEdge
   { peId :: EdgeId
+  , peKind :: EdgeKind
+  {- ^ Carried through from 'leKind' because the renderer needs it: only
+  a 'DependsOn' edge gets an arrowhead. A 'Contains' edge is structure,
+  not work ordering, and an arrow on it would claim the root is waiting
+  on its own children.
+  -}
   , pePoints :: [Point]
-  {- ^ Polyline. The head sits on the dependency; the last point sits on
-  the dependent and is where the arrowhead goes.
+  {- ^ Polyline. The last point sits on the upper node — for a
+  'DependsOn' edge that is the dependent, and is where the arrowhead
+  goes.
   -}
   , peReversed :: Bool
   {- ^ Reversed for layering only, to break a cycle. Does /not/ change
