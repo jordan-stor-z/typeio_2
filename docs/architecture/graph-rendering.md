@@ -328,19 +328,20 @@ separate is what lets this run without undoing that.
 
   Worth knowing: these fire often. Across 1200 generated graphs, 57%
   had at least one. What K(2,2) produces is *not* one of them — that
-  shape's conflict comes out as two edges sharing a vertical column
-  (#190), an overlap rather than a crossing, which is why a jump fixture
-  has to be a little larger than the obvious one.
+  shape's conflict is a shared vertical column (#190), an overlap rather
+  than a crossing, which is why a jump fixture has to be a little larger
+  than the obvious one.
 
 - **Vertical spacing is decided here, not in phase 5.** How tall a gap
   has to be is a function of how many tracks cross it, so `Graph.Route`
   returns each row's y alongside the edges. Phase 5 owns x; this phase
   owns y.
 
-**Guarantees:** every segment is axis-aligned. No two horizontal runs
-overlap collinearly. **No polyline intersects a node box** — now
-unconditional, including multi-row edges, since #176 gives each one a
-reserved lane rather than leaving it to miss the rows it passes by luck.
+**Guarantees:** every segment is axis-aligned. No two runs from
+different edges overlap collinearly, horizontal or vertical (#190).
+**No polyline intersects a node box** — unconditional, including
+multi-row edges, since #176 gives each one a reserved lane rather than
+leaving it to miss the rows it passes by luck.
 
 A multi-row edge bends at each end and runs straight in between, so it
 occupies exactly three columns: the port it leaves, the lane it travels,
@@ -348,16 +349,25 @@ and the port it arrives at. More than two bends on such an edge is
 expected — "at most two bends" is a property of a single segment, not of
 a whole edge.
 
-**Known gap (#190), still open:** two edges that swap ports between the
-same pair of nodes can end up sharing a vertical column over an
-overlapping stretch, so they draw on top of each other. Not a crossing —
-an overlap, and one nothing prevents. Narrow enough that the real
-project graph doesn't hit it, and it did not block the cutover, but it
-is live behaviour now rather than a hypothetical.
+**Separating shared columns (#190).** Two edges whose port columns
+coincide would draw their vertical runs on top of each other wherever
+those runs overlap in y — not a crossing, an overlap, which renders as
+one edge instead of two. A lower port landing on a column another edge
+already leaves from is nudged along its own node's edge until it clears.
 
-Worth knowing when reading §6: K(2,2) produces this overlap rather than
-a crossing, which is why it generates no line jumps and why a jump
-fixture has to be larger than the obvious four-node one.
+**Reordering tracks cannot fix this**, which is worth knowing before
+anyone tries. Where edge A's upper column is edge B's lower column, the
+overlap needs A's track above B's. Two edges that *swap* ports — K(2,2)
+is the smallest case — demand that in both directions at once, so they
+would have to share a track, which they cannot, having identical
+x-spans. The columns themselves have to differ.
+
+Straight drops matter most here: with no track to stop at, one occupies
+its column for the gap's whole height, so anything landing on it
+overlaps completely.
+
+This was more common than it looked. Before the fix, 40 of 1500
+generated graphs (2.7%) contained at least one overlap; after, none do.
 
 ## Coordinate conventions
 

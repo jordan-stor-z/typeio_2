@@ -26,6 +26,8 @@ import Data.Foldable (foldl')
 import Data.List (sortOn)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Set (Set)
+import qualified Data.Set as S
 import Domain.Project.Graph.Layer (Segment (..))
 import Domain.Project.Graph.Types
 
@@ -104,7 +106,59 @@ routeEdges cfg layers centres segments chains =
         _ -> centreOf (fallback s)
 
     upperX s = portX bottomPorts segFrom s
-    lowerX s = portX topPorts segTo s
+    rawLowerX s = portX topPorts segTo s
+
+    -- --- Separating shared columns (#190) ----------------------------
+    --
+    -- An edge's vertical runs sit at its own port columns: the upper one
+    -- spans from the row above down to the edge's track, the lower one
+    -- from that track down to the row below. Two *different* edges that
+    -- happen to share a column therefore draw on top of each other
+    -- wherever those spans overlap — not a crossing, an overlap, and one
+    -- nothing else here prevents.
+    --
+    -- Reordering tracks cannot fix it. Where edge A's upper column is
+    -- edge B's lower column, avoiding the overlap needs A's track above
+    -- B's; two edges that *swap* ports (K(2,2)) demand that in both
+    -- directions at once, so they would have to share a track — which
+    -- they can't, having identical x-spans. The columns themselves have
+    -- to differ.
+    --
+    -- So a lower port that lands on a column some other edge is already
+    -- leaving from is nudged along its own node's edge until it doesn't.
+    -- Only the arriving end moves, and only within its node's own width,
+    -- so every other guarantee holds: the run is still vertical, still
+    -- lands on the node it belongs to, and still carries the arrowhead.
+    -- Every column an edge already occupies on the way *out* of the row
+    -- above. Straight drops are in here too, and matter most: with no
+    -- track to stop at, one occupies its column for the gap's whole
+    -- height, so anything else landing on it overlaps completely.
+    upperColumns :: Map Int (Set Double)
+    upperColumns =
+      M.fromListWith
+        (<>)
+        [(gapOf s, S.singleton (upperX s)) | s <- segments]
+
+    -- A third of the node's own port spacing: enough to clear the
+    -- column, never enough to reach the neighbouring port.
+    nudgeStep s =
+      case M.lookup (segEdge s) topPorts of
+        Just (_, _, total) -> nodeW / fromIntegral (total + 1) / 3
+        Nothing -> cfgDummyWidth cfg / 3
+
+    lowerX s
+      -- Both ends on one column is the straight-drop case: there is no
+      -- horizontal run and nothing to separate.
+      | ux == raw = raw
+      | otherwise = clear raw
+      where
+        ux = upperX s
+        raw = rawLowerX s
+        claimed = M.findWithDefault S.empty (gapOf s) upperColumns
+        step = max 1e-9 (nudgeStep s)
+        clear x
+          | x `S.member` claimed = clear (x + step)
+          | otherwise = x
 
     -- --- Tracks ------------------------------------------------------
     needsTrack s = upperX s /= lowerX s
