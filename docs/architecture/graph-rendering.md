@@ -1,9 +1,20 @@
-# Dependency Graph Rendering
+# Dependency Graph Rendering — the layered visualization
 
 > **Status: built.** Everything below describes what the app actually
 > does. The pipeline shipped across #173–#182 and this document was
 > reconciled against the result in #183; the phase-by-phase status table
 > that used to sit here is gone because every row reached ✅.
+>
+> **This describes *one* visualization, not "the graph".** It is the
+> layered orthogonal one — `viz:layered` — and it is the only one that
+> exists today, which is why the rest of this document reads as though it
+> were the whole story. The app is designed to hold several
+> visualizations and select one by configuration; see
+> [`visualization-switching.md`](visualization-switching.md) for how that
+> works and what a visualization may and may not share with another. When
+> that lands, everything here moves under
+> `Domain.Project.Visualization.Layered` without changing how any of it
+> draws.
 >
 > The one thing most worth understanding here: every edge means "the
 > upper node is waiting on the lower one", but only some are *stored*.

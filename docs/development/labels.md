@@ -5,6 +5,9 @@ one `area:*` (what part of the system). This taxonomy was derived from
 an actual review of every issue filed in this repo so far (#1–#54), not
 picked abstractly — see the mapping below.
 
+An issue that touches visualization code carries a third, one `viz:*`
+(which visualization) — see the `viz:*` section below.
+
 ## `type:*` — what kind of work
 
 | Label | Meaning | Example |
@@ -33,7 +36,9 @@ picked abstractly — see the mapping below.
 - Every issue gets exactly one `type:*` label. Most get exactly one
   `area:*` label; an issue that genuinely spans more than one area (rare
   — most of this repo's issues have been cleanly single-area) can carry
-  more than one.
+  more than one. An issue touching visualization code also gets exactly
+  one `viz:*` — never more than one, since `viz:all` is how "more than
+  one" is spelled.
 - `area:ui` and `area:frontend` are intentionally separate, mirroring
   `docs/development/ui/` vs. `docs/development/frontend/` — don't
   collapse them into one "frontend" label just because they're both
@@ -129,13 +134,64 @@ Boundaries, since it's granted sight-unseen:
   self-applied to an issue, and never inferred from the user sounding
   enthusiastic about the ticket.
 
+## `viz:*` — which visualization
+
+A third dimension alongside `type:*`/`area:*`, and unlike `run-e2e` or
+the `review:*` labels it *is* part of the taxonomy: it says which
+project visualization an issue applies to.
+
+The app is built to hold several visualizations of the dependency graph
+at once and select one by configuration — see
+[`../architecture/visualization-switching.md`](../architecture/visualization-switching.md).
+They deliberately share no code, so "fix the graph" is not a
+well-formed request until you know *which* graph. These labels exist so
+that is never ambiguous.
+
+| Label | Means |
+|---|---|
+| `viz:layered` | The layered orthogonal SVG graph — `graph-rendering.md` |
+| `viz:rootless` | The variant that draws the work without the project node — #215 |
+| `viz:all` | Spans every visualization: the switching mechanism itself, the shared queries, this taxonomy |
+| `viz:tbd` | Visualization work whose target isn't decided yet |
+
+### The rule
+
+**Any issue that touches visualization code carries exactly one `viz:*`
+label, applied at issue-creation time** — the same standing requirement
+`type:*` and `area:*` already have.
+
+The four cases, so nothing is left to judgement at filing time:
+
+- **One visualization** → that visualization's label.
+- **Every visualization** → `viz:all`. Use this for the switching
+  machinery, the shared query layer, and changes to this convention —
+  not as a shrug when you haven't decided.
+- **No visualization at all** → **no `viz:*` label.** CI, release
+  process, database schema, logging, the router. Absence of a label
+  means "this isn't visualization work", which is why the next case
+  needs a label of its own.
+- **Undecided** → `viz:tbd`, and it must be resolved to a real
+  visualization before the issue is worked. Without this, an unlabelled
+  issue would be ambiguous between "not visualization work" and "nobody
+  has decided yet", which is exactly the mistake these labels exist to
+  prevent.
+
+### Adding a visualization adds its label
+
+A new visualization creates its own `viz:` label as part of the work
+that introduces it, and adds a row to the table above. The label set and
+the set of visualizations that actually exist are meant to stay in step
+— a label with no visualization behind it is as misleading as an issue
+with no label.
+
 ## When to apply labels
 
 Per `CLAUDE.md`'s Ticket & Branching Conventions: apply the appropriate
 `type:*` and `area:*` labels at issue-creation time, not as an
 afterthought — `gh issue create` accepts `--label` directly. Also apply
-`run-e2e` at issue-creation time when the work will need E2E coverage —
-see the `run-e2e` section above.
+one `viz:*` label whenever the issue touches visualization code — see
+the `viz:*` section above — and `run-e2e` at issue-creation time when the
+work will need E2E coverage, per the `run-e2e` section.
 
 `review:pre-approve` is the user's to apply, at issue-creation or
 triage time, on tickets whose outcome they're willing to authorize in
