@@ -45,6 +45,7 @@ import Database.Esqueleto.Experimental
   )
 import Database.Persist (Entity (..))
 import Database.Persist.Sql (ConnectionPool, SqlBackend, runSqlPool)
+import Domain.Project.Graph.Containment (containmentEdges)
 import Domain.Project.Graph.Layout (layout)
 import Domain.Project.Graph.Types
   ( Bounds (..)
@@ -61,7 +62,6 @@ import Domain.Project.Graph.Types
   , Point (..)
   , Size (..)
   , boundsSize
-  , contains
   , defaultLayoutConfig
   , dependsOn
   )
@@ -299,35 +299,14 @@ toServerGraph pid ns ds =
     }
   where
     lns = map toLayoutNode ns
-    les = containmentEdges lns <> map toLayoutEdge ds
-
-{- | The project root holds its work, and that is what puts it at the
-head of the graph (#198).
-
-Membership is not stored as an edge at all — @project.node.project_id@
-already records it, and every node here came back from a query on that
-column. So the edges are /derived/ rather than read: one from the root
-to each other node in the project.
-
-It used to be stored, as a @project.dependency@ row per node pointing
-at the root, which is why the root sank to the bottom of the drawing:
-layering correctly put the dependent above its dependency, and every
-work node was recorded as depending on the root. Migration 000009
-removes those rows and @Api.Node.Post@ no longer writes them.
-
-Ids are negative so they cannot collide with a real
-@project.dependency@ id. Nothing persists them; they exist only for the
-duration of one layout.
--}
-containmentEdges :: [LayoutNode] -> [LayoutEdge]
-containmentEdges lns =
-  case filter ((== RootNode) . lnKind) lns of
-    [] -> []
-    (root : _) ->
-      [ contains (EdgeId (negate i)) (lnId root) (lnId n)
-      | (i, n) <- zip [1 ..] lns
-      , lnId n /= lnId root
-      ]
+    {- The root's edges are derived, not read (#198): membership lives
+    in @project.node.project_id@, and every node here came back from a
+    query on that column. Which nodes it attaches to is a question about
+    the shape of the dependencies, so it is answered in the layout tier
+    where it can be tested as the pure thing it is
+    (@Graph.Containment@, #211) rather than only through rendered SVG. -}
+    deps = map toLayoutEdge ds
+    les = containmentEdges lns deps <> deps
 
 toLayoutNode :: Entity M.Node -> LayoutNode
 toLayoutNode (Entity k e) =
