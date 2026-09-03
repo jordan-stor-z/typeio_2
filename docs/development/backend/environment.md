@@ -49,12 +49,27 @@ this `Env`.
 ## Config
 
 `AppConfig` (`Config.App`) bundles `EnvironmentName` (`Local` /
-`Development` / `Production`), `DbConfig` (`Config.Db`), and `WebConfig`
-(`Config.Web`) — each loaded from its own set of environment variables
-(`DB_HOST`, `DB_PORT`, `WEB_REQUEST_ID_HEADER`, etc. — see `.env` for the
-full list) via `lookupEnv`, never hardcoded. `WEB_PORT` is the one
-exception with a default (`3000`, see `Config.Web.defaultWebPort`) rather
-than being required.
+`Development` / `Production`), `DbConfig` (`Config.Db`), `WebConfig`
+(`Config.Web`), and `Visualization` (`Config.Visualization`) — each
+loaded from its own set of environment variables (`DB_HOST`, `DB_PORT`,
+`WEB_REQUEST_ID_HEADER`, etc. — see `.env` for the full list) via
+`lookupEnv`, never hardcoded. `WEB_PORT` is the one exception with a
+default (`3000`, see `Config.Web.defaultWebPort`) rather than being
+required.
+
+`GRAPH_VISUALIZATION` selects which dependency-graph visualization the
+app renders — `Layered` or `Rootless`, parsed as the constructor name
+the way `ENV` is. It is **required, with no default**, so an existing
+`.env` needs the line added:
+
+```
+GRAPH_VISUALIZATION=Layered
+```
+
+Defaulting it was considered and rejected: a server quietly drawing a
+different graph than intended does not announce itself, it surfaces much
+later as "the graph looks wrong". See
+[`../../architecture/visualization-switching.md`](../../architecture/visualization-switching.md).
 
 Validation is accumulating, not fail-fast: each field is checked
 independently (present, non-empty, parses, in range) and any failure is

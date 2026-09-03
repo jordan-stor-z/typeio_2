@@ -42,6 +42,7 @@ library src
       , Common.Validation
       , Config.App
       , Config.Db
+      , Config.Visualization
       , Config.Web
       , Data.Either
       , Data.HashTree
@@ -65,7 +66,9 @@ library src
       , Domain.Project.Responder.Ui.ProjectCreate.Submit
       -- Exposed for `test-suite integration`'s GraphSpec, which asserts
       -- on the SVG this renders (#178).
-      , Domain.Project.Responder.Ui.ProjectManage.Graph
+      , Domain.Project.Visualization.Common
+      , Domain.Project.Visualization.Layered.Responder
+      , Domain.Project.Visualization.Rootless.Responder
       , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Domain.Project.Responder.Ui.ProjectManage.Node.Status
       , Domain.Project.Responder.Ui.ProjectManage.Node.Title
@@ -205,6 +208,7 @@ test-suite integration
       , Domain.Project.Responder.Ui.ProjectManage.Node.DescriptionSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.StatusSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.TitleSpec
+      , Domain.Project.Visualization.Rootless.ResponderSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0

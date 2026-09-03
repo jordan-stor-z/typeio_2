@@ -5,16 +5,21 @@
 > reconciled against the result in #183; the phase-by-phase status table
 > that used to sit here is gone because every row reached ✅.
 >
-> **This describes *one* visualization, not "the graph".** It is the
-> layered orthogonal one — `viz:layered` — and it is the only one that
-> exists today, which is why the rest of this document reads as though it
-> were the whole story. The app is designed to hold several
-> visualizations and select one by configuration; see
-> [`visualization-switching.md`](visualization-switching.md) for how that
-> works and what a visualization may and may not share with another. When
-> that lands, everything here moves under
-> `Domain.Project.Visualization.Layered` without changing how any of it
-> draws.
+> **The pipeline below is shared; the drawing it produces is not.**
+> `Domain.Project.Graph.*` is the layered layout engine, and it is
+> *shared infrastructure* — any visualization that wants layered
+> geometry uses this one copy. Two do: `viz:layered` and `viz:rootless`
+> (#215), which differ only in what they hand the engine, not in how the
+> engine works. Which drawing the app serves is selected by
+> `GRAPH_VISUALIZATION`; see
+> [`visualization-switching.md`](visualization-switching.md) for the
+> switch and for where the line between shared and per-visualization
+> falls.
+>
+> So read everything below as geometry, not as policy. Statements here
+> about the project root — that it heads the drawing, that its edges are
+> derived — describe what the *layered* visualization asks for. The
+> rootless one asks for neither, and the engine neither knows nor cares.
 >
 > The one thing most worth understanding here: every edge means "the
 > upper node is waiting on the lower one", but only some are *stored*.

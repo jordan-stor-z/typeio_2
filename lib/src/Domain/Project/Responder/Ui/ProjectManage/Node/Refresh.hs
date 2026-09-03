@@ -7,9 +7,9 @@ module Domain.Project.Responder.Ui.ProjectManage.Node.Refresh where
 import Common.Validation
 import Common.Web.Attributes
 import Common.Web.Elements
-import Domain.Project.Responder.Ui.ProjectManage.Graph (nodeContents, toGraphNode)
 import Domain.Project.Responder.Ui.ProjectManage.Node.Query
 import Domain.Project.Responder.Ui.ProjectManage.Node.Validation
+import Domain.Project.Visualization.Common (nodeContents, toGraphNode)
 import Lucid
 
 import qualified Domain.Project.Model as M

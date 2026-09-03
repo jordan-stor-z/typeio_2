@@ -4,14 +4,14 @@ How parts of this system are **designed**: module structure, the
 contracts between components, the invariants they guarantee, and the
 conventions a change in that area has to respect.
 
-- [**Graph rendering**](graph-rendering.md) — the layered visualization:
-  its layout pipeline and SVG rendering. One visualization among
-  several by design, and currently the only one. *Status: built
+- [**Graph rendering**](graph-rendering.md) — the layered layout engine:
+  its pipeline and SVG rendering. Shared infrastructure, used by every
+  visualization that wants layered geometry. *Status: built
   (#172–#183, #190, #198, #214).*
 - [**Visualization switching**](visualization-switching.md) — how the
   app holds several visualizations of the dependency graph and selects
-  one by configuration, and what they may share. *Status: designed, not
-  built (#213).*
+  one by configuration, and where the line between shared and
+  per-visualization falls. *Status: built (#213, #215).*
 
 ## How this differs from the other two doc directories
 

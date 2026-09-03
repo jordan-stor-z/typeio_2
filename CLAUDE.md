@@ -65,7 +65,7 @@ cases:
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
 | Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline for the *layered* visualization: module map, per-phase contracts, and the dependency-vs-containment distinction (#198) |
-| How the app holds several graph visualizations and picks one, and what they may share | `docs/architecture/visualization-switching.md` -- designed, not built (#213) |
+| How the app holds several graph visualizations and picks one, and what they may share | `docs/architecture/visualization-switching.md` -- the config value, the container seam, and what visualizations share (#213, #215) |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
@@ -97,6 +97,11 @@ Known Gotchas below.)
 - **Build:** `cabal build all`
 - **Run the server:** `cabal run server` (loads config from `.env` — see
   that file for the required variables; none are hardcoded).
+  ⚠️ **`GRAPH_VISUALIZATION` is required as of #215** and has no
+  default, so an existing `.env` needs `GRAPH_VISUALIZATION=Layered`
+  added or the server refuses to start. `Layered` is the drawing the app
+  has always served; `Rootless` omits the project node. See
+  [`docs/architecture/visualization-switching.md`](docs/architecture/visualization-switching.md).
 - **Start Postgres:** `make run-postgres`
 - **Migrations:** `make migrate-up` / `make migrate-down` /
   `make migrate-down-all` / `make migrate-new NAME=<name>` /
