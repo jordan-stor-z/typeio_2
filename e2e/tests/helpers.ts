@@ -23,14 +23,11 @@ export async function createProject(page: Page, titlePrefix: string): Promise<Cr
   await page.goto('/ui/projects/vw');
   await page.getByRole('button', { name: 'Create Project' }).click();
 
-  // Not page.getByLabel(...): the add-project form's <label for="...">
-  // doesn't reference a matching input id (Domain.Project.Responder.Ui.ProjectCreate.View
-  // only sets `name`, not `id`), so the label/control association
-  // getByLabel depends on doesn't hold. Scoping by `name` instead, which
-  // does match the responder's actual form-decoding key
-  // (Submit.paramForm).
-  await page.locator('input[name="title"]').fill(title);
-  await page.locator('textarea[name="description"]').fill(description);
+  // getByLabel() -- ProjectCreate.View's inputs used to have no `id`
+  // matching their <label for="...">, so this had to scope by `name`
+  // instead; fixed in #118, which gave each control the matching `id`.
+  await page.getByLabel('Title:').fill(title);
+  await page.getByLabel('Description:').fill(description);
   await page.getByRole('button', { name: 'Submit' }).click();
 
   // Not page.locator('#project-index').filter(...): #project-index is

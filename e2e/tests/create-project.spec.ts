@@ -37,15 +37,12 @@ test('creating a project shows it on the project index', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Create Project' }).click();
 
-  // Not page.getByLabel(...): the add-project form's <label for="...">
-  // doesn't reference a matching input id (Domain.Project.Responder.Ui.ProjectCreate.View
-  // only sets `name`, not `id`), so the label/control association
-  // getByLabel depends on doesn't hold. Scoping by `name` instead, which
-  // does match the responder's actual form-decoding key
-  // (Submit.paramForm). Worth a follow-up fix on the app side; not this
-  // ticket's scope.
-  await page.locator('input[name="title"]').fill(title);
-  await page.locator('textarea[name="description"]').fill(description);
+  // getByLabel() -- fixed in #118, which gave each control here an `id`
+  // matching its <label for="...">. Previously scoped by `name` instead,
+  // since the label/control association getByLabel depends on didn't
+  // hold.
+  await page.getByLabel('Title:').fill(title);
+  await page.getByLabel('Description:').fill(description);
   await page.getByRole('button', { name: 'Submit' }).click();
 
   // A successful submit responds with an `Hx-Location` header pointing

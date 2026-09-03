@@ -32,7 +32,11 @@ test("changing a node's status updates and persists it", async ({ page, request 
   // this isn't a settle-timing issue -- see e2e/README.md's Notes for
   // the general shape of this hazard (freshly htmx-swapped-in elements
   // and Playwright's non-pointer interaction helpers).
-  const status = page.locator('select[name="status"]');
+  //
+  // getByLabel(), not a name-attribute selector: #118 fixed this
+  // <select>'s missing id alongside the title/description fields it
+  // was filed for -- same underlying gap, same file.
+  const status = page.getByLabel('Status:');
   await status.click();
   await status.selectOption('closed');
 
@@ -57,5 +61,5 @@ test("changing a node's status updates and persists it", async ({ page, request 
   // fresh GET of the edit panel from the server, not a reused DOM node.
   await page.goto(`/ui/project/vw?projectId=${project.id}&nodeId=${node.id}`);
   await page.getByRole('button', { name: 'mode_edit' }).click();
-  await expect(page.locator('select[name="status"]')).toHaveValue('closed');
+  await expect(page.getByLabel('Status:')).toHaveValue('closed');
 });

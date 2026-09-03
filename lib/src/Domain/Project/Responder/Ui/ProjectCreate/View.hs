@@ -44,10 +44,10 @@ projectCreateVwTemplate payload errs = do
       $ do
         span_ $ do
           label_ [for_ "title"] "Title:"
-          input_ [type_ "text", name_ "title", value_ ttle]
+          input_ [type_ "text", id_ "title", name_ "title", value_ ttle]
         span_ $ do
           label_ [for_ "description"] "Description:"
-          textarea_ [name_ "description"] (toHtml dscr)
+          textarea_ [id_ "description", name_ "description"] (toHtml dscr)
         span_ $ do
           button_
             [ class_ "action-button"
