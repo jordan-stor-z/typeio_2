@@ -166,6 +166,19 @@ in the schema itself stops `A → B` and `B → A` from coexisting, or a
 longer cycle from forming across several rows. Cycle prevention, if it
 exists, is enforced in application code, not the database.
 
+**A row here means work ordering, and nothing else.** It does *not*
+record that a node belongs to a project — `node.project_id` does that.
+
+Worth knowing because it used to do both. `POST /api/project/nodes`
+wrote a row per new node pointing at the project root, to mean
+"belongs to this project", duplicating `project_id` into a table that
+means something else entirely. The graph read those rows as real
+dependencies and drew the project root beneath every node in the
+project (#198). Migration `000009` removed them, and nothing writes
+them now; the graph derives membership from `project_id` instead. If
+you are adding a writer here, it should be recording a genuine
+dependency between two pieces of work.
+
 ## Views
 
 ### `project.project_vw`

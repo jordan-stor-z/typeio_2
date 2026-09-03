@@ -241,6 +241,21 @@ svg {
   fill: none;
 }
 
+/* A containment edge says the project root holds this node. Nothing is
+   waiting on anything, so there is no direction of work to point along
+   and it gets no arrowhead (#198).
+
+   This rule is load-bearing, not belt-and-braces: the renderer already
+   omits the `marker-end` attribute on these paths, but `.link` above
+   sets it in CSS, and a containment edge still carries `.link`. Without
+   this the arrows come back -- pointing *into* the root, which is
+   exactly the "everything depends on the root" reading the fix exists
+   to remove. Markup alone does not settle it. */
+#tree-container .link-contains {
+  marker-end: none;
+  stroke-opacity: 0.4;
+}
+
 /* `.link-shared` deliberately has no styling of its own: a shared
    dependency is an ordinary dependency and reads better drawn like any
    other edge. The class stays on the element as a marker -- it's the

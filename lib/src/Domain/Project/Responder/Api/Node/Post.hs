@@ -40,7 +40,6 @@ import Database.Esqueleto.Experimental
   , toSqlKey
   , val
   , where_
-  , (&&.)
   , (==.)
   )
 import Database.Persist (Entity (..))
@@ -55,7 +54,6 @@ data InsertNodeResult
   | MissingStatus
   | MissingType
   | ProjectNotFound
-  | ProjectRootNotFound
 
 data PostNodeForm = PostNodeForm
   { formDescription :: Maybe ByteString
@@ -102,19 +100,20 @@ handlePostNode pl req respond = do
         >>= hoistMaybe MissingType
     let nd = toNode now pyl pr st tp
     ky <- lift . insert $ nd
-    rtp <-
-      lift (queryType "project_root")
-        >>= hoistMaybe MissingType
-    rt <-
-      lift (queryRoot (projectId pyl) rtp)
-        >>= hoistMaybe ProjectRootNotFound
-    _ <-
-      lift $
-        insert $
-          M.Dependency
-            { M.dependencyNodeId = ky
-            , M.dependencyToNodeId = entityKey rt
-            }
+    -- No @project.dependency@ row is written here any more (#198).
+    --
+    -- One used to be, pointing the new node at the project root, to say
+    -- "this node belongs to this project". But @node.project_id@ — set
+    -- on the row just inserted — already records exactly that, so the
+    -- edge was duplicate data in a table that means something else. The
+    -- graph read it as a real dependency, correctly drew the dependent
+    -- above what it waits on, and so put the project root underneath
+    -- every node in the project.
+    --
+    -- The graph now derives containment from @project_id@ instead, and
+    -- migration 000009 removes the rows this used to write. A row in
+    -- @project.dependency@ means a genuine ordering between two pieces
+    -- of work, and nothing else.
     pure $ Entity ky nd
   case rslt of
     Right _ ->
@@ -124,7 +123,6 @@ handlePostNode pl req respond = do
           [("Content-Type", "application/json")]
           "Ok"
     Left ProjectNotFound -> notFound ("Project not found" :: Text)
-    Left ProjectRootNotFound -> notFound ("Project root not found" :: Text)
     Left MissingStatus -> serverExc
     Left MissingType -> serverExc
     Left (FailValidation es) -> badRequest es
@@ -177,20 +175,6 @@ validateForm fm = runValidation FailValidation $ do
       .$ decodeUtf8
       >>= isThere "Title cannot be empty"
   return $ PostNodePayload <$> dscr <*> pid <*> ttl
-
-queryRoot ::
-  Int64 ->
-  Entity M.NodeType ->
-  ReaderT SqlBackend IO (Maybe (Entity M.Node))
-queryRoot pid tp = do
-  nd <- select $ do
-    n <- from $ table @M.Node
-    where_ $
-      n.projectId ==. (val . toSqlKey @M.Project $ pid)
-        &&. n.nodeTypeId ==. (val . entityKey $ tp)
-    limit 1
-    pure n
-  return . listToMaybe $ nd
 
 queryProject :: Int64 -> ReaderT SqlBackend IO (Maybe (Entity M.Project))
 queryProject pid = do

@@ -62,7 +62,7 @@ cases:
 | Running/writing unit tests, and what's out of scope (responders) | `docs/development/unit-testing.md` |
 | Running/writing integration tests (the responder-testing answer) | `docs/development/integration-testing.md` |
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
-| Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline: module map, per-phase contracts, and the one known divergence (#198) |
+| Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline: module map, per-phase contracts, and the dependency-vs-containment distinction (#198) |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |

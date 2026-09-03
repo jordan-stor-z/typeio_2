@@ -34,8 +34,8 @@ spec :: Spec
 spec = aroundAll withTestDatabase $
   beforeWith resetBetweenTests $
     describe "handlePostNode (integration)" $ do
-      it "inserts a new work Node and links it to the project's root Node" $ \pool -> do
-        (projectKey, rootKey) <- seedProjectWithRootNode pool
+      it "inserts a new work Node into the project, with no dependency row" $ \pool -> do
+        (projectKey, _rootKey) <- seedProjectWithRootNode pool
 
         runSession
           ( do
@@ -52,15 +52,17 @@ spec = aroundAll withTestDatabase $
             M.nodeDescription newNode `shouldBe` "ANewNode"
             M.nodeProjectId newNode `shouldBe` projectKey
 
+            -- No dependency row (#198). One used to be written here,
+            -- pointing at the project root to record membership -- but
+            -- `node.project_id`, asserted just above, already records
+            -- exactly that. Storing it twice put the root at the bottom
+            -- of the graph, because a `project.dependency` row means an
+            -- ordering between two pieces of work and layout drew it as
+            -- one.
             deps <-
               flip runSqlPool pool $
                 selectList [M.DependencyNodeId ==. newNodeKey] []
-            case deps of
-              [Entity _ dep] -> M.dependencyToNodeId dep `shouldBe` rootKey
-              other ->
-                expectationFailure $
-                  "expected exactly one Dependency row from the new node, got "
-                    <> show (length other)
+            length deps `shouldBe` 0
           other ->
             expectationFailure $
               "expected exactly one new Node titled \"NewNode\", got "

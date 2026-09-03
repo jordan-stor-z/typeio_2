@@ -5,10 +5,10 @@
 > reconciled against the result in #183; the phase-by-phase status table
 > that used to sit here is gone because every row reached ✅.
 >
-> One known divergence survives, and it is a real one: **the project
-> root draws at the bottom of the graph rather than heading it (#198).**
-> See [Assign layers](#2-assign-layers--graphlayer) before relying on
-> row order meaning what you expect.
+> The graph draws two different relationships, and telling them apart
+> is the thing most worth understanding here: a **dependency** is work
+> ordering, and **containment** is a node belonging to its project. See
+> [Assign layers](#2-assign-layers--graphlayer).
 
 Built by #173–#183, from the spike in #169. The graph is rendered
 server-side as finished SVG: there is no client-side layout code, and
@@ -100,17 +100,27 @@ data LayoutNode = LayoutNode
   , lnLabel :: Text        -- raw title; wrapped during rendering
   }
 
+data EdgeKind = DependsOn | Contains deriving (Eq, Show)
+
 data LayoutEdge = LayoutEdge
-  { leId         :: EdgeId
-  , leDependency :: NodeId  -- must be completed first
-  , leDependent  :: NodeId  -- waits on it
+  { leId    :: EdgeId
+  , leKind  :: EdgeKind
+  , leUpper :: NodeId       -- drawn above leLower
+  , leLower :: NodeId
   }
+
+-- Build them with these, never the record:
+dependsOn :: EdgeId -> NodeId -> NodeId -> LayoutEdge  -- dependency, dependent
+contains  :: EdgeId -> NodeId -> NodeId -> LayoutEdge  -- container, contained
 ```
 
-**`leDependency`/`leDependent`, never `source`/`target`.** See
-[Edge direction](#edge-direction-and-the-trap-it-hides) — the field
-names are the guard rail, and generic names are what let the previous
-renderer point its arrowheads at the wrong end for as long as it did.
+**Use `dependsOn`/`contains`, never the `LayoutEdge` record.** See
+[Edge direction](#edge-direction-and-the-trap-it-hides) — the
+constructors are the guard rail, because they take their arguments in
+the relationship's own terms. Generic field names are what let the
+previous renderer point its arrowheads at the wrong end for as long as
+it did, and an unlabelled edge is what let containment masquerade as a
+dependency for eight issues (#198).
 
 ```haskell
 data Point = Point { ptX :: Double, ptY :: Double }
@@ -195,20 +205,38 @@ is drawn above the work it is waiting on. Layering by *dependencies*
 instead (a node with no dependencies at layer 0) would invert the
 drawing and put the leaf tasks on top.
 
-> ⚠️ **The paragraph that used to be here was wrong, and it mattered
-> (#198).** It claimed this is what "makes the project root head the
-> graph in the reference images: the root depends on its work, so the
-> work descends from it." The app records the opposite relationship —
-> `POST /api/project/nodes` writes the *new work node* as depending on
-> the project root — so with real data the root is the dependency, lands
-> in the bottom row, and the graph reads upside-down against both the
-> reference images and the D3 layout it replaced.
+### Two relationships, not one (#198)
+
+An edge carries an 'EdgeKind', and which end goes on top follows from
+it:
+
+| Kind | Upper end | Arrowhead |
+|---|---|---|
+| `DependsOn` | the dependent — the work that is waiting | yes, on the upper end |
+| `Contains` | the container — the project root | no |
+
+**The project root heads the graph because it *contains* its work**, not
+because it depends on it. Build edges with `dependsOn`/`contains` rather
+than the `LayoutEdge` record: the constructors take their arguments in
+the relationship's own terms, which is the only thing that has reliably
+stopped this being written backwards.
+
+> ⚠️ **This section previously asserted the opposite, and it cost eight
+> issues.** It claimed the root "depends on its work, so the work
+> descends from it". The app recorded the reverse: `POST
+> /api/project/nodes` wrote a `project.dependency` row per node pointing
+> at the root, to mean "belongs to this project". Layering then
+> correctly drew each dependent above what it waits on, so the root sank
+> beneath everything in the project.
 >
-> The rule above is implemented correctly; the premise it was written
-> against was not checked against what the API actually writes. Nothing
-> caught it until #181 made the graph reachable in a browser and someone
-> looked at it. #198 has the options and is undecided — **don't build
-> anything on "the root is in layer 0" until it lands.**
+> Nothing caught it until #181 made the graph reachable in a browser and
+> someone looked at it. The layout rule was right the whole time; the
+> relationship it was handed was wrong.
+>
+> Membership is now derived from `project.node.project_id`, which
+> already recorded it — migration 000009 removed the duplicated rows,
+> and a `project.dependency` row means a genuine ordering between two
+> pieces of work and nothing else.
 
 **Guarantees:** every edge spans at least one layer, in a consistent
 direction. Layers are contiguous from 0. Disconnected components are
@@ -378,11 +406,13 @@ generated graphs (2.7%) contained at least one overlap; after, none do.
   accumulating gap heights rather than by multiplying an index. Phase 6
   computes them.
 - **Layer 0 is at the top**, at `cfgMargin`, and layer number increases
-  downward into dependencies. The project root heads the graph *because
-  it depends on its work* — not by special-casing it. Nothing guarantees
-  the root is alone in layer 0, or even in it: a dependency row recorded
-  as "task X depends on the project root" puts the root below X, which
-  is the rule working correctly on data that says something unusual.
+  downward. The project root heads the graph *because it contains its
+  work* (#198) — not by special-casing it. Nothing guarantees the root
+  is alone in layer 0: a real dependency recorded as "task X depends on
+  the project root" would still put the root below X, which is the rule
+  working correctly on data that says something unusual. What no longer
+  happens is *every* node saying that, which is what sank the root
+  before containment was modelled separately.
 - `pnTopLeft` is the box's top-left corner, not its centre. (The
   client-side renderer this replaced positioned by centre; that habit
   deliberately did not carry over.)
@@ -400,8 +430,8 @@ Therefore:
 
 | Layout field | Database column | Gets the arrowhead? |
 |---|---|---|
-| `leDependency` | `to_node_id` | no — the tail |
-| `leDependent` | `node_id` | **yes — the head** |
+| `dependsOn`'s dependency | `to_node_id` | no — the tail |
+| `dependsOn`'s dependent | `node_id` | **yes — the head** |
 
 **This was the reverse of what the app used to draw.** The old
 conversion built `GraphLink { source = node_id, target = to_node_id }`

@@ -50,6 +50,7 @@ import Domain.Project.Graph.Types
   ( Bounds (..)
   , Diagram (..)
   , EdgeId (..)
+  , EdgeKind (..)
   , LayoutConfig (..)
   , LayoutEdge (..)
   , LayoutNode (..)
@@ -60,7 +61,9 @@ import Domain.Project.Graph.Types
   , Point (..)
   , Size (..)
   , boundsSize
+  , contains
   , defaultLayoutConfig
+  , dependsOn
   )
 import qualified Domain.Project.Model as M
   ( Dependency (..)
@@ -296,7 +299,35 @@ toServerGraph pid ns ds =
     }
   where
     lns = map toLayoutNode ns
-    les = map toLayoutEdge ds
+    les = containmentEdges lns <> map toLayoutEdge ds
+
+{- | The project root holds its work, and that is what puts it at the
+head of the graph (#198).
+
+Membership is not stored as an edge at all — @project.node.project_id@
+already records it, and every node here came back from a query on that
+column. So the edges are /derived/ rather than read: one from the root
+to each other node in the project.
+
+It used to be stored, as a @project.dependency@ row per node pointing
+at the root, which is why the root sank to the bottom of the drawing:
+layering correctly put the dependent above its dependency, and every
+work node was recorded as depending on the root. Migration 000009
+removes those rows and @Api.Node.Post@ no longer writes them.
+
+Ids are negative so they cannot collide with a real
+@project.dependency@ id. Nothing persists them; they exist only for the
+duration of one layout.
+-}
+containmentEdges :: [LayoutNode] -> [LayoutEdge]
+containmentEdges lns =
+  case filter ((== RootNode) . lnKind) lns of
+    [] -> []
+    (root : _) ->
+      [ contains (EdgeId (negate i)) (lnId root) (lnId n)
+      | (i, n) <- zip [1 ..] lns
+      , lnId n /= lnId root
+      ]
 
 toLayoutNode :: Entity M.Node -> LayoutNode
 toLayoutNode (Entity k e) =
@@ -320,11 +351,10 @@ dependency.
 -}
 toLayoutEdge :: Entity M.Dependency -> LayoutEdge
 toLayoutEdge (Entity k e) =
-  LayoutEdge
-    { leId = EdgeId (fromSqlKey k)
-    , leDependency = NodeId (fromSqlKey (M.dependencyToNodeId e))
-    , leDependent = NodeId (fromSqlKey (M.dependencyNodeId e))
-    }
+  dependsOn
+    (EdgeId (fromSqlKey k))
+    (NodeId (fromSqlKey (M.dependencyToNodeId e)))
+    (NodeId (fromSqlKey (M.dependencyNodeId e)))
 
 templateServerGraph :: ServerGraph -> Html ()
 templateServerGraph sg = do
@@ -430,15 +460,27 @@ arrowMarker =
 puts the arrowhead on the node that is waiting — not on the one that
 has to finish first.
 -}
+
+{- | Only a dependency gets an arrowhead.
+
+A containment edge says the project root holds this node; nothing is
+waiting on anything, so there is no direction of work to point along.
+Drawing an arrow on it is what made the graph read as "the root depends
+on all its work" (#198). It also takes its own class, so the stylesheet
+can distinguish structure from ordering.
+-}
 edgeLine :: PlacedEdge -> Html ()
 edgeLine e =
   path_
-    [ class_ "link"
-    , d_ (polyline (peJumps e) (pePoints e))
-    , markerEnd_ "url(#arrow)"
-    , fill_ "none"
-    ]
+    ( [ class_ (if dependency then "link" else "link link-contains")
+      , d_ (polyline (peJumps e) (pePoints e))
+      , fill_ "none"
+      ]
+        <> [markerEnd_ "url(#arrow)" | dependency]
+    )
     (mempty :: Html ())
+  where
+    dependency = peKind e == DependsOn
 
 {- | The edge's path, hopping over each of its 'peJumps' (#180).
 

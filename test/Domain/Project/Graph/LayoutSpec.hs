@@ -19,11 +19,18 @@ rootNode n = (node n) {lnKind = RootNode}
 -- | @dep i a b@: @b@ depends on @a@, so @a@ must finish first.
 dep :: Int -> Int -> Int -> LayoutEdge
 dep i a b =
-  LayoutEdge
-    { leId = EdgeId (fromIntegral i)
-    , leDependency = NodeId (fromIntegral a)
-    , leDependent = NodeId (fromIntegral b)
-    }
+  dependsOn
+    (EdgeId (fromIntegral i))
+    (NodeId (fromIntegral a))
+    (NodeId (fromIntegral b))
+
+-- | @holds i a b@: @a@ contains @b@, so @a@ is drawn above it.
+holds :: Int -> Int -> Int -> LayoutEdge
+holds i a b =
+  contains
+    (EdgeId (fromIntegral i))
+    (NodeId (fromIntegral a))
+    (NodeId (fromIntegral b))
 
 placed :: Diagram -> Int -> PlacedNode
 placed d n =
@@ -199,6 +206,50 @@ spec = do
 
   jumpSpec
   overlapSpec
+  containmentSpec
+
+{- | The project root heads the graph because it /contains/ its work
+(#198).
+
+For eight issues it did the opposite. Membership was stored as a
+@project.dependency@ row per node pointing at the root, layering
+correctly drew each dependent above what it waits on, and so the root
+sank beneath everything in the project. The rule was right; the
+relationship it was given was wrong.
+
+These pin the distinction: containment puts the container above, a
+dependency puts the dependent above, and a graph with both still gets
+each right.
+-}
+containmentSpec :: Spec
+containmentSpec = describe "layout, containment" $ do
+  it "draws the container above what it contains" $ do
+    let d = layout cfg [rootNode 1, node 2, node 3] [holds 10 1 2, holds 11 1 3]
+    topOf (placed d 1) `shouldBe` minimum (map topOf (diagramNodes d))
+
+  it "puts the root at the head of a project of plain work nodes" $ do
+    -- The shape the app actually produces: a root plus work nodes that
+    -- depend on nothing, related to it only by membership.
+    let ns = rootNode 1 : map node [2 .. 5]
+        d = layout cfg ns [holds (10 + i) 1 i | i <- [2 .. 5]]
+    topOf (placed d 1) `shouldSatisfy` (< minimum (map (topOf . placed d) [2 .. 5]))
+
+  it "still draws a dependent above what it waits on" $ do
+    -- Containment must not have inverted ordinary dependencies on its
+    -- way past: 3 waits on 2, so 3 stays above 2.
+    let d =
+          layout
+            cfg
+            [rootNode 1, node 2, node 3]
+            [holds 10 1 2, holds 11 1 3, dep 12 2 3]
+    topOf (placed d 3) `shouldSatisfy` (< topOf (placed d 2))
+    topOf (placed d 1) `shouldBe` minimum (map topOf (diagramNodes d))
+
+  it "marks containment edges so the renderer can skip the arrowhead" $ do
+    let d = layout cfg [rootNode 1, node 2, node 3] [holds 10 1 2, dep 11 2 3]
+        kindOf i = peKind (head (filter ((== EdgeId i) . peId) (diagramEdges d)))
+    kindOf 10 `shouldBe` Contains
+    kindOf 11 `shouldBe` DependsOn
 
 {- | No two edges drawn on top of each other (#190).
 

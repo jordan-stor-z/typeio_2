@@ -21,7 +21,7 @@ orients an ordinary edge dependent-above-dependency, @a@ here is the
 dependent and @b@ the dependency.
 -}
 arc :: Int -> Int -> Int -> Segment
-arc i a b = Segment (eid i) (nid a) (nid b) False
+arc i a b = Segment (eid i) DependsOn (nid a) (nid b) False
 
 layersOf :: [(Int, Int)] -> M.Map LNode Int
 layersOf = M.fromList . map (\(n, l) -> (nid n, l))
