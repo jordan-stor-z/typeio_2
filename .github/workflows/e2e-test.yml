@@ -63,6 +63,11 @@ env:
   WEB_REQUEST_ID_HEADER: X-Request-ID
   WEB_REDIRECT_PATH: /api/nodes
   E2E_BASE_URL: http://localhost:3000
+  # Required, no default, since #215 -- Layered is the drawing the app
+  # has always served, and this suite's specs assume it (root nodes,
+  # containment edges, etc.). See
+  # docs/architecture/visualization-switching.md.
+  GRAPH_VISUALIZATION: Layered
 
 jobs:
   # Cheap precondition job, only for pull_request events -- decides
