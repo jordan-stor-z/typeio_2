@@ -71,9 +71,10 @@ templateProject py = do
   div_ [id_ "view"] $ do
     div_
       [ id_ "tree-container"
-      , -- The graph's scroll container (#179), and scrolling a div with
-        -- the keyboard requires it to be focusable. Hidden scrollbars
-        -- make this the only way to pan without a pointer.
+      , -- The graph's viewport. Focusable because graph-viewport.js
+        -- binds the arrow/+/-/0 keys here, which is the only way around
+        -- the graph without a pointer now that the zoom buttons are
+        -- gone.
         tabindex_ "0"
       , hxGet_ (graphLink pid)
       , hxPushUrl_ False

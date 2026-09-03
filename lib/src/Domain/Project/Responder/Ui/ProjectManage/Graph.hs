@@ -357,56 +357,71 @@ toLayoutEdge (Entity k e) =
     (NodeId (fromSqlKey (M.dependencyNodeId e)))
 
 templateServerGraph :: ServerGraph -> Html ()
-templateServerGraph sg = do
-  graphControls
-  svg_
-    ( [ id_ "tree-view"
-      , viewBox_ viewBox
-      , -- Natural size, not scaled to fit: a large project is meant to
-        -- overflow its container and be navigated, not shrunk until its
-        -- titles stop being readable. #179's viewport is what makes the
-        -- overflow usable.
-        width_ (dblText (szW size))
-      , height_ (dblText (szH size))
-      , -- The viewport zooms in multiples of the natural size, so it
-        -- still needs that size after it has rewritten width/height.
-        dataBaseWidth_ (dblText (szW size))
-      , dataBaseHeight_ (dblText (szH size))
-      , h_ "on load transition my opacity to 1 over 200ms"
-      ]
-        <> rootAnchorAttrs
-    )
-    $ do
-      defs_ [] arrowMarker
-      g_ [id_ "graph-links"] $
-        forM_ (diagramEdges d) edgeLine
-      g_ [id_ "graph-nodes"] $
-        forM_ (diagramNodes d) (nodeGroup sg)
-  -- Loaded from inside the fragment rather than once at page load:
-  -- htmx swaps this whole subtree into #tree-container on every graph
-  -- load, so anything bound to the drawing has to arrive with it.
-  script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
+templateServerGraph sg =
+  do
+    svg_
+      ( [ id_ "tree-view"
+        , -- Fills its container, with no @viewBox@: one SVG user unit is
+          -- one CSS pixel, so the drawing is at natural size until the
+          -- viewport's transform says otherwise. A @viewBox@ here would
+          -- scale the graph to fit, which is exactly what must not
+          -- happen -- a large project is meant to overflow and be
+          -- navigated, not shrunk until its titles stop being readable.
+          width_ "100%"
+        , height_ "100%"
+        , -- The natural size the layout engine produced. The viewport
+          -- falls back to the centre of this when a project has no root
+          -- to centre on.
+          dataBaseWidth_ (dblText (szW size))
+        , dataBaseHeight_ (dblText (szH size))
+        , h_ "on load transition my opacity to 1 over 200ms"
+        ]
+          <> rootAnchorAttrs
+      )
+      $ do
+        defs_ [] arrowMarker
+        -- The one element d3-zoom writes to. Everything the viewport
+        -- does -- pan, zoom, recentre -- is a `transform` on this group
+        -- and nothing else; the drawing inside it is exactly what the
+        -- server laid out.
+        g_ [id_ "graph-zoom-layer"] $
+          -- The layout's own coordinates can start anywhere, so this
+          -- shifts its top-left to the origin. That makes the zoom
+          -- layer's coordinates the same "relative to the drawing's
+          -- top-left" ones the root anchor below is emitted in, so the
+          -- client can position the root without knowing the bounds.
+          g_ [transform_ originShift] $ do
+            g_ [id_ "graph-links"] $
+              forM_ (diagramEdges d) edgeLine
+            g_ [id_ "graph-nodes"] $
+              forM_ (diagramNodes d) (nodeGroup sg)
+    -- Loaded from inside the fragment rather than once at page load:
+    -- htmx swaps this whole subtree into #tree-container on every graph
+    -- load, so anything bound to the drawing has to arrive with it.
+    -- This is also what keeps d3 off every other page in the app --
+    -- graph-viewport.js imports it, and only a graph loads this script.
+    script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
   where
     d = sgDiagram sg
     Bounds mn _ = diagramBounds d
     size = boundsSize (diagramBounds d)
-    viewBox =
-      T.unwords
-        [ dblText (ptX mn)
-        , dblText (ptY mn)
-        , dblText (szW size)
-        , dblText (szH size)
+    originShift =
+      T.concat
+        [ "translate("
+        , dblText (negate (ptX mn))
+        , ","
+        , dblText (negate (ptY mn))
+        , ")"
         ]
-    {- Where the viewport scrolls to on open. The server placed the
-    root, so the client never has to hunt the DOM for it.
+    {- Where the viewport opens. The server placed the root, so the
+    client never has to hunt the DOM for it.
 
     Emitted relative to the drawing's own top-left rather than in
-    diagram coordinates: the SVG is @szW@ x @szH@ CSS pixels showing a
-    viewBox that starts at @mn@, so subtracting @mn@ is what turns a
-    diagram point into the pixel offset the client can hand straight to
-    @scrollLeft@. A graph with no root node (possible -- 'layout' is
-    total) emits neither attribute, and the client falls back to the
-    middle of the drawing.
+    diagram coordinates, which is precisely what @originShift@ above
+    makes the zoom layer's coordinate system -- so the client can centre
+    the root with a translate and no further arithmetic. A graph with no
+    root node (possible -- 'layout' is total) emits neither attribute,
+    and the client falls back to the middle of the drawing.
     -}
     rootAnchorAttrs = case diagramRootAnchor d of
       Nothing -> []
@@ -415,33 +430,17 @@ templateServerGraph sg = do
         , dataRootY_ (dblText (ay - ptY mn))
         ]
 
-{- | Zoom and recentre controls. They sit inside the swapped fragment so
-they arrive with the graph, but are pinned to the viewport's corner by
-CSS rather than scrolling away with the drawing.
+{- Note: the on-screen zoom/recentre button cluster that used to live
+here is gone. It existed because #179's viewport panned by scrolling a
+container whose scrollbars are hidden, which left a user who had panned
+into empty space with no way back and no visible zoom affordance.
 
-A recentre control is not decoration here: #179 hides the scrollbars,
-and scrollbars were also the "there is more canvas, and here is where
-you are in it" cue. Without them, a user who has panned into empty
-space has no way back.
+The d3-zoom viewport that replaced it recentres on double-click (and on
+@0@ from the keyboard, with the arrow keys and @+@/@-@ covering the rest
+of what the buttons did), so the way back no longer needs three
+permanent buttons sitting on top of the drawing. See
+@static/script/graph-viewport.js@ for the full gesture list.
 -}
-graphControls :: Html ()
-graphControls =
-  div_ [id_ "graph-controls"] $
-    div_ [class_ "graph-controls-inner"] $ do
-      ctl "graph-zoom-out" "Zoom out" "remove"
-      ctl "graph-zoom-reset" "Recentre on the project root" "my_location"
-      ctl "graph-zoom-in" "Zoom in" "add"
-  where
-    ctl :: Text -> Text -> Html () -> Html ()
-    ctl cid lbl icon =
-      button_
-        [ id_ cid
-        , class_ "graph-control"
-        , type_ "button"
-        , titleAttr_ lbl
-        , ariaLabel_ lbl
-        ]
-        $ i_ [class_ "material-icons"] icon
 
 arrowMarker :: Html ()
 arrowMarker =

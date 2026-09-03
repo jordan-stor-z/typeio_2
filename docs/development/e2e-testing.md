@@ -103,8 +103,11 @@ covered:
 - **`tests/graph.spec.ts`** — the server-rendered dependency graph.
   Clicks a node and asserts its detail panel opens and it picks up the
   `.node-highlight` glow, then that closing clears both; that the boxes
-  are laid out without overlapping; that the page carries no client
-  layout script; and that the viewport zooms and pans. See the spec's
+  are laid out without overlapping; that no graph data is sent for a
+  client to lay out (the d3 the viewport loads moves a transform, it
+  does not compute positions); and that the viewport pans and zooms by
+  keyboard, wheel and drag, since #208 left it no buttons to click. See
+  the spec's
   comments for a severe app bug found while writing the first of these
   (the graph never positioned any node past the first one — #120, long
   since fixed).

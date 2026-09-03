@@ -136,6 +136,12 @@ test("the graph renders server-side, with no client layout script", async ({ pag
 
   // The graph no longer leaves the server as data for a client to lay
   // out, so there is nothing for one to read.
+  //
+  // Note this stays true even though the viewport loads d3 again: d3
+  // is there to move a transform on #graph-zoom-layer, and never sees
+  // the graph's structure. "No client layout" is about where the
+  // positions are computed, and they are still all computed in
+  // Domain.Project.Graph.*.
   await expect(page.locator('#graph-data')).toHaveCount(0);
 });
 
@@ -183,8 +189,26 @@ test("the project root heads the graph, with arrows into it from its work", asyn
   }
 });
 
-// The viewport (#179), driven for the first time here for the same
-// reason as above.
+
+// The viewport, driven for the first time here for the same reason as
+// above.
+//
+// Panning and zooming are a transform on #graph-zoom-layer, written by
+// d3-zoom -- not the container's scroll position and not the SVG's
+// width/height, which is what the pre-d3 viewport moved. So everything
+// below reads that one attribute.
+const layerTransform = async (page: import('@playwright/test').Page) => {
+  const raw = await page.locator('#graph-zoom-layer').getAttribute('transform');
+  // d3 writes "translate(x,y) scale(k)", and omits scale at k === 1.
+  const t = /translate\(\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*\)/.exec(raw ?? '');
+  const s = /scale\(\s*([-\d.e]+)\s*\)/.exec(raw ?? '');
+  return {
+    x: t ? parseFloat(t[1]) : 0,
+    y: t ? parseFloat(t[2]) : 0,
+    k: s ? parseFloat(s[1]) : 1,
+  };
+};
+
 test("the graph viewport opens on the project root and zooms", async ({ page, request }) => {
   const project = await createProject(page, 'E2E viewport');
   for (const t of ['Viewport node A', 'Viewport node B', 'Viewport node C']) {
@@ -194,35 +218,95 @@ test("the graph viewport opens on the project root and zooms", async ({ page, re
   await page.goto(`/ui/project/vw?projectId=${project.id}`);
   await expect(page.locator('#graph-nodes .node')).toHaveCount(4);
 
-  const svg = page.locator('#tree-view');
-  const widthOf = async () => parseFloat((await svg.getAttribute('width')) || '');
+  // The transform only appears once d3-zoom has loaded and applied the
+  // opening view, which is a dynamic import -- so this is also the
+  // assertion that the vendored bundles actually load and run.
+  await expect(page.locator('#graph-zoom-layer')).toHaveAttribute(
+    'transform',
+    /translate/,
+    { timeout: 10_000 }
+  );
 
   // Opens at natural size -- deliberately not scaled to fit, which is
   // what would shrink titles past legibility on a big project.
-  const base = parseFloat((await svg.getAttribute('data-base-width')) || '');
-  expect(base).toBeGreaterThan(0);
-  expect(await widthOf()).toBeCloseTo(base, 0);
+  const opened = await layerTransform(page);
+  expect(opened.k).toBeCloseTo(1, 2);
 
-  // Zoom in, then out, and confirm the SVG is resized rather than the
-  // page merely scrolling.
-  await page.locator('#graph-zoom-in').click();
-  const zoomedIn = await widthOf();
-  expect(zoomedIn).toBeGreaterThan(base);
+  // ...and with the project root centred in the container. The server
+  // emits where it put the root; the viewport's job is to translate it
+  // to the middle.
+  const svg = page.locator('#tree-view');
+  const rootX = parseFloat((await svg.getAttribute('data-root-x')) || '');
+  const rootY = parseFloat((await svg.getAttribute('data-root-y')) || '');
+  const box = await page.locator('#tree-container').boundingBox();
+  if (!box) throw new Error('#tree-container has no box');
+  expect(opened.x).toBeCloseTo(box.width / 2 - rootX, 0);
+  expect(opened.y).toBeCloseTo(box.height / 2 - rootY, 0);
 
-  await page.locator('#graph-zoom-out').click();
-  expect(await widthOf()).toBeLessThan(zoomedIn);
+  // Zoom via the keyboard, which is what replaced the +/- buttons.
+  await page.locator('#tree-container').focus();
+  await page.keyboard.press('+');
+  await expect
+    .poll(async () => (await layerTransform(page)).k)
+    .toBeGreaterThan(opened.k);
 
-  // Recentre resets the scale outright.
-  await page.locator('#graph-zoom-in').click();
-  await page.locator('#graph-zoom-reset').click();
-  expect(await widthOf()).toBeCloseTo(base, 0);
+  const zoomedIn = (await layerTransform(page)).k;
+  await page.keyboard.press('-');
+  await expect
+    .poll(async () => (await layerTransform(page)).k)
+    .toBeLessThan(zoomedIn);
+
+  // `0` resets outright, the way the recentre button used to.
+  await page.keyboard.press('+');
+  await page.keyboard.press('0');
+  await expect.poll(async () => (await layerTransform(page)).k).toBeCloseTo(1, 2);
+  const reset = await layerTransform(page);
+  expect(reset.x).toBeCloseTo(box.width / 2 - rootX, 0);
 });
 
-// Pointer-drag panning exists *because* the scrollbars are hidden
-// (#179): a wheel-less mouse would otherwise have no way to pan. The
-// hazard it introduces is that every node is also a click target, so
-// this checks both halves -- the drag scrolls, and it does not open a
-// node's panel on the way.
+// Ctrl+wheel is pinch-to-zoom on a trackpad, and a plain wheel pans
+// rather than zooming -- the pair of gestures that carry the zoom now
+// that there are no buttons.
+test("ctrl+wheel zooms about the pointer and a plain wheel pans", async ({ page, request }) => {
+  const project = await createProject(page, 'E2E wheel');
+  for (const t of ['Wheel node A', 'Wheel node B']) {
+    await addNode(request, project.id, t);
+  }
+
+  await page.goto(`/ui/project/vw?projectId=${project.id}`);
+  await expect(page.locator('#graph-nodes .node')).toHaveCount(3);
+  await expect(page.locator('#graph-zoom-layer')).toHaveAttribute(
+    'transform',
+    /translate/,
+    { timeout: 10_000 }
+  );
+
+  const box = await page.locator('#tree-container').boundingBox();
+  if (!box) throw new Error('#tree-container has no box');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+  const before = await layerTransform(page);
+
+  // Plain wheel pans: the scale must not move.
+  await page.mouse.wheel(0, 120);
+  await expect
+    .poll(async () => (await layerTransform(page)).y)
+    .toBeLessThan(before.y);
+  expect((await layerTransform(page)).k).toBeCloseTo(before.k, 2);
+
+  // Ctrl+wheel zooms.
+  const panned = await layerTransform(page);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -120);
+  await page.keyboard.up('Control');
+  await expect
+    .poll(async () => (await layerTransform(page)).k)
+    .toBeGreaterThan(panned.k);
+});
+
+// Pointer-drag panning, and the hazard it introduces: every node is
+// also a click target, so a drag must not read as a click and open a
+// node's panel on the way past.
 test("dragging the canvas pans it without opening a node", async ({ page, request }) => {
   const project = await createProject(page, 'E2E pan');
   for (const t of ['Pan node A', 'Pan node B', 'Pan node C', 'Pan node D']) {
@@ -231,13 +315,14 @@ test("dragging the canvas pans it without opening a node", async ({ page, reques
 
   await page.goto(`/ui/project/vw?projectId=${project.id}`);
   await expect(page.locator('#graph-nodes .node')).toHaveCount(5);
-
-  // Zoom in first so the drawing is comfortably larger than its
-  // container and there is somewhere to scroll to.
-  for (let i = 0; i < 3; i++) await page.locator('#graph-zoom-in').click();
+  await expect(page.locator('#graph-zoom-layer')).toHaveAttribute(
+    'transform',
+    /translate/,
+    { timeout: 10_000 }
+  );
 
   const container = page.locator('#tree-container');
-  const before = await container.evaluate((el) => el.scrollLeft);
+  const before = (await layerTransform(page)).x;
 
   const box = await container.boundingBox();
   if (!box) throw new Error('#tree-container has no box');
@@ -253,9 +338,8 @@ test("dragging the canvas pans it without opening a node", async ({ page, reques
   }
   await page.mouse.up();
 
-  await expect
-    .poll(() => container.evaluate((el) => el.scrollLeft))
-    .toBeGreaterThan(before);
+  // Dragging left moves the drawing left, so the translate decreases.
+  await expect.poll(async () => (await layerTransform(page)).x).toBeLessThan(before);
 
   // The drag must not have been read as a click on whatever was under
   // the pointer.

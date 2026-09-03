@@ -34,10 +34,12 @@ graph-based layout for visualizing and managing those dependencies.
 - **Client-side:** htmx (partial-page swaps between a persistent
   `#container` shell and per-page `#view` fragments), hyperscript.org
   (the `h_ "..."` attribute, for small declarative effects like
-  flash-on-update), and `graph-viewport.js` (scroll/zoom/pan over the
-  dependency graph — the graph itself is laid out server-side in
-  Haskell and arrives as finished SVG; there is no client-side layout
-  code, and D3 was removed in #182). Full write-up:
+  flash-on-update), and `graph-viewport.js` (pan/zoom over the
+  dependency graph, driven by a vendored `d3-zoom` — the graph itself
+  is laid out server-side in Haskell and arrives as finished SVG, so
+  there is still no client-side layout code and no graph data sent to
+  the browser; d3 only moves a transform, and loads only on the graph,
+  never app-wide the way the D3 removed in #182 did). Full write-up:
   [`docs/development/frontend/`](docs/development/frontend/).
 - **Database:** PostgreSQL 15 (Docker), accessed via esqueleto/persistent.
 - **Migrations:** SQL files in `migrations/`, managed via the `migrate`

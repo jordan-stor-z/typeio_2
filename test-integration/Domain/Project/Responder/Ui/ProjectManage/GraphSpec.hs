@@ -111,21 +111,22 @@ spec = aroundAll withTestDatabase $
           body `shouldContainStr` "/ui/project/node/refresh?nodeId="
           body `shouldNotContainStr` "layout=server"
 
-      describe "viewport (#179)" $ do
-        it "emits the natural size the client zooms in multiples of" $ \pool -> do
+      describe "viewport (#208)" $ do
+        it "emits the drawing's natural size" $ \pool -> do
           (projectKey, rootKey) <- seedProjectWithRootNode pool
           workKey <- seedWorkNode pool projectKey "Build the thing"
           seedDependency pool rootKey workKey
 
           body <- serverGraphBody pool (fromSqlKey projectKey)
 
-          -- The client rewrites width/height as it zooms, so it can't
-          -- read the natural size back off them afterwards -- it has to
-          -- be recorded separately or zooming accumulates drift.
+          -- The SVG is sized in percentages, so its own attributes no
+          -- longer say how big the drawing actually is. The viewport
+          -- needs that to centre a project with no root, and to restore
+          -- a usable size if the d3 bundle fails to load.
           body `shouldContainStr` "data-base-width="
           body `shouldContainStr` "data-base-height="
 
-        it "emits where the project root landed, as a scroll offset" $ \pool -> do
+        it "emits where the project root landed" $ \pool -> do
           (projectKey, rootKey) <- seedProjectWithRootNode pool
           workKey <- seedWorkNode pool projectKey "Build the thing"
           seedDependency pool rootKey workKey
@@ -133,26 +134,51 @@ spec = aroundAll withTestDatabase $
           body <- serverGraphBody pool (fromSqlKey projectKey)
 
           -- The server placed the root, so the client never searches
-          -- the DOM for it. Emitted relative to the drawing's top-left
-          -- so it drops straight into `scrollLeft`/`scrollTop`.
+          -- the DOM for it. Emitted relative to the drawing's top-left,
+          -- which is the zoom layer's own coordinate system, so the
+          -- client centres it with a translate and no further
+          -- arithmetic.
           body `shouldContainStr` "data-root-x="
           body `shouldContainStr` "data-root-y="
 
-        it "ships the controls and the viewport script with the graph" $ \pool -> do
+        it "ships the zoom layer and the viewport script with the graph" $ \pool -> do
           (projectKey, _) <- seedProjectWithRootNode pool
 
           body <- serverGraphBody pool (fromSqlKey projectKey)
 
-          -- All three are inside the swapped fragment: #tree-container
-          -- is replaced wholesale on every graph load, so anything
-          -- bound to the drawing has to arrive with it.
-          body `shouldContainStr` "id=\"graph-zoom-in\""
-          body `shouldContainStr` "id=\"graph-zoom-out\""
-          body `shouldContainStr` "id=\"graph-zoom-reset\""
+          -- Both are inside the swapped fragment: #tree-container is
+          -- replaced wholesale on every graph load, so anything bound
+          -- to the drawing has to arrive with it.
+          body `shouldContainStr` "id=\"graph-zoom-layer\""
           body `shouldContainStr` "/static/script/graph-viewport.js"
-          -- The viewport is hand-rolled precisely so this page needs
-          -- no layout library. #182 deleted the last one; this keeps it
-          -- from creeping back in unnoticed.
+
+        it "ships no on-screen zoom controls" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          -- #208 removed the button cluster in favour of gestures. The
+          -- drawing is what the viewport is for; three permanent
+          -- buttons sitting on top of it are what it is not.
+          body `shouldNotContainStr` "id=\"graph-zoom-in\""
+          body `shouldNotContainStr` "id=\"graph-zoom-out\""
+          body `shouldNotContainStr` "id=\"graph-zoom-reset\""
+          body `shouldNotContainStr` "graph-controls"
+
+        it "names no script but its own -- d3 arrives only inside it" $ \pool -> do
+          (projectKey, _) <- seedProjectWithRootNode pool
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          -- #182 deleted a d3 that the *page* loaded, app-wide. #208's
+          -- d3 is reached by a dynamic import inside
+          -- graph-viewport.js, so it still must not appear in any
+          -- markup the server emits -- not as a <script> here, and not
+          -- as an inlined bundle.
+          --
+          -- This is the tripwire that would catch d3 being promoted
+          -- back to something the page itself pulls in, which is how
+          -- it got onto every page in the app last time.
           body `shouldNotContainStr` "d3"
 
       describe "containment (#198)" $ do

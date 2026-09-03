@@ -34,9 +34,15 @@ computes positions with D3" to "server computes positions, client
 receives finished SVG". Layout is a pure Haskell pipeline of the
 [layered graph drawing](https://en.wikipedia.org/wiki/Layered_graph_drawing)
 family (nodes in rows by dependency depth, edges as right-angle
-polylines), rendered to SVG by the existing Lucid vocabulary. D3 is
-gone entirely, including the ~280KB `<script>` that used to load on
-every page in the app — not just the one with a graph on it.
+polylines), rendered to SVG by the existing Lucid vocabulary. The
+~280KB D3 that used to load on every page in the app — not just the one
+with a graph on it — is gone, and no graph data is sent to the browser.
+
+D3 does appear once more on the client, and the distinction matters:
+#208's viewport uses `d3-zoom` to pan and zoom the finished drawing.
+That is a *gesture* library, not a layout one — it moves a single
+transform and never reads the graph's structure — and it is ~47KB
+loaded only by the graph fragment. See [Viewport](#viewport).
 
 ## The pipeline
 
@@ -151,7 +157,7 @@ data Diagram = Diagram
   { diagramNodes      :: [PlacedNode]  -- real nodes only; never dummies
   , diagramEdges      :: [PlacedEdge]
   , diagramBounds     :: Bounds
-  , diagramRootAnchor :: Maybe Point   -- initial scroll target (#179)
+  , diagramRootAnchor :: Maybe Point   -- what the viewport opens on
   }
 
 data LayoutConfig = LayoutConfig
@@ -500,7 +506,7 @@ alongside it.
 
 | Selector | Depended on by |
 |---|---|
-| `#tree-container` | `manage-project.css` (sizing, and the scroll container in #179) |
+| `#tree-container` | `manage-project.css` (sizing, and the viewport's clipping box) |
 | `#graph-nodes`, `#graph-links` | `graph.spec.ts`, CSS |
 | `#node-<id>` | `graph.spec.ts`, the node-detail refresh hook |
 | `#node-text-<id>` | the per-node label refresh hook (`Node.Refresh`) |
@@ -556,59 +562,70 @@ large project is expected to overflow the view.
 
 - **Opens at a fixed, readable scale** — never scaled down to fit, which
   would shrink titles past legibility on a big project.
-- **Initial scroll is anchored on the project root**, using
-  `diagramRootAnchor` emitted as a data attribute; the server already
-  knows the coordinate, so the client never has to find it.
-- **Panning is native scrolling.** `#tree-container` gets
-  `overflow: auto`, which brings wheel, trackpad, touch drag with
-  momentum, and keyboard scrolling for free.
-- **Scrollbars are hidden** (`scrollbar-width: none`,
-  `::-webkit-scrollbar { display: none }`). Two consequences follow, and
-  both are part of #179 rather than afterthoughts:
-  - **Pointer-drag panning must exist**, since dragging a scrollbar is
-    no longer possible and a wheel-less mouse would otherwise be stuck.
-    A pointer drag adjusts `scrollLeft`/`scrollTop`, with a grab cursor.
-  - **A fit/recenter control must exist**, because scrollbars were also
-    the "there is more canvas, and here is where you are" cue. The
-    container also stays focusable so keyboard scrolling still works.
-- **Zoom** is the only genuinely custom behaviour: a scale factor on the
-  SVG's `width`/`height`, driven by +/− controls, `ctrl`/`cmd`+wheel
-  (what trackpad pinch reports as), and two-pointer touch pinch.
+- **Opens anchored on the project root**, using `diagramRootAnchor`
+  emitted as a data attribute; the server already knows the coordinate,
+  so the client never has to find it.
+- **Pan and zoom are one transform**, written by `d3-zoom` onto the
+  `#graph-zoom-layer` group inside the SVG. Nothing scrolls and nothing
+  is resized.
+- **No on-screen controls.** Gestures carry it: drag or plain wheel to
+  pan, `ctrl`/`cmd`+wheel (what a trackpad pinch reports as) to zoom,
+  double-click to reset. Arrow keys, `+`/`−` and `0` are the keyboard
+  equivalents, and `#tree-container` stays focusable so they reach it —
+  with no buttons, that keyboard path is the only pointer-free way
+  around the graph.
 
 ### As built
 
-`static/script/graph-viewport.js`, ~200 lines and no layout library. It
-loads from inside the graph fragment rather than once at page load,
-because htmx replaces `#tree-container`'s contents wholesale on every
-graph load.
+`static/script/graph-viewport.js`, driving `d3-zoom` (#208). It loads
+from inside the graph fragment rather than once at page load, because
+htmx replaces `#tree-container`'s contents wholesale on every graph
+load — and that is also what keeps d3 off every other page in the app.
 
-Four things in it are less obvious than the feature list above, and are
+Six things in it are less obvious than the feature list above, and are
 the parts to be careful around:
 
-- **Zoom is anchored on a fixed point.** Whatever diagram coordinate is
-  under the pointer (or, for the buttons, under the centre of the view)
-  stays under it across the scale change. Without that the graph walks
-  off-screen as you zoom, which is the single thing that makes a
-  hand-rolled zoom feel broken next to a mature one.
-- **Every scale is a multiple of the natural size**, carried on
-  `data-base-width`/`data-base-height`, never of the SVG's current
-  width. Zoom rewrites those attributes, so reading them back would
-  compound rounding on every step.
+- **d3 is a gesture library here, not a layout one.** It moves a
+  transform and never reads the graph's structure. The hard rule at the
+  top of this document is unaffected: positions are computed in
+  `Domain.Project.Graph.*` and no graph data is sent to the browser.
+- **The SVG has no `viewBox`.** It is `width="100%" height="100%"`, so
+  one user unit is one CSS pixel and the drawing sits at natural size
+  until the transform says otherwise. A `viewBox` would scale it to fit
+  the container, which is exactly the fit-to-screen behaviour the first
+  bullet above rules out. An inner `<g>` translates the layout's bounds
+  minimum to the origin, which is what makes the zoom layer's
+  coordinates the same ones `data-root-x`/`data-root-y` are emitted in.
+- **The vendored bundle is one file, not two.** `d3-selection` and
+  `d3-zoom` are built from a single entry into
+  `static/script/vendor/d3-graph-zoom.js`. Bundling them separately
+  gives each its own copy of `d3-selection`'s prototype, so
+  `d3-transition`'s `interrupt` patch lands on one copy while the
+  selection handed to `d3-zoom` comes from the other — it fails at
+  runtime with `interrupt is not a function`. The rebuild recipe is in
+  that file's header.
+- **It is a dynamic `import()` from a classic script**, not a
+  `<script type="module">`. A module executes once per document however
+  many times its tag is swapped in, so a module tag would set the
+  viewport up on the first graph load and never again.
 - **A drag must not read as a click.** Every node is also an htmx click
-  target, so a press only becomes a pan past a 4px threshold, and once
-  it does, the click the browser fires afterwards is swallowed exactly
-  once in the capture phase.
+  target, so a gesture only counts as a pan once the transform has moved
+  past a 4px threshold, and then the click the browser fires afterwards
+  is swallowed exactly once in the capture phase.
 - **Listeners are torn down on re-entry.** `#tree-container` survives
   each swap while its contents don't, so listeners bound to it would
   otherwise accumulate one set per graph load. Each run aborts the
-  previous run's `AbortController`, which drops them all at once.
+  previous run's `AbortController` and clears d3's own `.zoom`
+  listeners, which drops them all at once. The teardown is installed
+  *before* the dynamic import resolves, so a fast second swap cannot
+  race a half-initialised viewport.
 
 **#181 made this reachable.** While the server layout sat behind
 `?layout=server`, which nothing in the UI set (#192), none of the
 viewport could be driven by a browser — its coverage was integration
 assertions on what the server emitted. The cutover removed the flag, and
-`e2e/tests/graph.spec.ts` now drives the zoom controls and a pointer
-pan for real.
+`e2e/tests/graph.spec.ts` now drives the gestures for real, asserting on
+the zoom layer's `transform`.
 
 ## Cycles
 
