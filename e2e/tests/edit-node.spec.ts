@@ -46,10 +46,9 @@ test('editing a node updates its title and description', async ({ page, request 
   const newTitle = `${nodeTitle} (edited)`;
   const newDescription = `Edited by e2e/tests/edit-node.spec.ts at ${new Date().toISOString()}`;
 
-  // #node-title has a real id (unlike the add-project form's inputs --
-  // see create-project.spec.ts's note) but it still doesn't match its
-  // <label for="title">, which points at nothing -- same underlying gap,
-  // scoped by id/name instead of getByLabel() here too.
+  // getByLabel() -- #118 gave the title input the id "title" (it used
+  // to be "node-title", not matching its <label for="title">) and gave
+  // the description textarea an id at all (it had none).
   //
   // selectText() + pressSequentially(), not fill(): confirmed by direct
   // testing that fill() never fires htmx's `input changed delay:500ms`
@@ -60,10 +59,10 @@ test('editing a node updates its title and description', async ({ page, request 
   // same trigger fill() always does, even for the real keystrokes that
   // follow it. selectText() doesn't have that effect: it's a genuine
   // selection, not a value write.
-  const title = page.locator('#node-title');
+  const title = page.getByLabel('Title:');
   await title.selectText();
   await title.pressSequentially(newTitle);
-  const description = page.locator('#node-detail textarea[name="description"]');
+  const description = page.getByLabel('Description:');
   await description.selectText();
   await description.pressSequentially(newDescription);
 

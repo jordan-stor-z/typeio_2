@@ -145,7 +145,7 @@ templateNodeEdit nsts (Entity k nde) = do
     input_
       [ type_ "text"
       , class_ "property-value"
-      , id_ "node-title"
+      , id_ "title"
       , value_ (pack . M.nodeTitle $ nde)
       , name_ "title"
       , hxPut_ "/ui/project/node/title"
@@ -171,7 +171,8 @@ templateNodeEdit nsts (Entity k nde) = do
       p_ "Description:"
       div_ [class_ "indicator-box"] empty
     textarea_
-      [ name_ "description"
+      [ id_ "description"
+      , name_ "description"
       , hxPut_ "/ui/project/node/description"
       , hxPushUrl_ False
       , hxInclude_ "this"
@@ -190,7 +191,8 @@ templateNodeEdit nsts (Entity k nde) = do
       span_ [] $ do
         label_ [for_ "status"] $ p_ "Status:"
         select_
-          [ class_ "property-value pill-dropdown"
+          [ id_ "status"
+          , class_ "property-value pill-dropdown"
           , name_ "status"
           , hxPut_ "/ui/project/node/status"
           , hxPushUrl_ False
