@@ -269,9 +269,16 @@ svg {
   pointer-events: none;
 }
 
+/* Opts out of global.css's #view scroll region (#210): #tree-container
+   is a fixed window that pans by transform, not by scrolling, and a
+   scrollbar on #view behind it would be a second way to move the same
+   content, fighting the first. Nothing on this page needs #view itself
+   to scroll -- #tree-container and #node-panel are both height:100%,
+   matching #view's own height exactly. */
 #view {
   display: flex;
   flex-direction: row;
+  overflow: hidden;
 }
 
 /* Scoped to the node shape, not to `.flash *`: the keyframe animates

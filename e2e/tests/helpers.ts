@@ -90,3 +90,32 @@ export async function addNode(
 
   return { id: String(node.nodeId), title, description, projectId };
 }
+
+// Creates a project via a direct POST to the same endpoint the
+// add-project form submits to
+// (Domain.Project.Responder.Ui.ProjectCreate.Submit), bypassing the UI
+// form -- same reasoning as addNode() above: this is setup, not the
+// thing being tested. project-index-scroll.spec.ts (#210) needs enough
+// rows to overflow a screen, and driving 30 of them through the real
+// form (createProject()) would only add slow, irrelevant setup time.
+//
+// Returns nothing: the response here is a redirect header for htmx to
+// follow (Submit.redirectHeader), not a body with an id to scrape, and
+// nothing that needs this helper's projects individually addressable --
+// use createProject() instead when a caller needs the id back.
+export async function createProjectFast(
+  request: APIRequestContext,
+  titlePrefix: string
+): Promise<void> {
+  const title = `${titlePrefix} ${Date.now()}`;
+  const description = `Created by e2e/tests/helpers.ts's createProjectFast() at ${new Date().toISOString()}`;
+
+  const created = await request.post('/ui/create-project/submit', {
+    form: { title, description },
+  });
+  if (!created.ok()) {
+    throw new Error(
+      `createProjectFast: POST /ui/create-project/submit failed: ${created.status()} ${await created.text()}`
+    );
+  }
+}

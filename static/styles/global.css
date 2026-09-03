@@ -159,10 +159,31 @@ body {
   font-size: 1rem;
 }
 
+/* Every page's own scroll region (#210). #container above stays a
+   fixed window pinned to the viewport -- that pinning is what keeps
+   the shell feeling like an SPA rather than a stack of page loads --
+   which means it can never be where a tall page's content is reached
+   from. Before this, nothing in the ancestor chain was ever set to
+   scroll: content past the fold was genuinely unreachable by wheel,
+   trackpad, scrollbar or keyboard (only by script -- `overflow:hidden`
+   still permits `el.scrollTop = ...`, which is no help to an actual
+   user).
+
+   overflow-x stays hidden rather than left unset: setting only
+   overflow-y promotes the other axis to `auto` too (the CSS overflow
+   spec's single-axis rule), which risks a stray horizontal scrollbar
+   wherever a page's own children round up past 100% width -- nothing
+   in this app needs horizontal scrolling.
+
+   A page whose own content must not scroll natively -- the dependency
+   graph, whose viewport pans by transform -- opts out in its own
+   scoped stylesheet; see `#view` in views/manage-project.css. */
 #view {
   padding: 0 2rem;
   height: 100%;
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .logo {

@@ -42,6 +42,12 @@ load.
 }
 ```
 
+`overflow: hidden` here is deliberate and permanent: `#container` is
+what keeps the shell pinned to the viewport rather than growing with
+whatever page is currently swapped into it. That means it can never be
+where a tall page scrolls from — see `#view`, below, for where that
+actually lives.
+
 ## `#view` — a page's own root
 
 Every top-level page template renders its own `<div id="view">` as the
@@ -57,6 +63,20 @@ first thing inside itself, e.g.:
 This is the convention to follow for a new page: one `<div id="view">` as
 your template's outermost element, after the nav header and any
 page-specific `<link rel="stylesheet">` (see [styles.md](styles.md)).
+
+`#view` also owns each page's scroll region (#210): `global.css` sets
+`overflow-y: auto` here, since `#container` above never can (see
+`#container`, above). Before this, nothing in the ancestor chain was
+ever set to scroll — a page taller than the viewport was clipped by
+`#container`'s `overflow: hidden` with no user-facing way to reach the
+rest, only `#container.scrollTop = ...` from a script, which
+`overflow: hidden` still permits but no real user has a path to.
+
+A page whose own content must not scroll natively opts out in its own
+scoped stylesheet — the dependency graph does this in
+`views/manage-project.css`, because its viewport pans by transform on
+`#graph-zoom-layer` and a scrollbar on `#view` behind it would be a
+second, fighting way to move the same content.
 
 ## The swap hierarchy isn't flat
 
