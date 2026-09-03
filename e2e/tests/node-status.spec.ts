@@ -8,7 +8,7 @@ import { addNode, createProject } from './helpers';
 // selected there too, not just that the indicator claimed success).
 //
 // Same deep-link approach as #95's edit-node.spec.ts for opening the
-// panel (?nodeId= in the URL, not clicking the D3 graph) -- see that
+// panel (?nodeId= in the URL, not clicking the graph) -- see that
 // spec's comments for why.
 test("changing a node's status updates and persists it", async ({ page, request }) => {
   const project = await createProject(page, 'E2E node-status project');

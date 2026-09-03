@@ -46,7 +46,6 @@ indexTemplate path qs = html_ $ do
       ]
     meta_ [name_ "htmx-config", content_ "{\"historyCacheSize\": 0}"]
     script_ [src_ "/static/script/htmx.js"] empty
-    script_ [src_ "/static/script/d3.js"] empty
     script_ [src_ "https://unpkg.com/hyperscript.org@0.9.14"] empty
   body_ $ do
     div_

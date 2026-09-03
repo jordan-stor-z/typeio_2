@@ -60,9 +60,8 @@ spec = aroundAll withTestDatabase $
           body `shouldContainStr` "<rect class=\"work\""
           -- Rounded, per the reference images' shape.
           body `shouldContainStr` "rx=\"6\""
-          -- ...and no circles left behind. `circle` is the D3 path's
-          -- shape; #182 removes it from the app, but until then the
-          -- two must not turn up in one drawing.
+          -- ...and no circles left behind. That was the old renderer's
+          -- shape, removed outright in #182.
           body `shouldNotContainStr` "<circle"
 
         it "leaves the node's fill and stroke to the stylesheet" $ \pool -> do
@@ -150,8 +149,9 @@ spec = aroundAll withTestDatabase $
           body `shouldContainStr` "id=\"graph-zoom-out\""
           body `shouldContainStr` "id=\"graph-zoom-reset\""
           body `shouldContainStr` "/static/script/graph-viewport.js"
-          -- The viewport is hand-rolled precisely so this page stops
-          -- needing D3 (#182).
+          -- The viewport is hand-rolled precisely so this page needs
+          -- no layout library. #182 deleted the last one; this keeps it
+          -- from creeping back in unnoticed.
           body `shouldNotContainStr` "d3"
 
       describe "the cutover (#181)" $ do
@@ -164,7 +164,7 @@ spec = aroundAll withTestDatabase $
           body `shouldContainStr` "<rect class=\"root\""
           body `shouldContainStr` "/static/script/graph-viewport.js"
 
-        it "leaves no trace of the D3 path behind" $ \pool -> do
+        it "leaves no trace of the client-rendered path behind" $ \pool -> do
           (projectKey, rootKey) <- seedProjectWithRootNode pool
           workKey <- seedWorkNode pool projectKey "Build the thing"
           seedDependency pool rootKey workKey

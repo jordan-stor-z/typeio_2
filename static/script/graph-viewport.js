@@ -1,6 +1,6 @@
 // Scroll-and-zoom viewport for the server-rendered dependency graph
-// (#179). No D3: panning is the browser's own scrolling, and zoom is a
-// scale factor written onto the SVG's width/height.
+// (#179). No layout library: panning is the browser's own scrolling,
+// and zoom is a scale factor written onto the SVG's width/height.
 //
 // The graph is a navigable viewport, not a fit-to-screen picture. It
 // opens at a fixed readable scale with the project root in view, and a
@@ -53,8 +53,8 @@
 
   // Zoom about a fixed point: whatever diagram coordinate sits under
   // `clientX/clientY` stays under it afterwards. Without this, zooming
-  // walks the graph off-screen, which is the single thing that makes a
-  // hand-rolled zoom feel broken next to d3-zoom.
+  // walks the graph off-screen -- the single thing that most makes a
+  // hand-rolled zoom feel broken next to a mature one.
   const zoomAbout = (next, clientX, clientY) => {
     const target = clamp(next);
     if (target === scale) return;

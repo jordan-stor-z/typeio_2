@@ -140,10 +140,7 @@ svg {
    which brings wheel, trackpad, touch drag with momentum and keyboard
    scrolling for free -- none of which a hand-rolled pan would get
    right. The SVG inside is rendered at its natural size and is meant to
-   overflow on a large project.
-
-   `overflow: auto` is inert on the D3 path, whose SVG is sized 100%/100%
-   and so never overflows. */
+   overflow on a large project. */
 #tree-container {
   height: 100%;
   width: 70%;
@@ -259,12 +256,12 @@ svg {
   fill: var(--accent-light); 
 }
 
-/* The node's shape is a `circle` on the D3 path and a `rect` on the
-   server-computed one (#178), and every rule below is about the shape
-   rather than which shape it is -- so they're written against the
-   `.root`/`.work` classes both carry, not against an element name.
-   #182 deletes D3; nothing here has to change when it does. The one
-   genuinely circle-only rule is `r`, kept separate for that reason. */
+/* Every rule below is about the node's shape rather than which element
+   it is, so they're keyed off the `.root`/`.work` class the shape
+   carries. That was originally so one set of rules could style both the
+   circle and the rect while both renderers existed (#178); it cost
+   nothing when #182 removed the circle, which is the point -- element
+   names in selectors are what makes a swap like that expensive. */
 
 #tree-container .node.node-highlight .root,
 #tree-container .node.node-highlight .work {
@@ -286,14 +283,6 @@ svg {
   cursor: pointer;
   stroke: white;
   stroke-width: 1.5px;
-}
-
-/* Circle-only: the D3 path sizes its nodes here rather than in the
-   markup. The server path's boxes are sized by the layout engine
-   (`cfgNodeSize`), which writes width/height onto the `rect` itself --
-   the server knows the geometry, so CSS doesn't need to. */
-#tree-container .node circle {
-  r: 45;
 }
 
 #tree-container .node text {

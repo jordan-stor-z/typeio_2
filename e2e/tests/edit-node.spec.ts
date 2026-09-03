@@ -16,14 +16,18 @@ import { addNode, createProject } from './helpers';
 // Opening the node panel goes through the URL's `nodeId` query param
 // (ProjectManage.View's own supported deep-link shape -- the same one
 // Graph.pushUrl puts in the address bar on a real click) rather than
-// clicking the node in the D3 graph. That's deliberate, not a
-// workaround: the graph's force layout can settle a node at a
-// genuinely off-screen position (observed a 2-node graph settle with
-// one node's bounding box at x:-191, entirely under the page header) --
-// that's real app behavior, not a test artifact, and interacting with
-// the graph itself is #97's scope, not this ticket's. The direct-link
-// path exercises a real, already-supported way into this same panel
-// without depending on where the graph happens to lay a node out.
+// clicking the node in the graph. That's deliberate, not a workaround:
+// interacting with the graph itself is #97's scope, not this ticket's,
+// and the direct-link path exercises a real, already-supported way into
+// this same panel without depending on where a node lands.
+//
+// The original reason was stronger and no longer applies: the old
+// client-side force layout could settle a node at a genuinely
+// off-screen position (a 2-node graph once settled with one node's
+// bounding box at x:-191, entirely under the page header). Since #181
+// the server places every node deterministically, so a real click would
+// work here now -- graph.spec.ts does exactly that. This spec stays
+// deep-linked because that is still the narrower thing to test.
 test('editing a node updates its title and description', async ({ page, request }) => {
   const project = await createProject(page, 'E2E edit-node project');
   const node = await addNode(request, project.id, 'E2E edit-node');
