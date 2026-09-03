@@ -3,7 +3,7 @@
 [hyperscript](https://hyperscript.org) (loaded from a CDN, pinned to
 `0.9.14`, in `IndexView.hs`) provides the `_` HTML attribute — wrapped as
 `h_` in `Common.Web.Attributes` — for small, imperative, per-element
-behaviors that don't warrant reaching for `nodetree2.js`/`d3.js` or a new
+behaviors that don't warrant reaching for a real script file or a new
 htmx round trip. Everything below is the entire current inventory of
 hyperscript usage in the app; there isn't a larger convention hiding
 elsewhere.
@@ -87,7 +87,10 @@ Going by what's actually here:
   (`init`/`my.x`), or reaching a nearby element via a selector. Every
   example above is one to a handful of clauses; if it's growing past
   that, it's a signal to stop.
-- **Real JS (`nodetree.js`/`nodetree2.js`/`d3.js`)**: for anything with
-  actual application logic, data structures, or cross-element
-  coordination at scale — the dependency graph's layout/zoom/pan is
-  never going to be a hyperscript one-liner, and isn't.
+- **Real JS (`graph-viewport.js`)**: for anything with actual
+  application logic, data structures, or cross-element coordination at
+  scale — the graph viewport's zoom/pan bookkeeping is never going to be
+  a hyperscript one-liner, and isn't. Note that the graph's *layout* is
+  not on this list at all any more: it is computed server-side in
+  Haskell (#173-#182), which is the far better answer where it's
+  available.

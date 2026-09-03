@@ -16,8 +16,8 @@ purpose (the source groups them the same way, via comments):
 |---|---|---|
 | Background | `--bg-start`, `--bg-end` | The `body` gradient (`linear-gradient(to bottom right, ...)`) |
 | Text | `--text-primary`, `--text-secondary` | Primary body/label text vs. secondary/muted text (e.g. `.logo:hover`) |
-| Accent | `--accent`, `--accent-light`, `--accent-bold`, `--accent-select` | Buttons, highlights, and the D3 graph's node fills (`--accent-bold` for root nodes, `--accent-light` for work nodes) |
-| Accent hover | `--accent-hover`, `--accent-hover-light`, `--accent-hover-bold` | Hover states paired 1:1 with the accent tokens above (e.g. `--accent-hover-bold` on `#tree-container .node circle.root:hover`) |
+| Accent | `--accent`, `--accent-light`, `--accent-bold`, `--accent-select` | Buttons, highlights, and the graph's node fills (`--accent-bold` for root nodes, `--accent-light` for work nodes) |
+| Accent hover | `--accent-hover`, `--accent-hover-light`, `--accent-hover-bold` | Hover states paired 1:1 with the accent tokens above (e.g. `--accent-hover-bold` on `#tree-container .node .root:hover`) |
 | Accent (semantic) | `--accent-success` | Defined alongside the accent family but currently unused anywhere — same "defined, not wired up" situation as `.pill-indicator` below |
 | Borders | `--border-color` | Dividers, input backgrounds (`input`/`textarea` use it as their `background-color`, not as a border — worth knowing before assuming the name always matches the usage) |
 | Status | `--error-color`, `--success` | Validation error backgrounds/messages, and the save-success checkmark icon color (`#node-detail i`) |
@@ -28,7 +28,7 @@ represents a reusable concept (a status, an interaction state), belongs
 here as a token — this mirrors `styles.md`'s "shared class → global"
 rule, applied to colors specifically. Not universally followed today:
 `.action-button` (`#e0e0e0`, `#999`), `#tree-container .link`'s stroke
-(`#999`), and the D3 node circles' `stroke: white` are all untokenized
+(`#999`), and the graph nodes' `stroke: white` are all untokenized
 literals. Documented as the current, inconsistent reality — not a
 backlog item to silently fix as a drive-by change.
 
@@ -76,7 +76,7 @@ in this doc's scope).
     path (`Node.Title.templatePostFail`).
 - **`.node-highlight`** (scoped to `#tree-container`, in
   `manage-project.css`) — a glow (`filter: drop-shadow(...)`) on the
-  D3-rendered circle for whichever node's detail panel is currently
+  rounded rect for whichever node's detail panel is currently
   open. Not a class the server ever sets directly — hyperscript adds it
   when the panel opens and removes it on the panel's own htmx cleanup
   event (`templateNodePanel`'s `on load add .node-highlight to #node-<id>
@@ -96,7 +96,7 @@ in this doc's scope).
   same spinner. Leave it scoped to `manage-project.css` until that
   actually happens; don't promote it speculatively.
 - **`.flash`** (also `manage-project.css`) — a one-shot blue pulse
-  (`@keyframes flashAnimation`) on a D3 node's circle, triggered by
+  (`@keyframes flashAnimation`) on a graph node's rect, triggered by
   `Node.Refresh.templateRefresh` when a background poll detects that
   node's title changed server-side: hyperscript adds `.flash`, waits
   500ms, removes it, then removes its own now-inert trigger element.

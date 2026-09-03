@@ -58,9 +58,10 @@ Lucid's own escape hatches (`Lucid.Base`):
   `hxVals_`/`hxVals'_` encode a Haskell value as the JSON `hx-vals`
   htmx expects.
 - **`Common.Web.Elements`** — arbitrary elements via `term`, for the SVG
-  tags Lucid has no combinator for: `circle_`, `path_`, `g_`, `line_`,
-  `marker_`, `defs_`, `text_`, `tspan_`. Used exclusively by the
-  dependency-graph template (`ProjectManage/Graph.hs`).
+  tags Lucid has no combinator for: `rect_`, `path_`, `g_`, `marker_`,
+  `defs_`, `text_`, `tspan_`, plus `circle_` and `line_`, which nothing
+  currently uses. Used exclusively by the dependency-graph template
+  (`ProjectManage/Graph.hs`).
 
 If you need an attribute or element that isn't already in one of these
 two modules, add it there rather than reaching for a raw string
@@ -68,20 +69,33 @@ elsewhere — that's the established extension point.
 
 ## Passing server data to client JS
 
-The dependency graph needs its data on the client for D3 to render, and
-that's done by embedding JSON directly in the page rather than a separate
-API call the JS makes on load:
+**There is no longer a pattern for this in the app, which is the point.**
+
+The dependency graph used to embed its data as JSON in a
+`<script id="graph-data" type="application/json">` for `nodetree2.js` to
+read and lay out. That whole approach was removed by #181/#182: the
+server now computes every coordinate and sends finished SVG, so the
+graph's data never reaches the browser at all. See
+[`../../architecture/graph-rendering.md`](../../architecture/graph-rendering.md).
+
+What remains is a much smaller need — handing a script a few scalars
+about something the server already computed. The graph viewport does it
+with `data-*` attributes on the element itself:
 
 ```haskell
-templateGraph g = do
-  script_ [id_ "graph-data", type_ "application/json"] $ encode g
-  script_ [src_ "/static/script/nodetree2.js"] empty
-  svg_ [...] $ ...
+svg_
+  [ id_ "tree-view"
+  , dataBaseWidth_ (dblText w)   -- natural size, for zoom
+  , dataRootX_ (dblText rootX)   -- where to scroll on open
+  , ...
+  ]
 ```
 
-`nodetree2.js` reads `#graph-data`'s text content and parses it. This
-keeps the graph's data and its container HTML in the same server
-response/htmx swap, rather than needing a second round trip.
+`graph-viewport.js` reads them off `svg.dataset`. Prefer this to
+embedding JSON: it keeps the values next to the element they describe,
+it needs no parsing, and it doesn't tempt anyone into moving real logic
+back to the client. If you genuinely need structured data client-side,
+that's a design question worth raising rather than a pattern to copy.
 
 ## Forms
 

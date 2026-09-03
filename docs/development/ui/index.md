@@ -20,8 +20,9 @@ page.
 The dependency graph's own layout and rendering design lives outside
 this directory, in
 [`docs/architecture/graph-rendering.md`](../../architecture/graph-rendering.md)
-— it describes a design still being built (#172–#183), which is what
-`architecture/` is for and what `development/` is not.
+— it covers the pipeline's structure, contracts and invariants, which is
+what `architecture/` is for and what `development/` is not. Built across
+#172–#183.
 
 See also [`docs/development/frontend/`](../frontend/) for how htmx and
 hyperscript — the client-side libraries doing the swapping and the small

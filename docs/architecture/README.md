@@ -5,8 +5,8 @@ contracts between components, the invariants they guarantee, and the
 conventions a change in that area has to respect.
 
 - [**Graph rendering**](graph-rendering.md) — the project dependency
-  graph's layout pipeline and SVG rendering. *Status: in flight
-  (#172–#183) — see its status table for what has actually landed.*
+  graph's layout pipeline and SVG rendering. *Status: built (#172–#183),
+  with one known divergence from the design recorded in it (#198).*
 
 ## How this differs from the other two doc directories
 

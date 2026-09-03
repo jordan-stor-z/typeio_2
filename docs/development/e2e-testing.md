@@ -100,11 +100,14 @@ covered:
   comments for a real app bug found while writing this (the edit
   dropdown never actually shows the node's real current status,
   regardless of what's in the database).
-- **`tests/graph.spec.ts`** — clicks a node in the D3-rendered dependency
-  graph, asserting its detail panel opens and it picks up the
-  `.node-highlight` glow, then that closing the panel clears both. See
-  the spec's comments for a severe app bug found while writing this (the
-  graph never positions any node past the first one — #120).
+- **`tests/graph.spec.ts`** — the server-rendered dependency graph.
+  Clicks a node and asserts its detail panel opens and it picks up the
+  `.node-highlight` glow, then that closing clears both; that the boxes
+  are laid out without overlapping; that the page carries no client
+  layout script; and that the viewport zooms and pans. See the spec's
+  comments for a severe app bug found while writing the first of these
+  (the graph never positioned any node past the first one — #120, long
+  since fixed).
 - **`tests/helpers.ts`** — shared setup (`createProject()`, `addNode()`)
   every spec above uses, so creating a project/node isn't duplicated
   across specs that need one but aren't testing its creation.
@@ -152,15 +155,20 @@ to this suite should follow the same conventions:
   this if a spec's htmx request never fires despite the value/state
   visibly updating correctly client-side.
 - **`locator.dispatchEvent('click')` for an element a real pointer
-  genuinely can't reach.** The dependency graph's D3 layout can leave a
-  node positioned off-screen or overlapping other page content (#120),
-  which fails `locator.click()`'s actionability check no matter how long
-  you wait. `dispatchEvent('click')` fires the same event
+  genuinely can't reach.** `dispatchEvent('click')` fires the same event
   `hx-trigger="click"` reacts to without needing the element to be
-  visually clickable first — see `graph.spec.ts`'s comments. Prefer a
-  real `click()` whenever the element is actually reachable; reach for
-  `dispatchEvent()` only when a known, separately-tracked rendering bug
-  is what's actually in the way, not as a default habit.
+  visually clickable first. Prefer a real `click()` whenever the element
+  is actually reachable; reach for `dispatchEvent()` only when a known,
+  separately-tracked rendering bug is what's in the way, not as a
+  default habit.
+
+  **The case that motivated this is gone.** The old client-side graph
+  layout could leave a node off-screen or under the page header (#120),
+  so `graph.spec.ts` used `dispatchEvent`. Since the server started
+  placing nodes deterministically (#181), it uses a real `click()` — and
+  that click is now itself a regression test for nodes landing somewhere
+  visible. The technique stays documented because the situation recurs;
+  the graph is no longer an example of it.
 
 ## CI wiring
 
