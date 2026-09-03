@@ -62,8 +62,9 @@ before @dependent@ can be, and the arrowhead is drawn at the
 @dependent@ end — an edge points from the work that must finish toward
 the work waiting on it.
 
-Calling these @source@/@target@ is exactly how the existing D3 path
-ended up drawing its arrowheads on the dependency: @project.dependency@
+Calling these @source@/@target@ is exactly how the old client-side
+renderer ended up drawing its arrowheads on the dependency:
+@project.dependency@
 stores @node_id@ /depends on/ @to_node_id@, so @node_id@ is the
 'leDependent' and @to_node_id@ is the 'leDependency', which reads
 backwards under generic names.
@@ -117,8 +118,9 @@ data Bounds = Bounds
   deriving (Eq, Show)
 
 {- | A node with its computed geometry. 'pnTopLeft' is the box's
-top-left corner, not its centre — the D3 path positions by centre,
-and that convention deliberately does not carry over.
+top-left corner, not its centre — the old client-side renderer
+positioned by centre, and that convention deliberately did not carry
+over.
 -}
 data PlacedNode = PlacedNode
   { pnId :: NodeId

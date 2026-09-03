@@ -85,8 +85,8 @@ data GetGraphError
 {- | A node, as much of it as the graph's own rendering needs.
 
 What used to be here alongside this was a @Graph@ record with @ToJSON@
-instances, serialised into a @#graph-data@ script tag for D3 to lay out
-in the browser. The server computes the layout now (#181), so the graph
+instances, serialised into a @#graph-data@ script tag for the browser
+to lay out. The server computes the layout now (#181), so the graph
 never leaves the server as data — it leaves as finished SVG.
 -}
 data GraphNode = GraphNode
@@ -189,9 +189,9 @@ in after an edit.
 Wrapping is to the layout engine's own box ('cfgLabelWidth' x
 'cfgLabelLines') — the same dimensions the label was first drawn at, so
 a title re-wraps to what it already fitted. Until #181 this took a
-parameter saying which shape was asking, because the D3 path's circle
-fitted fewer characters per line than the box does; with one renderer
-left there is one answer.
+parameter saying which shape was asking, because the old renderer's
+circle fitted fewer characters per line than the box does; with one
+renderer left there is one answer.
 -}
 nodeContents :: GraphNode -> Html ()
 nodeContents n = do
@@ -269,7 +269,7 @@ validateProjectId qt = runValidation id $ do
 -- Everything below renders a Diagram that Domain.Project.Graph.Layout
 -- has already placed. It was opt-in behind ?layout=server while it was
 -- being built; #181 made it the only renderer and removed both the flag
--- and the D3 template it used to sit beside.
+-- and the client-rendered template it used to sit beside.
 -- See docs/architecture/graph-rendering.md.
 -- ---------------------------------------------------------------------
 
@@ -314,8 +314,9 @@ toLayoutNode (Entity k e) =
 dependent — the end that carries the arrowhead — and @to_node_id@ is the
 dependency.
 
-This is the opposite of what 'toGraph' builds for the D3 path, whose
-@source@/@target@ naming let the arrowhead end up on the dependency.
+This is the opposite of what the old client-side conversion built,
+whose @source@/@target@ naming let the arrowhead end up on the
+dependency.
 -}
 toLayoutEdge :: Entity M.Dependency -> LayoutEdge
 toLayoutEdge (Entity k e) =
@@ -351,9 +352,9 @@ templateServerGraph sg = do
         forM_ (diagramEdges d) edgeLine
       g_ [id_ "graph-nodes"] $
         forM_ (diagramNodes d) (nodeGroup sg)
-  -- Loaded from inside the fragment, the way the D3 path loads
-  -- nodetree2.js: htmx swaps this whole subtree in, so the script has
-  -- to arrive with it rather than once at page load.
+  -- Loaded from inside the fragment rather than once at page load:
+  -- htmx swaps this whole subtree into #tree-container on every graph
+  -- load, so anything bound to the drawing has to arrive with it.
   script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
   where
     d = sgDiagram sg
@@ -509,8 +510,8 @@ nodeGroup sg n =
       -- Only geometry is set here. Fill, stroke, hover, the
       -- `.node-highlight` glow and the `.flash` animation all live in
       -- manage-project.css, keyed off the `root`/`work` class -- the
-      -- same rules the D3 path's `circle` picks up, so the two shapes
-      -- stay styled identically for as long as both exist.
+      -- keyed off the class rather than the element name, which is
+      -- what made removing the old circle (#182) cost nothing here.
       rect_
         [ class_ (kindClass (pnKind n))
         , width_ (dblText (szW sz))
@@ -519,8 +520,8 @@ nodeGroup sg n =
         ]
         (mempty :: Html ())
       nodeLabel nid sz (pnLines n)
-      -- Same refresh hook the D3 path uses: re-fetch this node's label
-      -- when its detail panel closes after an edit.
+      -- Re-fetch this node's label when its detail panel closes after
+      -- an edit.
       g_
         [ class_ "hidden"
         , hxGet_ (nodeRefreshLink rawId pid rawLabel)
@@ -551,7 +552,7 @@ positions them, centred in the box however many there are.
 
 Two details here are load-bearing rather than stylistic:
 
-* The id is @node-text-<id>@, matching the D3 path. It is what the
+* The id is @node-text-<id>@. It is what the
   per-node refresh hook swaps into after an edit, and it has to be
   unique per node -- this element used to carry a constant
   @node-label@, which both repeated one id across every node in the
@@ -560,9 +561,8 @@ Two details here are load-bearing rather than stylistic:
 * The centring is a @transform@ on the @text@ element rather than
   @x@\/@y@ on it and on every @tspan@. That puts the text origin at the
   middle of the box, so the @tspan@s inside sit relative to a centre
-  exactly as they do on the D3 path (see 'tspanLines') -- which is what
-  lets the shared refresh endpoint return one fragment that lands
-  correctly in either graph.
+  (see 'tspanLines') -- which is what lets the refresh endpoint return
+  one fragment that lands correctly wherever the node sits.
 -}
 nodeLabel :: Text -> Size -> [Text] -> Html ()
 nodeLabel nid (Size w h) ls =

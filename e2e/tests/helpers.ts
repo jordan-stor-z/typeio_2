@@ -57,8 +57,8 @@ export interface CreatedNode {
 
 // Adds a node to an existing project via a direct API call
 // (Domain.Project.Responder.Api.Node.Post), not a UI interaction: the
-// app has no UI affordance to create a node anywhere -- checked the D3
-// script, the graph template, and the node panel (see #95's PR
+// app has no UI affordance to create a node anywhere -- checked the
+// client script, the graph template, and the node panel (see #95's PR
 // description for the full finding). Every spec that needs *a* node to
 // exist but isn't testing node creation itself calls this instead of
 // reimplementing the API-plus-lookup dance.
