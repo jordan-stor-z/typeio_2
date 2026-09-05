@@ -9,6 +9,7 @@ project root is part of the drawing.
 -}
 module Domain.Project.Visualization.Layered.Responder
   ( handleProjectGraph
+  , renderGraph
   , buildGraph
   ) where
 
@@ -16,15 +17,27 @@ import Database.Persist.Sql (ConnectionPool)
 import Domain.Project.Graph.Containment (containmentEdges)
 import Domain.Project.Visualization.Common
   ( BuildGraph
+  , RenderGraph
   , handleGraphWith
   , serverGraph
+  , templateServerGraph
   , toLayoutEdge
   , toLayoutNode
   )
 import Network.Wai (Application)
 
 handleProjectGraph :: ConnectionPool -> Application
-handleProjectGraph = handleGraphWith buildGraph
+handleProjectGraph = handleGraphWith renderGraph
+
+{- | Lay the drawing out with the shared layered engine and render it
+with the shared SVG vocabulary.
+
+Both halves are shared, so this visualization's whole contribution is
+'buildGraph' below. A visualization whose geometry is not layered
+supplies a 'RenderGraph' that goes through neither.
+-}
+renderGraph :: RenderGraph
+renderGraph pid ns ds = templateServerGraph (buildGraph pid ns ds)
 
 {- | Every node in the project, plus the recorded dependencies and the
 root's derived containment edges.

@@ -15,6 +15,7 @@ isn't a node in the picture.
 -}
 module Domain.Project.Visualization.Rootless.Responder
   ( handleProjectGraph
+  , renderGraph
   , buildGraph
   ) where
 
@@ -27,15 +28,24 @@ import Domain.Project.Graph.Types
   )
 import Domain.Project.Visualization.Common
   ( BuildGraph
+  , RenderGraph
   , handleGraphWith
   , serverGraph
+  , templateServerGraph
   , toLayoutEdge
   , toLayoutNode
   )
 import Network.Wai (Application)
 
 handleProjectGraph :: ConnectionPool -> Application
-handleProjectGraph = handleGraphWith buildGraph
+handleProjectGraph = handleGraphWith renderGraph
+
+{- | The same shared layered engine and SVG vocabulary the layered
+visualization uses — this one differs only in what it hands them, which
+is 'buildGraph' below.
+-}
+renderGraph :: RenderGraph
+renderGraph pid ns ds = templateServerGraph (buildGraph pid ns ds)
 
 {- | The work nodes only, and only the dependencies between them.
 

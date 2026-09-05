@@ -102,9 +102,15 @@ data GraphNode = GraphNode
 {- | Build a 'ServerGraph' from a project's rows: which nodes and edges
 the drawing is /of/.
 
-This is the one thing each visualization supplies for itself, and it is
-where they actually differ — whether the project root is drawn at all,
-whether containment edges are derived, what counts as an edge. See
+This is what the /layered/ visualizations differ by — whether the
+project root is drawn at all, whether containment edges are derived,
+what counts as an edge.
+
+It is deliberately __not__ the seam between visualizations in general.
+A 'ServerGraph' carries a 'Diagram', and 'serverGraph' produces one by
+calling the layered layout engine, so every drawing expressible through
+this type is a layered one by construction. 'RenderGraph' is the seam;
+this is one convenient way to reach it. See
 @docs/architecture/visualization-switching.md@.
 -}
 type BuildGraph =
@@ -113,17 +119,39 @@ type BuildGraph =
   [Entity M.Dependency] ->
   ServerGraph
 
+{- | Render a project's rows as the finished fragment. This is the one
+thing each visualization supplies for itself.
+
+The seam sits at /render the drawing/ rather than at /decide the nodes
+and edges/ ('BuildGraph') because the latter cannot express a
+visualization that is not layered: 'Diagram' is layered geometry, and
+'templateServerGraph' renders rects and orthogonal paths. A radial or
+force-directed visualization brings its own geometry and its own
+document assembly and imports neither.
+
+A layered visualization is then a composition of pieces it already had:
+
+@
+renderGraph pid ns ds = 'templateServerGraph' (buildGraph pid ns ds)
+@
+-}
+type RenderGraph =
+  Int64 ->
+  [Entity M.Node] ->
+  [Entity M.Dependency] ->
+  Html ()
+
 {- | The request half of a graph endpoint, shared by every
 visualization: parse the project id, fetch the project's nodes and
-dependencies, hand them to the visualization's own 'BuildGraph', render.
+dependencies, hand them to the visualization's own 'RenderGraph'.
 
-Only the middle step varies, so only the middle step is a parameter.
-Validation, the queries and the error responses are identical whichever
-drawing is selected, and duplicating them per visualization would just
-let them drift apart.
+Only that step varies, so only that step is a parameter. Validation, the
+queries and the error responses are identical whichever drawing is
+selected, and duplicating them per visualization would just let them
+drift apart.
 -}
-handleGraphWith :: BuildGraph -> ConnectionPool -> Application
-handleGraphWith build pl req respond = do
+handleGraphWith :: RenderGraph -> ConnectionPool -> Application
+handleGraphWith drawGraph pl req respond = do
   rslt <- flip runSqlPool pl . runEitherT $ do
     pid <-
       hoistEither
@@ -144,7 +172,7 @@ handleGraphWith build pl req respond = do
     Left (InvalidParams es) -> respondValErrs es
     Left MissingNodes -> respondMissingNodes
     Right (pid, ns, ds) ->
-      respondSuccess . templateServerGraph $ build pid ns ds
+      respondSuccess $ drawGraph pid ns ds
   where
     respondMissingNodes =
       respond
