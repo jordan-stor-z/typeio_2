@@ -599,6 +599,13 @@ nodeGroup :: ServerGraph -> PlacedNode -> Html ()
 nodeGroup sg n =
   g_
     [ id_ ("node-" <> nid)
+    , -- Which node this element stands for (#234). The id above says
+      -- the same thing, but an id can only ever name one element, and
+      -- the Project Manage hooks have to work on a drawing that
+      -- renders a node more than once. Additive: `#node-<id>` stays,
+      -- since graph-rendering.md lists it as a contract and
+      -- graph.spec.ts locates nodes by it.
+      dataNodeId_ nid
     , class_ "node"
     , transform_ ("translate(" <> dblText (ptX tl) <> "," <> dblText (ptY tl) <> ")")
     , hxGet_ (nodePanelLink rawId pid)

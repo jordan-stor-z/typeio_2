@@ -111,6 +111,29 @@ spec = aroundAll withTestDatabase $
           body `shouldContainStr` "/ui/project/node/refresh?nodeId="
           body `shouldNotContainStr` "layout=server"
 
+      describe "the node-identity contract (#234)" $ do
+        it "tags every drawn node with the node it stands for" $ \pool -> do
+          -- The one thing a visualization has to publish for the rest
+          -- of the Project Manage UI to work with it. The panel
+          -- highlight and the post-edit flash both select on this.
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+          workKey <- seedWorkNode pool projectKey "Build the thing"
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          body `shouldContainStr` dataNodeId (fromSqlKey rootKey)
+          body `shouldContainStr` dataNodeId (fromSqlKey workKey)
+
+        it "keeps #node-<id> alongside it" $ \pool -> do
+          -- Additive, not a replacement: graph-rendering.md lists the
+          -- id as a contract and graph.spec.ts locates nodes by it.
+          (projectKey, rootKey) <- seedProjectWithRootNode pool
+
+          body <- serverGraphBody pool (fromSqlKey projectKey)
+
+          body
+            `shouldContainStr` ("id=\"node-" <> show (fromSqlKey rootKey) <> "\"")
+
       describe "viewport (#208)" $ do
         it "emits the drawing's natural size" $ \pool -> do
           (projectKey, rootKey) <- seedProjectWithRootNode pool
@@ -362,6 +385,9 @@ failure message.
 shouldSatisfyWith :: Bool -> String -> Expectation
 shouldSatisfyWith True _ = pure ()
 shouldSatisfyWith False msg = expectationFailure msg
+
+dataNodeId :: Int64 -> String
+dataNodeId nid = "data-node-id=\"" <> show nid <> "\""
 
 nodeTextId :: Int64 -> String
 nodeTextId nid = "id=\"node-text-" <> show nid <> "\""

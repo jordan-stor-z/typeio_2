@@ -142,6 +142,17 @@ dataRootX_ = makeAttributes "data-root-x"
 dataRootY_ :: Text -> Attributes
 dataRootY_ = makeAttributes "data-root-y"
 
+{- | Which node an element in a drawing stands for.
+
+The one thing a visualization must publish for the rest of the Project
+Manage UI to work with it (#234). The node panel's highlight and the
+post-edit flash both select on this rather than on an element id,
+because an id assumes exactly one element per node — an assumption the
+orbital visualization breaks by drawing a node once per dependent.
+-}
+dataNodeId_ :: Text -> Attributes
+dataNodeId_ = makeAttributes "data-node-id"
+
 {- | The @title@ /attribute/ -- a hover tooltip -- rather than the
 document's title element. Lucid's own @title_@ is that element (see
 @Domain.Central.Responder.Ui.IndexView@), so the attribute needs a name
