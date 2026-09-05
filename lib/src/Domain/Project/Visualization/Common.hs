@@ -379,55 +379,71 @@ toLayoutEdge (Entity k e) =
     (NodeId (fromSqlKey (M.dependencyToNodeId e)))
     (NodeId (fromSqlKey (M.dependencyNodeId e)))
 
-templateServerGraph :: ServerGraph -> Html ()
-templateServerGraph sg =
+{- | The navigable shell every visualization's drawing sits inside:
+the @\<svg\>@, the zoom layer, and the viewport script.
+
+Takes the drawing's bounds, optionally a point to open centred on __in
+the drawing's own coordinates__, and the drawing itself.
+
+Six things in here are load-bearing and none of them are apparent from
+reading the markup, which is the reason this is one shared function
+rather than something each visualization assembles for itself. A
+visualization that hand-rolled it would get pan and zoom subtly wrong,
+and nothing — not the type checker, not a unit test — would say so.
+
+* __The @\<svg\>@ deliberately has no @viewBox@.__ It is
+  @width=\"100%\" height=\"100%\"@, so one user unit is one CSS pixel
+  and the drawing sits at natural size until the transform says
+  otherwise. A @viewBox@ would scale it to fit its container, which is
+  exactly the fit-to-screen behaviour the viewport exists to avoid: a
+  large project is meant to overflow and be navigated, not shrunk until
+  its titles stop being readable.
+* __@data-base-width@ \/ @data-base-height@__ carry the natural size,
+  which the client centres on when there is no anchor.
+* __@#graph-zoom-layer@ is the one element @d3-zoom@ writes to.__
+  Everything the viewport does — pan, zoom, recentre — is a @transform@
+  on this group and nothing else.
+* __The origin shift__ moves the drawing's top-left to the origin, which
+  is what makes the zoom layer's coordinate system the same one the
+  anchor is emitted in. Without it the client would have to know the
+  bounds to place the anchor.
+* __The anchor is converted here__, from the caller's coordinates to
+  that top-left-relative system. Callers pass a point from their own
+  geometry and this does the arithmetic, so the conversion cannot be got
+  wrong twice in two visualizations.
+* __The script tag is inside the fragment__, not loaded once at page
+  load. htmx swaps this whole subtree into @#tree-container@ on every
+  graph load, so anything bound to the drawing has to arrive with it —
+  and it is also what keeps d3 off every other page in the app.
+
+'arrowMarker' is emitted here as @#arrow@ because every drawing so far
+wants one. A visualization needing a different arrowhead adds its own
+@\<defs\>@ inside @contents@ under a different id rather than this
+growing a parameter — SVG permits several @defs@ blocks, and a flag here
+would be the exact failure mode
+@docs\/architecture\/visualization-switching.md@ warns about.
+-}
+graphFrame :: Bounds -> Maybe Point -> Html () -> Html ()
+graphFrame bnds anchor contents =
   do
     svg_
       ( [ id_ "tree-view"
-        , -- Fills its container, with no @viewBox@: one SVG user unit is
-          -- one CSS pixel, so the drawing is at natural size until the
-          -- viewport's transform says otherwise. A @viewBox@ here would
-          -- scale the graph to fit, which is exactly what must not
-          -- happen -- a large project is meant to overflow and be
-          -- navigated, not shrunk until its titles stop being readable.
-          width_ "100%"
+        , width_ "100%"
         , height_ "100%"
-        , -- The natural size the layout engine produced. The viewport
-          -- falls back to the centre of this when a project has no root
-          -- to centre on.
-          dataBaseWidth_ (dblText (szW size))
+        , dataBaseWidth_ (dblText (szW size))
         , dataBaseHeight_ (dblText (szH size))
         , h_ "on load transition my opacity to 1 over 200ms"
         ]
-          <> rootAnchorAttrs
+          <> anchorAttrs
       )
       $ do
         defs_ [] arrowMarker
-        -- The one element d3-zoom writes to. Everything the viewport
-        -- does -- pan, zoom, recentre -- is a `transform` on this group
-        -- and nothing else; the drawing inside it is exactly what the
-        -- server laid out.
         g_ [id_ "graph-zoom-layer"] $
-          -- The layout's own coordinates can start anywhere, so this
-          -- shifts its top-left to the origin. That makes the zoom
-          -- layer's coordinates the same "relative to the drawing's
-          -- top-left" ones the root anchor below is emitted in, so the
-          -- client can position the root without knowing the bounds.
-          g_ [transform_ originShift] $ do
-            g_ [id_ "graph-links"] $
-              forM_ (diagramEdges d) edgeLine
-            g_ [id_ "graph-nodes"] $
-              forM_ (diagramNodes d) (nodeGroup sg)
-    -- Loaded from inside the fragment rather than once at page load:
-    -- htmx swaps this whole subtree into #tree-container on every graph
-    -- load, so anything bound to the drawing has to arrive with it.
-    -- This is also what keeps d3 off every other page in the app --
-    -- graph-viewport.js imports it, and only a graph loads this script.
+          g_ [transform_ originShift] contents
     script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
   where
-    d = sgDiagram sg
-    Bounds mn _ = diagramBounds d
-    size = boundsSize (diagramBounds d)
+    Bounds mn _ = bnds
+    size = boundsSize bnds
     originShift =
       T.concat
         [ "translate("
@@ -436,22 +452,35 @@ templateServerGraph sg =
         , dblText (negate (ptY mn))
         , ")"
         ]
-    {- Where the viewport opens. The server placed the root, so the
-    client never has to hunt the DOM for it.
-
-    Emitted relative to the drawing's own top-left rather than in
-    diagram coordinates, which is precisely what @originShift@ above
-    makes the zoom layer's coordinate system -- so the client can centre
-    the root with a translate and no further arithmetic. A graph with no
-    root node (possible -- 'layout' is total) emits neither attribute,
-    and the client falls back to the middle of the drawing.
-    -}
-    rootAnchorAttrs = case diagramRootAnchor d of
+    anchorAttrs = case anchor of
       Nothing -> []
       Just (Point ax ay) ->
         [ dataRootX_ (dblText (ax - ptX mn))
         , dataRootY_ (dblText (ay - ptY mn))
         ]
+
+{- | The layered drawing, inside the shared 'graphFrame'.
+
+The frame is the navigable shell; this supplies only what goes in it,
+which for a layered drawing is two groups — the edges and the nodes.
+They stay here rather than in the frame because they are this drawing's
+structure, not the viewport's: a visualization is not obliged to have
+exactly two layers.
+
+The anchor is the project root, which the server has already placed, so
+the client never has to hunt the DOM for it. A drawing with no root
+('layout' is total, so this is possible) passes 'Nothing' and the client
+falls back to the middle of the drawing.
+-}
+templateServerGraph :: ServerGraph -> Html ()
+templateServerGraph sg =
+  graphFrame (diagramBounds d) (diagramRootAnchor d) $ do
+    g_ [id_ "graph-links"] $
+      forM_ (diagramEdges d) edgeLine
+    g_ [id_ "graph-nodes"] $
+      forM_ (diagramNodes d) (nodeGroup sg)
+  where
+    d = sgDiagram sg
 
 {- Note: the on-screen zoom/recentre button cluster that used to live
 here is gone. It existed because #179's viewport panned by scrolling a
