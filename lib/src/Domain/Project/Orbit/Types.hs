@@ -21,6 +21,15 @@ module Domain.Project.Orbit.Types
   , OrbitNode (..)
   , OrbitEdge (..)
   , OrbitTree (..)
+  , Point (..)
+  , Size (..)
+  , Bounds (..)
+  , boundsSize
+  , Disc (..)
+  , Link (..)
+  , OrbitDiagram (..)
+  , OrbitConfig (..)
+  , defaultOrbitConfig
   ) where
 
 import Data.Int (Int64)
@@ -77,3 +86,91 @@ data OrbitTree = OrbitTree
   -}
   }
   deriving (Eq, Show)
+
+-- | SVG conventions: x right, y down. One unit is one CSS pixel.
+data Point = Point {ptX :: Double, ptY :: Double}
+  deriving (Eq, Show)
+
+data Size = Size {szW :: Double, szH :: Double}
+  deriving (Eq, Show)
+
+data Bounds = Bounds {bMin :: Point, bMax :: Point}
+  deriving (Eq, Show)
+
+boundsSize :: Bounds -> Size
+boundsSize (Bounds (Point x0 y0) (Point x1 y1)) = Size (x1 - x0) (y1 - y0)
+
+{- | One placed circle.
+
+'dNode' is not unique across a drawing — see 'OrbitTree'. 'dReplica' is
+what distinguishes the copies, and what the renderer builds DOM ids
+from.
+-}
+data Disc = Disc
+  { dNode :: NodeId
+  , dReplica :: Int
+  , dRing :: Int
+  , dAngle :: Double
+  -- ^ Radians, clockwise from 12 o'clock.
+  , dCentre :: Point
+  , dLines :: [Text]
+  -- ^ Label, already wrapped to the circle.
+  }
+  deriving (Eq, Show)
+
+{- | The segment from a disc to the disc it is a dependency of, trimmed
+to both rims.
+
+'lTo' is the inner end — the dependent, the one waiting — and carries
+the arrowhead, the same rule the rest of the app follows.
+-}
+data Link = Link
+  { lFrom :: Point
+  , lTo :: Point
+  }
+  deriving (Eq, Show)
+
+data OrbitDiagram = OrbitDiagram
+  { odDiscs :: [Disc]
+  , odLinks :: [Link]
+  , odBounds :: Bounds
+  }
+  deriving (Eq, Show)
+
+data OrbitConfig = OrbitConfig
+  { cfgDiscRadius :: Double
+  -- ^ Every disc is the same size.
+  , cfgDiscGap :: Double
+  -- ^ Minimum arc clearance between two discs on one ring.
+  , cfgMinRingGap :: Double
+  -- ^ Minimum radial distance between consecutive rings.
+  , cfgEyeRadius :: Double
+  -- ^ Clear space at the centre, when there is more than one stream.
+  , cfgLabelWidth :: Int
+  -- ^ Characters per label line.
+  , cfgLabelLines :: Int
+  -- ^ Maximum label lines.
+  , cfgMargin :: Double
+  -- ^ Padding around the whole drawing.
+  }
+  deriving (Eq, Show)
+
+{- | Sizes chosen to sit at roughly the layered drawing's weight on
+screen.
+
+'cfgLabelWidth' is 12, not the layered drawing's 18: a circle fits fewer
+characters per line than the box it became in #178, and 12 is the figure
+@docs\/architecture\/graph-rendering.md@ records from when this app last
+drew circles.
+-}
+defaultOrbitConfig :: OrbitConfig
+defaultOrbitConfig =
+  OrbitConfig
+    { cfgDiscRadius = 45
+    , cfgDiscGap = 24
+    , cfgMinRingGap = 90
+    , cfgEyeRadius = 130
+    , cfgLabelWidth = 12
+    , cfgLabelLines = 3
+    , cfgMargin = 60
+    }
