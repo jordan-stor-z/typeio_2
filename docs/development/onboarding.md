@@ -43,11 +43,25 @@ make run-postgres      # start Postgres in Docker
 make migrate-up        # apply all migrations
 cabal build all        # build everything
 cabal run server        # start the app, reads .env
-make seed-db           # seed reference data (NodeStatus/NodeType; needs the server already running)
+make seed-db           # reference data + a demo project (needs the server already running)
 ```
 
 Once it's running, visit `http://localhost:3000` (or whatever `WEB_PORT`
 is set to) in a browser.
+
+`make seed-db` inserts the reference data (`NodeStatus`/`NodeType`) and
+a demo project, **Public API launch**, with seven work nodes and real
+dependencies between them. It is idempotent — running it twice leaves
+one demo project.
+
+The demo project is there because until #243 the seed inserted
+reference data only, and there is still no way to create a dependency
+through the UI (#205) — so a freshly seeded database drew every graph
+as a handful of disconnected nodes with no edges, in every
+visualization. Its shape is deliberate: three heads, and one node (the
+auth service) that three separate outcomes are waiting on. That shared
+bottleneck is what makes the visualizations differ from each other
+rather than all looking the same.
 
 Other `make migrate-*` targets (`migrate-down`, `migrate-down-all`,
 `migrate-new NAME=...`, `migrate-version`, `migrate-force VERSION=...`)
