@@ -178,6 +178,50 @@ one `BuildGraph` — which nodes exist, which edges exist, and whether any
 are derived — because they agree on everything downstream of it. A
 visualization that agrees on less simply shares less.
 
+### What a visualization must publish (#234)
+
+The seam above says what a visualization *supplies*. This is the one
+thing it *owes* the rest of the app:
+
+> Every element a visualization draws for node `N` carries
+> `data-node-id="N"`.
+
+That is the whole obligation. The Project Manage UI's node hooks —
+highlighting a node while its panel is open, flashing it after a title
+edit — select on that attribute, so they work on any drawing without
+knowing which one is on screen.
+
+**Why an attribute and not the element id.** An id encodes an
+assumption: exactly one element per node. That held while every
+visualization drew a node once. The orbital visualization (#229) draws a
+node once per dependent, and under an id-based selector every one of
+these hooks silently degrades to "whichever element the browser matched
+first" — the panel highlights one arbitrary copy, the edit flashes a
+different one, and nothing errors.
+
+Hyperscript applies `to <selector/>` to *every* match, so the same line
+is correct for one element or five:
+
+```
+init add .node-highlight to <[data-node-id='42']/>
+```
+
+**The selectors stay inline, and that is deliberate.** There is no
+shared `nodeSelector` helper, no client-side node registry, and no JS
+module that knows how to find a node. Each behaviour is declared on the
+element it governs, which is where this codebase keeps behaviour; three
+sites constructing a similar selector is the cost of that and is not a
+problem to solve. Moving it into a helper would buy nothing and put the
+behaviour somewhere the reader of the markup cannot see it.
+
+**`hx-target` is the exception, and it needs a different answer.** An
+`hx-target` swaps one element however many match, so the per-node label
+refresh cannot be fixed by changing its selector — see #244.
+
+`#node-<id>` remains on the layered drawings alongside the attribute:
+`graph-rendering.md` lists it as a contract and `graph.spec.ts` locates
+nodes by it. This is additive.
+
 ### Where the seam moves if a visualization needs more
 
 The shared pieces are shared because nothing yet needs them to differ,

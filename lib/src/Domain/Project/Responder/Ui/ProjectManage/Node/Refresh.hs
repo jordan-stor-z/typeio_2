@@ -127,7 +127,16 @@ templateRefresh (Entity k e) = do
     empty
   where
     empty = mempty :: Html ()
-    nsel = (<>) "#node-" . intToText . fromSqlKey $ k
+    {- Flash every element the current drawing rendered for this node.
+
+    Selects on `data-node-id` rather than `#node-<id>` (#234): an id
+    names one element, and the orbital visualization draws a node once
+    per dependent. Hyperscript applies `to <selector/>` to every match,
+    so this line is unchanged in shape and now correct for both. -}
+    nsel =
+      "<[data-node-id='"
+        <> (intToText . fromSqlKey $ k)
+        <> "']/>"
 
 validatePayload ::
   Monad m =>
