@@ -168,7 +168,11 @@ ringRadii cfg treeCount as = foldl step M.empty [0 .. maxRing]
 
     step acc k = M.insert k r acc
       where
-        prev = maybe start (+ cfgMinRingGap cfg) (M.lookup (k - 1) acc)
+        -- Centre to centre: the two rims plus the clear space between
+        -- them. Adding only the gap would leave radially adjacent discs
+        -- tangent, with a zero-length link between them (#238).
+        ringStep = 2 * cfgDiscRadius cfg + cfgMinRingGap cfg
+        prev = maybe start (+ ringStep) (M.lookup (k - 1) acc)
         start
           | singleHead = 0
           | otherwise = cfgEyeRadius cfg

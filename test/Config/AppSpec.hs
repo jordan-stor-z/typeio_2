@@ -69,6 +69,17 @@ spec = around_ (setValidEnv >>) $
         Right cfg -> visualization cfg `shouldBe` Rootless
         Left errs -> expectationFailure ("expected success, got: " ++ show errs)
 
+    it "reads every visualization that exists, not just the first two" $ do
+      -- Each constructor is a value somebody has to set in `.env`, so a
+      -- new visualization that parses everywhere except here would be
+      -- unreachable in exactly the way that is hardest to notice: the
+      -- server starts, and serves a different drawing.
+      setEnv "GRAPH_VISUALIZATION" "Orbital"
+      result <- loadAppConfig
+      case result of
+        Right cfg -> visualization cfg `shouldBe` Orbital
+        Left errs -> expectationFailure ("expected success, got: " ++ show errs)
+
     it "fails when GRAPH_VISUALIZATION is missing, rather than defaulting" $ do
       -- Deliberately has no default: a silently defaulted visualization
       -- surfaces much later as "the graph looks wrong", which is worse

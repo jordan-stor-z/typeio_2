@@ -15,6 +15,7 @@ import Domain.Project.Responder.Ui.ProjectManage.Node.Status (handlePutNodeStatu
 import Domain.Project.Responder.Ui.ProjectManage.Node.Title (handlePutTitle)
 import Domain.Project.Responder.Ui.ProjectManage.View (handleProjectManageView)
 import qualified Domain.Project.Visualization.Layered.Responder as Layered
+import qualified Domain.Project.Visualization.Orbital.Responder as Orbital
 import qualified Domain.Project.Visualization.Rootless.Responder as Rootless
 import Network.Wai
   ( Application
@@ -48,6 +49,7 @@ See @docs/architecture/visualization-switching.md@.
 graphHandler :: Visualization -> ConnectionPool -> Application
 graphHandler Layered = Layered.handleProjectGraph
 graphHandler Rootless = Rootless.handleProjectGraph
+graphHandler Orbital = Orbital.handleProjectGraph
 
 defaultContainer :: Visualization -> ConnectionPool -> Container
 defaultContainer viz pl =
