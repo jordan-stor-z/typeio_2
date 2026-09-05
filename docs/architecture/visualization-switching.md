@@ -166,6 +166,7 @@ nor the template.
 | `Domain.Project.Graph.*` — the layered layout engine | Geometry, not policy. It takes nodes and edges and returns coordinates; it has no opinion about which nodes it was given. One copy means one place to fix a layout bug. |
 | `Domain.Project.Model` and the esqueleto queries | The domain, not a drawing of it. Two visualizations asking the same question of the database is not coupling; duplicating the query would let them silently disagree about what "the project" is. |
 | Request parsing, error responses (`handleGraphWith`) | Identical whichever drawing is selected. |
+| `graphFrame` — the navigable shell (#242) | The viewport, not the drawing. Six load-bearing details (no `viewBox`, the base-size attributes, `#graph-zoom-layer`, the origin shift, the anchor conversion, and the script tag living *inside* the fragment) that every visualization needs identically and none of which are apparent from the markup. Hand-rolling it gets pan/zoom subtly wrong with nothing to catch it. |
 | The SVG vocabulary — `edgeLine`, `nodeGroup`, `nodeLabel`, `arrowMarker`, `templateServerGraph` | Presentation primitives, the same tier as `Common.Web.Elements`. Available to any visualization; used in practice by the layered ones, since they are what draws rects and orthogonal paths. |
 | `Data.*` / `Common.*` utilities | General-purpose library code. `wrapLabel` wraps text; it does not know what a graph is. |
 
