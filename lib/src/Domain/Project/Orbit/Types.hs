@@ -143,7 +143,17 @@ data OrbitConfig = OrbitConfig
   , cfgDiscGap :: Double
   -- ^ Minimum arc clearance between two discs on one ring.
   , cfgMinRingGap :: Double
-  -- ^ Minimum radial distance between consecutive rings.
+  {- ^ Minimum __clear__ radial space between the rims of discs on
+  consecutive rings — not the distance between their centres.
+
+  Clearance, matching 'cfgDiscGap', because the alternative is a trap:
+  set as a centre-to-centre distance it silently becomes zero clearance
+  the moment it equals the disc diameter, and radially adjacent discs
+  end up exactly tangent with a zero-length link between them. That
+  renders as two touching circles and no arrow at all, which is how it
+  was first found (#238) — every disc-overlap assertion still passed,
+  since tangency is not overlap.
+  -}
   , cfgEyeRadius :: Double
   -- ^ Clear space at the centre, when there is more than one stream.
   , cfgLabelWidth :: Int
@@ -168,7 +178,7 @@ defaultOrbitConfig =
   OrbitConfig
     { cfgDiscRadius = 45
     , cfgDiscGap = 24
-    , cfgMinRingGap = 90
+    , cfgMinRingGap = 55
     , cfgEyeRadius = 130
     , cfgLabelWidth = 12
     , cfgLabelLines = 3

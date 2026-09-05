@@ -101,7 +101,9 @@ Known Gotchas below.)
   ⚠️ **`GRAPH_VISUALIZATION` is required as of #215** and has no
   default, so an existing `.env` needs `GRAPH_VISUALIZATION=Layered`
   added or the server refuses to start. `Layered` is the drawing the app
-  has always served; `Rootless` omits the project node. See
+  has always served; `Rootless` omits the project node; `Orbital` is the
+  radial dependency-weighted drawing (#229), which replicates a shared
+  dependency into every work stream that waits on it. See
   [`docs/architecture/visualization-switching.md`](docs/architecture/visualization-switching.md).
 - **Start Postgres:** `make run-postgres`
 - **Migrations:** `make migrate-up` / `make migrate-down` /

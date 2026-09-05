@@ -54,8 +54,13 @@ keyVisualization = "GRAPH_VISUALIZATION"
 data Visualization
   = Layered   -- root heads the drawing; containment edges derived
   | Rootless  -- the work only, nothing forced to converge (#215)
+  | Orbital   -- radial, rootless, shared dependencies replicated (#229)
   deriving (Eq, Read, Show)
 ```
+
+`Orbital` is the first value here that selects a drawing built on
+something other than the layered engine — see
+[`orbital-dependency-weighted-graph.md`](orbital-dependency-weighted-graph.md).
 
 Parsed with `valRead`, so the environment value is the constructor name
 — `Layered` or `Rootless` — exactly how `ENV` already parses into

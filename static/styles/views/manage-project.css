@@ -269,6 +269,58 @@ svg {
   pointer-events: none;
 }
 
+/* ------------------------------------------------------------------
+   The orbital visualization (#229, selectable since #238).
+
+   Its own block rather than extra selectors bolted onto the `.node`
+   rules above, and deliberately so: `.disc` does not inherit `.node`'s
+   styling, which is what stops every future tweak to the layered
+   drawing from silently changing this one too. The two only agree on
+   colour by coincidence today -- they size and shape their nodes
+   differently -- and a shared class would make that coincidence load
+   bearing.
+
+   Three things above already reach the discs without being repeated
+   here, because they key off the `.work` class the *shape* carries
+   rather than off the group around it:
+
+     - `.flash .work`, so a post-edit flash works with no new rule;
+     - `#tree-container.is-panning .work`, the grabbing cursor;
+     - `#tree-container .link`, the edges.
+
+   That is the payoff of keying rules off the shape's class rather than
+   its element name, which is the same thing that made removing the old
+   circle in #182 cost almost nothing.
+   ------------------------------------------------------------------ */
+
+#tree-container .disc .work {
+  fill: var(--accent-light);
+  cursor: pointer;
+  stroke: white;
+  stroke-width: 1.5px;
+}
+
+#tree-container .disc .work:hover {
+  fill: var(--accent-hover-light);
+}
+
+/* Matches the layered glow. `pointer-events: none` while highlighted is
+   inherited from that rule's reasoning: the glow is a drop-shadow, and
+   letting it take the pointer makes the node's own hover flicker at the
+   edges. */
+#tree-container .disc.node-highlight .work {
+  stroke-width: 1.7;
+  filter: drop-shadow(0 0 7px var(--accent-hover-light));
+  pointer-events: none;
+}
+
+#tree-container .disc text {
+  font: 12px sans-serif;
+  fill: var(--text-primary);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
 /* Opts out of global.css's #view scroll region (#210): #tree-container
    is a fixed window that pans by transform, not by scrolling, and a
    scrollbar on #view behind it would be a second way to move the same

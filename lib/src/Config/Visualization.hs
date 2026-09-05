@@ -34,6 +34,13 @@ data Visualization
     work is not forced to converge on it (#215).
     -}
     Rootless
+  | {- | The orbital dependency-weighted drawing: radial, rootless, and
+    with a shared dependency replicated into every work stream that
+    waits on it, so the drawing contains no crossing edges at all
+    (#229). Brings its own geometry — it is the first visualization
+    that does not use the layered engine.
+    -}
+    Orbital
   deriving (Eq, Read, Show)
 
 instance ToJSON Visualization where
