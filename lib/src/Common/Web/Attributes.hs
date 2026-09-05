@@ -153,6 +153,18 @@ orbital visualization breaks by drawing a node once per dependent.
 dataNodeId_ :: Text -> Attributes
 dataNodeId_ = makeAttributes "data-node-id"
 
+-- Circle geometry, for the orbital visualization (#237). Here rather
+-- than inline for the same reason `rect_`/`rx_` are: new SVG
+-- attributes go through this module, so there is one place to look.
+cx_ :: Text -> Attributes
+cx_ = makeAttributes "cx"
+
+cy_ :: Text -> Attributes
+cy_ = makeAttributes "cy"
+
+r_ :: Text -> Attributes
+r_ = makeAttributes "r"
+
 {- | The @title@ /attribute/ -- a hover tooltip -- rather than the
 document's title element. Lucid's own @title_@ is that element (see
 @Domain.Central.Responder.Ui.IndexView@), so the attribute needs a name
