@@ -209,6 +209,7 @@ test-suite integration
     hs-source-dirs:     test-integration
     other-modules:
       Integration.Support
+      , Domain.Central.Responder.Api.SeedSpec
       , Domain.Project.Responder.Api.Node.PostSpec
       , Domain.Project.Responder.Ui.ProjectCreate.SubmitSpec
       , Domain.Project.Responder.Ui.ProjectManage.GraphSpec
