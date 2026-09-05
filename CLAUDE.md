@@ -66,6 +66,7 @@ cases:
 | Running/writing E2E tests (Playwright, htmx interaction hazards, CI's `run-e2e` label) | `docs/development/e2e-testing.md` |
 | Anything touching the dependency graph's layout or rendering | `docs/architecture/graph-rendering.md` -- the built pipeline for the *layered* visualization: module map, per-phase contracts, and the dependency-vs-containment distinction (#198) |
 | How the app holds several graph visualizations and picks one, and what they may share | `docs/architecture/visualization-switching.md` -- the config value, the container seam, and what visualizations share (#213, #215) |
+| The orbital dependency-weighted visualization -- radial, with shared dependencies replicated per work stream | `docs/architecture/orbital-dependency-weighted-graph.md` -- ⚠️ **specified, not built** (#229): the design, its unfolding/placement contracts, and the seam change it needs |
 | Which GitHub issue labels to use | `docs/development/labels.md` |
 | How to cut a release (version bump, tagging, GitHub Releases) | `docs/development/release-management.md` |
 | Repo-level config (GitHub branch protection) as OpenTofu/Terragrunt | `docs/development/infrastructure.md` |
