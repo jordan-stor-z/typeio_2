@@ -185,6 +185,35 @@ the set of visualizations that actually exist are meant to stay in step
 — a label with no visualization behind it is as misleading as an issue
 with no label.
 
+## `epic:*` — which multi-issue effort
+
+A grouping label, and the only one here that says nothing about *what*
+an issue is. It answers "which larger piece of work is this issue part
+of", so a sequence spanning many issues can be listed with one query:
+
+```
+gh issue list --label epic:orbital
+```
+
+| Label | Groups |
+|---|---|
+| `epic:orbital` | Delivering the orbital dependency-weighted visualization — `../architecture/orbital-dependency-weighted-graph.md` (#229) |
+
+It is **orthogonal to `viz:*`**, not a replacement for it. An epic
+routinely contains issues with different `viz:*` labels — `epic:orbital`
+spans `viz:all` work on the shared seam and the node-identity contract
+as well as `viz:orbital` work on the drawing itself, and the two
+dimensions answer different questions. Label both.
+
+Most issues belong to no epic and take no `epic:*` label. Reach for one
+only when a body of work is genuinely a sequence — several issues, an
+order they have to land in, and a design document they all point at.
+Two related tickets are just two related tickets.
+
+An epic label is retired when its work is done: the issues keep it as
+history, but nothing new gets it, and the row above should say so rather
+than leaving a finished effort looking live.
+
 ## When to apply labels
 
 Per `CLAUDE.md`'s Ticket & Branching Conventions: apply the appropriate
