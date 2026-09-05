@@ -62,6 +62,12 @@ library src
       , Domain.Project.Graph.Route
       , Domain.Project.Graph.Types
       , Domain.Project.Model
+      -- The orbital visualization's own geometry, exposed for the same
+      -- reason: it is pure and dependency-free, so `test-suite spec`
+      -- covers it. Deliberately not under Graph.*, which is the layered
+      -- engine (#229).
+      , Domain.Project.Orbit.Types
+      , Domain.Project.Orbit.Unfold
       , Domain.Project.Responder.Api.Node.Post
       , Domain.Project.Responder.Ui.ProjectCreate.Submit
       -- Exposed for `test-suite integration`'s GraphSpec, which asserts
@@ -177,6 +183,7 @@ test-suite spec
       , Domain.Project.Graph.LayoutSpec
       , Domain.Project.Graph.OrderSpec
       , Domain.Project.Graph.RouteSpec
+      , Domain.Project.Orbit.UnfoldSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
       base ^>=4.18.3.0
