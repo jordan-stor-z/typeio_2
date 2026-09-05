@@ -66,6 +66,7 @@ library src
       -- reason: it is pure and dependency-free, so `test-suite spec`
       -- covers it. Deliberately not under Graph.*, which is the layered
       -- engine (#229).
+      , Domain.Project.Orbit.Layout
       , Domain.Project.Orbit.Types
       , Domain.Project.Orbit.Unfold
       , Domain.Project.Responder.Api.Node.Post
@@ -183,6 +184,7 @@ test-suite spec
       , Domain.Project.Graph.LayoutSpec
       , Domain.Project.Graph.OrderSpec
       , Domain.Project.Graph.RouteSpec
+      , Domain.Project.Orbit.LayoutSpec
       , Domain.Project.Orbit.UnfoldSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
