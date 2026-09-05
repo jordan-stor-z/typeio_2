@@ -12,6 +12,11 @@ conventions a change in that area has to respect.
   app holds several visualizations of the dependency graph and selects
   one by configuration, and where the line between shared and
   per-visualization falls. *Status: built (#213, #215).*
+- [**Orbital dependency-weighted graph**](orbital-dependency-weighted-graph.md)
+  — a third visualization: the dependency graph unfolded into a forest
+  of radial trees, one per head, replicating a shared dependency into
+  every work stream that waits on it so that the drawing contains no
+  crossing edges at all. *Status: not built (specified in #229).*
 
 ## How this differs from the other two doc directories
 
