@@ -22,7 +22,7 @@ module Domain.Project.Visualization.Orbital.ResponderSpec (spec) where
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.Int (Int64)
-import Data.List (isInfixOf, isPrefixOf, tails)
+import Data.List (isInfixOf, isPrefixOf, nub, tails)
 import Database.Persist.Sql (ConnectionPool, Key, fromSqlKey)
 import qualified Domain.Project.Model as M
 import Domain.Project.Visualization.Orbital.Responder (handleProjectGraph)
@@ -126,6 +126,45 @@ spec = aroundAll withTestDatabase $
 
           countStr (panelLink shared (fromSqlKey projectKey)) body
             `shouldBe` 2
+
+      describe "replica identity (#239)" $ do
+        it "gives every replica of a node the same colour" $ \pool -> do
+          -- Colour is what tells a reader that two circles are one
+          -- node, so a replica in a different hue is not a cosmetic
+          -- bug -- it is a false statement about the project.
+          (projectKey, shared) <- sharedDependencyFixture pool
+
+          body <- graphBody pool (fromSqlKey projectKey)
+
+          let hues = huesFor (show (fromSqlKey shared)) body
+          length hues `shouldBe` 2
+          length (nub hues) `shouldBe` 1
+
+        it "gives different nodes different colours" $ \pool -> do
+          -- The whole palette would satisfy the test above.
+          (projectKey, _) <- sharedDependencyFixture pool
+
+          body <- graphBody pool (fromSqlKey projectKey)
+
+          let byNode = nub (discHues body)
+              distinctHues = nub (map snd byNode)
+          length distinctHues `shouldBe` length byNode
+
+        it "highlights every replica from a hover on any of them" $ \pool -> do
+          -- Selects on data-node-id, so one line covers one disc or
+          -- five. `.replica-hover` rather than `.node-highlight`: the
+          -- node panel owns that class on the same elements, and a
+          -- mouseleave must not strip a highlight it put there.
+          (projectKey, shared) <- sharedDependencyFixture pool
+
+          body <- graphBody pool (fromSqlKey projectKey)
+
+          body
+            `shouldContainStr` ( "add .replica-hover to &lt;[data-node-id=&#39;"
+                                   <> show (fromSqlKey shared)
+                                   <> "&#39;]/&gt;"
+                               )
+          body `shouldContainStr` "remove .replica-hover from"
 
       describe "the DOM contract" $ do
         it "tags every disc with the node it stands for" $ \pool -> do
@@ -233,6 +272,42 @@ panelLink k pid =
     <> show (fromSqlKey k)
     <> "&amp;projectId="
     <> show pid
+
+{- | @(node id, hue)@ for every disc in the document, read off the disc
+groups in document order.
+
+Parsing the markup rather than recomputing the hue: the point is that
+what came out is self-consistent — every replica of a node in one
+colour, different nodes in different ones — and asserting that against
+a second copy of the formula would only prove the formula equals
+itself.
+-}
+discHues :: String -> [(String, String)]
+discHues body =
+  [ (nodeId, hue)
+  | tag <- tagsAfter "<g id=\"disc-" body
+  , Just nodeId <- [attrOf "data-node-id" tag]
+  , Just hue <- [attrOf "style" tag]
+  ]
+
+huesFor :: String -> String -> [String]
+huesFor nodeId body = [h | (n, h) <- discHues body, n == nodeId]
+
+-- | The text of each tag opened by @needle@, up to its closing @>@.
+tagsAfter :: String -> String -> [String]
+tagsAfter needle hay =
+  [ takeWhile (/= '>') (drop (length needle) t)
+  | t <- tails hay
+  , needle `isPrefixOf` t
+  ]
+
+attrOf :: String -> String -> Maybe String
+attrOf name tag =
+  case [drop (length key) t | t <- tails tag, key `isPrefixOf` t] of
+    (v : _) -> Just (takeWhile (/= '"') v)
+    [] -> Nothing
+  where
+    key = name <> "=\""
 
 shouldContainStr :: String -> String -> Expectation
 shouldContainStr haystack needle =

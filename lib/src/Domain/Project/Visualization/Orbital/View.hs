@@ -12,6 +12,7 @@ module Domain.Project.Visualization.Orbital.View
   ( templateOrbit
   , discGroup
   , linkLine
+  , nodeHue
   ) where
 
 import Common.Web.Attributes
@@ -128,6 +129,28 @@ discGroup pid cfg disc =
     [ id_ ("disc-" <> discKey)
     , dataNodeId_ nid
     , class_ "disc"
+    , -- Which node this is, as a number the stylesheet turns into a
+      -- colour. A datum, not an appearance decision: saturation,
+      -- lightness and the theme all stay in manage-project.css. See
+      -- 'nodeHue'.
+      style_ ("--node-hue: " <> nodeHue rawId)
+    , {- Hovering any disc highlights every disc for the same node.
+
+      Inline, on the element it governs -- not a script file and not a
+      client-side node registry. CSS cannot express this: there is no
+      selector for "every element sharing an attribute value with the
+      hovered one", which is the whole reason it needs a behaviour.
+
+      `.replica-hover` rather than `.node-highlight` deliberately. The
+      node panel adds `.node-highlight` to these same elements on a
+      different trigger, so sharing the class would make a mouseleave
+      strip a highlight the open panel owns. The two classes share the
+      glow in CSS and nothing else. -}
+      h_ $
+        "on mouseenter add .replica-hover to "
+          <> nodeSel
+          <> " on mouseleave remove .replica-hover from "
+          <> nodeSel
     , hxGet_ (nodePanelLink rawId pid)
     , hxTrigger_ "click"
     , hxTarget_ "#node-panel"
@@ -148,6 +171,7 @@ discGroup pid cfg disc =
     nid = intToText rawId
     discKey = nid <> "-" <> pack (show (dReplica disc))
     centre = dCentre disc
+    nodeSel = "<[data-node-id='" <> nid <> "']/>"
 
 {- | A disc's label, centred on the circle.
 
@@ -180,6 +204,38 @@ discLabel discKey (Point cx cy) ls =
     firstDy
       | blockLift == 0 = "0em"
       | otherwise = (<> "em") . pack . show . negate $ blockLift
+
+{- | A node's hue, in degrees: a __golden-angle rotation__ over its id.
+
+Colour is what tells a reader that three circles are one node, so it has
+to be stable across a node's replicas and across renders, and adjacent
+nodes have to be tellable apart. Rotating by the golden angle
+(137.508°) gives both — consecutive ids land on opposite sides of the
+wheel — and needs no palette table.
+
+__Keyed on the node's id rather than its position in a sorted list__,
+which is a deliberate departure from what
+@docs\/architecture\/orbital-dependency-weighted-graph.md@ specifies.
+Position-based hues are only stable while the node set is: add or delete
+one node and every node after it changes colour, which is exactly the
+cue a reader has learned to rely on. An id never changes, and because
+ids come from a serial column they are near-consecutive, so the spread
+is the same one the golden angle was chosen for.
+
+Computed in integers rather than by multiplying a 'Double': at large ids
+the fractional part of the product is where all the information is, and
+that is the part floating point loses first.
+
+Hashing the id instead was considered and rejected — it gives no spread
+guarantee, so a small project can easily draw two neighbouring nodes in
+near-identical colours, which in /this/ drawing is not a cosmetic
+problem but a false statement that they are the same node.
+-}
+nodeHue :: Int64 -> Text
+nodeHue nodeId = dbl (fromIntegral thousandths / 1000)
+  where
+    -- 137.508 degrees, in thousandths, kept exact.
+    thousandths = (nodeId * 137508) `mod` 360000
 
 {- | Coordinates render as plain integers where they are whole, rather
 than as @80.0@ — matching the layered drawing's own @dblText@.

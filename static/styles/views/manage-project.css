@@ -293,24 +293,65 @@ svg {
    circle in #182 cost almost nothing.
    ------------------------------------------------------------------ */
 
+/* Per-node colour (#239). The server emits `--node-hue` on each disc --
+   a datum saying which node it is -- and everything about how that
+   becomes a colour stays here: saturation, lightness, and the theme.
+
+   That split is what keeps graph-rendering.md's "only geometry is
+   emitted as attributes" rule intact. A per-node hue cannot live in a
+   static stylesheet, but the appearance decisions still can, and they
+   do. If a second appearance value ever starts being emitted per disc,
+   the rule has been broken rather than bent.
+
+   Colour is load bearing here in a way it is nowhere else in the app: a
+   node with several dependents is drawn once per dependent, and the hue
+   is what says those circles are one node. */
+/* Saturation and lightness are fixed for every disc; only the hue
+   varies. That is what keeps a palette of arbitrarily many colours
+   looking like one set rather than a bag of stickers.
+
+   Lightness is pinned near the layered drawing's own node fill
+   (`--accent-light`, #3a4a5a -- about 29% lightness), because the label
+   is `--text-primary` (#e0e0e3) and sits on top of it. Lighter discs
+   look livelier and make that text unreadable, which is the mistake
+   this value exists to prevent: colour here is carrying identity, not
+   decoration, and a label nobody can read is a worse trade than a
+   slightly muted hue. */
+#tree-container .disc {
+  --disc-sat: 38%;
+  --disc-light: 33%;
+}
+
 #tree-container .disc .work {
-  fill: var(--accent-light);
+  fill: hsl(var(--node-hue) var(--disc-sat) var(--disc-light));
   cursor: pointer;
   stroke: white;
   stroke-width: 1.5px;
 }
 
 #tree-container .disc .work:hover {
-  fill: var(--accent-hover-light);
+  --disc-light: 43%;
 }
 
-/* Matches the layered glow. `pointer-events: none` while highlighted is
-   inherited from that rule's reasoning: the glow is a drop-shadow, and
-   letting it take the pointer makes the node's own hover flicker at the
-   edges. */
-#tree-container .disc.node-highlight .work {
+/* The glow, shared by both things that can highlight a disc: the open
+   node panel (`.node-highlight`) and hovering any replica of the same
+   node (`.replica-hover`). One appearance, two independent triggers. */
+#tree-container .disc.node-highlight .work,
+#tree-container .disc.replica-hover .work {
   stroke-width: 1.7;
   filter: drop-shadow(0 0 7px var(--accent-hover-light));
+}
+
+/* `pointer-events: none` belongs ONLY to the panel-owned highlight, and
+   must never be added to `.replica-hover`.
+
+   `.replica-hover` is applied on mouseenter. Taking the shape out of
+   hit-testing while the pointer is over it would immediately fire
+   mouseleave, which removes the class, which puts the shape back under
+   the pointer, which fires mouseenter again -- a flicker loop for as
+   long as the cursor sits still. The panel highlight has no such
+   problem: nothing about it is driven by the pointer. */
+#tree-container .disc.node-highlight .work {
   pointer-events: none;
 }
 
