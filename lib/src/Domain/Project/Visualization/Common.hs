@@ -423,15 +423,36 @@ growing a parameter — SVG permits several @defs@ blocks, and a flag here
 would be the exact failure mode
 @docs\/architecture\/visualization-switching.md@ warns about.
 -}
-graphFrame :: Bounds -> Maybe Point -> Html () -> Html ()
-graphFrame bnds anchor contents =
+
+{- | What 'graphFrame' needs to know about a drawing, in the drawing's
+own coordinates.
+
+__Deliberately not 'Domain.Project.Graph.Types.Bounds'.__ The frame is
+the viewport, and the viewport has no opinion about geometry — but
+typing it in the /layered/ engine's records would mean a visualization
+that brings its own geometry has to import that engine anyway, purely
+to describe a rectangle. That would make
+@docs\/architecture\/visualization-switching.md@'s "a visualization that
+is not layered simply does not import @Domain.Project.Graph.*@" false in
+the one case it exists for. Four doubles cost nothing and keep it true.
+-}
+data FrameBox = FrameBox
+  { fbMinX :: Double
+  , fbMinY :: Double
+  -- ^ The drawing's top-left, whatever coordinates it was laid out in.
+  , fbWidth :: Double
+  , fbHeight :: Double
+  }
+
+graphFrame :: FrameBox -> Maybe (Double, Double) -> Html () -> Html ()
+graphFrame box anchor contents =
   do
     svg_
       ( [ id_ "tree-view"
         , width_ "100%"
         , height_ "100%"
-        , dataBaseWidth_ (dblText (szW size))
-        , dataBaseHeight_ (dblText (szH size))
+        , dataBaseWidth_ (dblText (fbWidth box))
+        , dataBaseHeight_ (dblText (fbHeight box))
         , h_ "on load transition my opacity to 1 over 200ms"
         ]
           <> anchorAttrs
@@ -442,22 +463,33 @@ graphFrame bnds anchor contents =
           g_ [transform_ originShift] contents
     script_ [src_ "/static/script/graph-viewport.js"] (mempty :: Html ())
   where
-    Bounds mn _ = bnds
-    size = boundsSize bnds
     originShift =
       T.concat
         [ "translate("
-        , dblText (negate (ptX mn))
+        , dblText (negate (fbMinX box))
         , ","
-        , dblText (negate (ptY mn))
+        , dblText (negate (fbMinY box))
         , ")"
         ]
     anchorAttrs = case anchor of
       Nothing -> []
-      Just (Point ax ay) ->
-        [ dataRootX_ (dblText (ax - ptX mn))
-        , dataRootY_ (dblText (ay - ptY mn))
+      Just (ax, ay) ->
+        [ dataRootX_ (dblText (ax - fbMinX box))
+        , dataRootY_ (dblText (ay - fbMinY box))
         ]
+
+-- | A 'FrameBox' from the layered engine's own bounds.
+layeredFrameBox :: Bounds -> FrameBox
+layeredFrameBox bnds =
+  FrameBox
+    { fbMinX = ptX mn
+    , fbMinY = ptY mn
+    , fbWidth = szW size
+    , fbHeight = szH size
+    }
+  where
+    Bounds mn _ = bnds
+    size = boundsSize bnds
 
 {- | The layered drawing, inside the shared 'graphFrame'.
 
@@ -474,13 +506,14 @@ falls back to the middle of the drawing.
 -}
 templateServerGraph :: ServerGraph -> Html ()
 templateServerGraph sg =
-  graphFrame (diagramBounds d) (diagramRootAnchor d) $ do
+  graphFrame (layeredFrameBox (diagramBounds d)) anchor $ do
     g_ [id_ "graph-links"] $
       forM_ (diagramEdges d) edgeLine
     g_ [id_ "graph-nodes"] $
       forM_ (diagramNodes d) (nodeGroup sg)
   where
     d = sgDiagram sg
+    anchor = (\(Point ax ay) -> (ax, ay)) <$> diagramRootAnchor d
 
 {- Note: the on-screen zoom/recentre button cluster that used to live
 here is gone. It existed because #179's viewport panned by scrolling a

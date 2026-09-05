@@ -75,6 +75,8 @@ library src
       -- on the SVG this renders (#178).
       , Domain.Project.Visualization.Common
       , Domain.Project.Visualization.Layered.Responder
+      , Domain.Project.Visualization.Orbital.Responder
+      , Domain.Project.Visualization.Orbital.View
       , Domain.Project.Visualization.Rootless.Responder
       , Domain.Project.Responder.Ui.ProjectManage.Node.Description
       , Domain.Project.Responder.Ui.ProjectManage.Node.Status
@@ -218,6 +220,7 @@ test-suite integration
       , Domain.Project.Responder.Ui.ProjectManage.Node.DescriptionSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.StatusSpec
       , Domain.Project.Responder.Ui.ProjectManage.Node.TitleSpec
+      , Domain.Project.Visualization.Orbital.ResponderSpec
       , Domain.Project.Visualization.Rootless.ResponderSpec
     build-tool-depends: hspec-discover:hspec-discover
     build-depends:
